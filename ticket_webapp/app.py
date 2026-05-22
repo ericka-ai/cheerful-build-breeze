@@ -227,13 +227,22 @@ def generate_watermark_bottom(cfg, output_path):
 
 # ─── UIC 918.3 AZTEC BARCODE ─────────────────────────────────────────────────
 
-# Fixed header (64 bytes) - DSA signature envelope, always the same
-_FIXED_HEADER = bytes.fromhex(
-    "2355543031393939343030303031302d"
-    "021500a559211259a8065b62af96b3b7"
-    "50b457d3ac9dae021418b09f4ff8592a"
-    "662d289aacdad6910177f704af000000"
+# Dummy ECDSA P-160 DER signature (46 bytes: SEQUENCE(INTEGER r[20], INTEGER s[20]))
+_DUMMY_SIG = bytes.fromhex(
+    "302c"
+    "021411fab59ab570d7f6031fb8fde266"
+    "73826cf855610214"
+    "17ba43a96b48759cb901bf04a4cbe5d7"
+    "08dfcdef"
 )
+
+
+def _build_918_header(rics='9994', key_id='00001'):
+    """Build UIC 918.3 outer header: #UT01 + RICS + keyID + signature + padding."""
+    hdr = b'#UT01' + rics.encode('ascii') + key_id.encode('ascii')
+    hdr += _DUMMY_SIG
+    hdr += b'\x00\x00\x00\x00'
+    return hdr
 
 
 def _uic_field(line, col, height, width, fmt, text):
@@ -663,7 +672,7 @@ def generate_aztec_barcode(cfg, output_path):
     if product == 'eurail_global':
         ref = cfg.get('eurail_ref',
                       f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
-        head = (b"U_HEAD010053" + b"9994" +
+        head = (b"U_HEAD010053" + b"9901" +
                 ref[:20].ljust(20).encode('ascii') +
                 creation.encode('ascii') + b"1EN  ")
         tlay = _build_eurail_tlay(cfg)
@@ -687,7 +696,15 @@ def generate_aztec_barcode(cfg, output_path):
         payload = _build_uic918_payload(cfg)
 
     compressed = zlib.compress(payload)
-    barcode_data = (_FIXED_HEADER +
+
+    if product == 'eurail_global':
+        outer_hdr = _build_918_header(rics='9901', key_id='20260')
+    elif product in ('db_sparpreis', 'deutschlandticket'):
+        outer_hdr = _build_918_header(rics='1080', key_id='00001')
+    else:
+        outer_hdr = _build_918_header(rics='9994', key_id='00001')
+
+    barcode_data = (outer_hdr +
                     f"{len(compressed):04d}".encode('ascii') +
                     compressed)
 
