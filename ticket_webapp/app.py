@@ -287,11 +287,11 @@ def _build_eurail_tlay(cfg):
         _uic_field(0, 53, 1, 19, 0, f"{first[0]}. {last}"),
         _uic_field(1, 19, 1, 19, 0, ""),
         _uic_field(1, 39, 1, 9, 0, "RESIDENCE"),
-        _uic_field(1, 53, 1, 19, 0, "Germany"),
+        _uic_field(1, 53, 1, 19, 0, cfg.get('residence', 'Germany')),
         _uic_field(2, 2, 1, 3, 0, "CIV"),
         _uic_field(2, 6, 1, 4, 0, "9901"),
         _uic_field(2, 39, 1, 12, 0, "PASS-/ID"),
-        _uic_field(2, 53, 1, 19, 0, "******" + cfg['ticket_id'][-3:]),
+        _uic_field(2, 53, 1, 19, 0, "*********"),
         _uic_field(3, 2, 1, 5, 0, "VALID"),
         _uic_field(3, 9, 1, 23, 0, f"{vs} - {ve}"),
         _uic_field(3, 39, 1, 13, 0, "DATE OF BIRTH"),
@@ -346,7 +346,7 @@ def _build_eurail_flex(cfg):
             'issuerName': 'Eurail B.V.',
             'issuingYear': issuing_year,
             'issuingDay': issuing_day,
-            'issuingTime': 720,
+            'issuingTime': datetime.now().hour * 60 + datetime.now().minute,
             'specimen': False,
             'securePaperTicket': False,
             'activated': True,
@@ -361,8 +361,8 @@ def _build_eurail_flex(cfg):
                 'dayOfBirth': birth_day,
                 'ticketHolder': True,
                 'passengerType': ptype,
-                'countryOfResidence': 80,
-                'passportId': '******' + cfg['ticket_id'][-3:],
+                'countryOfResidence': cfg.get('residence_code', 80),
+                'passportId': '*********',
             }]
         },
         'transportDocument': [{
@@ -402,18 +402,18 @@ def generate_aztec_barcode(cfg, output_path):
     product = cfg.get('product', 'grp_consecutive')
 
     if product == 'eurail_global':
-        vs = cfg['validity_start']
-        creation = vs[0:2] + vs[3:5] + vs[6:10] + "1935"
+        now = datetime.now()
+        creation = f"{now.day:02d}{now.month:02d}{now.year}{now.hour:02d}{now.minute:02d}"
         ref = cfg.get('eurail_ref',
                       f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
-        head = (b"U_HEAD010053" + b"9901" +
+        head = (b"U_HEAD010053" + b"9994" +
                 ref[:20].ljust(20).encode('ascii') +
                 creation.encode('ascii') + b"1EN  ")
         tlay = _build_eurail_tlay(cfg)
         flex = _build_eurail_flex(cfg)
         payload = head + tlay + flex
         compressed = zlib.compress(payload)
-        barcode_data = (_EURAIL_HEADER +
+        barcode_data = (_FIXED_HEADER +
                         f"{len(compressed):04d}".encode('ascii') +
                         compressed)
     else:
@@ -838,9 +838,36 @@ PRODUCT_LABELS = {
 }
 
 
+RESIDENCE_CODES = {
+    "Germany": 80, "Austria": 65, "Belgium": 71, "Bulgaria": 73,
+    "Croatia": 74, "Czech Republic": 10, "Denmark": 75, "Estonia": 76,
+    "Finland": 78, "France": 79, "Great Britain": 81, "Greece": 82,
+    "Hungary": 83, "Ireland": 84, "Italy": 85, "Latvia": 86,
+    "Lithuania": 87, "Luxembourg": 88, "Netherlands": 25,
+    "Norway": 94, "Poland": 44, "Portugal": 51, "Romania": 52,
+    "Serbia": 53, "Slovakia": 54, "Slovenia": 55, "Spain": 56,
+    "Sweden": 60, "Switzerland": 62, "Turkey": 70,
+    "United Kingdom": 826, "United States": 840,
+}
+
+
+def _detect_passenger_type(birth_date_str, reference_date_str):
+    """Auto-detect ERWACHSENER/JUGENDLICHER from birth date (youth = 12-27)."""
+    try:
+        birth = datetime.strptime(birth_date_str, "%d.%m.%Y")
+        ref = datetime.strptime(reference_date_str, "%d.%m.%Y")
+    except ValueError:
+        return "ERWACHSENER"
+    age = ref.year - birth.year - ((ref.month, ref.day) < (birth.month, birth.day))
+    if 12 <= age <= 27:
+        return "JUGENDLICHER"
+    return "ERWACHSENER"
+
+
 def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
                order_number, klasse, days, passenger_type, price,
-               payment_method, payment_date, booking_date, product):
+               payment_method, payment_date, booking_date, product,
+               residence="Germany"):
     if not ticket_id:
         ticket_id = str(random.randint(1000000, 9999999))
     if not order_number:
@@ -849,6 +876,9 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
         payment_date = validity_start
     if not booking_date:
         booking_date = validity_start
+
+    if not passenger_type or passenger_type == "AUTO":
+        passenger_type = _detect_passenger_type(birth_date, validity_start)
 
     klasse_ordinal = "1st" if klasse == "1" else "2nd"
     mwst7 = _calc_mwst7(price)
@@ -871,6 +901,8 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
         "booking_date": booking_date,
         "product": product,
         "product_label": PRODUCT_LABELS.get(product, "German Rail Pass"),
+        "residence": residence,
+        "residence_code": RESIDENCE_CODES.get(residence, 80),
     }
 
 
@@ -890,10 +922,12 @@ async def generate(
     payment_date: str = Form(""),
     booking_date: str = Form(""),
     product: str = Form("grp_consecutive"),
+    residence: str = Form("Germany"),
 ):
     cfg = _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
                      order_number, klasse, days, passenger_type, price,
-                     payment_method, payment_date, booking_date, product)
+                     payment_method, payment_date, booking_date, product,
+                     residence)
 
     pdf_bytes = generate_pdf(cfg)
 
@@ -964,6 +998,7 @@ async def batch_generate(file: UploadFile = File(...)):
                 payment_date=row.get("payment_date", "").strip(),
                 booking_date=row.get("booking_date", "").strip(),
                 product=product,
+                residence=row.get("residence", "Germany").strip(),
             )
 
             pdf_bytes = generate_pdf(cfg)
@@ -1064,10 +1099,50 @@ button:disabled { background: #ccc; cursor: wait; }
       <div class="form-group">
         <label>Passagiertyp</label>
         <select name="passenger_type" id="passengerSelect">
-          <option value="ERWACHSENER" selected>Erwachsener</option>
+          <option value="AUTO" selected>Auto (aus Geburtsdatum)</option>
+          <option value="ERWACHSENER">Erwachsener</option>
           <option value="JUGENDLICHER">Jugendlicher (12-27)</option>
         </select>
+        <p class="hint" id="autoTypeHint"></p>
       </div>
+    </div>
+
+    <div class="form-group">
+      <label>Wohnsitz / Residence</label>
+      <select name="residence" id="residenceSelect">
+        <option value="Germany" selected>Germany</option>
+        <option value="Austria">Austria</option>
+        <option value="Belgium">Belgium</option>
+        <option value="Bulgaria">Bulgaria</option>
+        <option value="Croatia">Croatia</option>
+        <option value="Czech Republic">Czech Republic</option>
+        <option value="Denmark">Denmark</option>
+        <option value="Estonia">Estonia</option>
+        <option value="Finland">Finland</option>
+        <option value="France">France</option>
+        <option value="Great Britain">Great Britain</option>
+        <option value="Greece">Greece</option>
+        <option value="Hungary">Hungary</option>
+        <option value="Ireland">Ireland</option>
+        <option value="Italy">Italy</option>
+        <option value="Latvia">Latvia</option>
+        <option value="Lithuania">Lithuania</option>
+        <option value="Luxembourg">Luxembourg</option>
+        <option value="Netherlands">Netherlands</option>
+        <option value="Norway">Norway</option>
+        <option value="Poland">Poland</option>
+        <option value="Portugal">Portugal</option>
+        <option value="Romania">Romania</option>
+        <option value="Serbia">Serbia</option>
+        <option value="Slovakia">Slovakia</option>
+        <option value="Slovenia">Slovenia</option>
+        <option value="Spain">Spain</option>
+        <option value="Sweden">Sweden</option>
+        <option value="Switzerland">Switzerland</option>
+        <option value="Turkey">Turkey</option>
+        <option value="United Kingdom">United Kingdom</option>
+        <option value="United States">United States</option>
+      </select>
     </div>
 
     <div class="row">
@@ -1226,15 +1301,45 @@ function updateDaysOptions() {
   }
 }
 
+function detectPassengerType() {
+  var birthStr = document.querySelector('input[name="birth_date"]').value;
+  var startStr = document.getElementById('validityStart').value;
+  var bp = birthStr.split('.'), sp = startStr.split('.');
+  if (bp.length !== 3 || sp.length !== 3) return 'ERWACHSENER';
+  var bd = new Date(parseInt(bp[2]), parseInt(bp[1])-1, parseInt(bp[0]));
+  var sd = new Date(parseInt(sp[2]), parseInt(sp[1])-1, parseInt(sp[0]));
+  var age = sd.getFullYear() - bd.getFullYear();
+  if (sd.getMonth() < bd.getMonth() || (sd.getMonth() === bd.getMonth() && sd.getDate() < bd.getDate())) age--;
+  return (age >= 12 && age <= 27) ? 'JUGENDLICHER' : 'ERWACHSENER';
+}
+
+function getEffectivePassengerType() {
+  var sel = document.getElementById('passengerSelect').value;
+  if (sel === 'AUTO') return detectPassengerType();
+  return sel;
+}
+
+function updateAutoHint() {
+  var sel = document.getElementById('passengerSelect').value;
+  var hint = document.getElementById('autoTypeHint');
+  if (sel === 'AUTO') {
+    var detected = detectPassengerType();
+    hint.textContent = 'Erkannt: ' + (detected === 'JUGENDLICHER' ? 'Jugendlicher' : 'Erwachsener');
+  } else {
+    hint.textContent = '';
+  }
+}
+
 function updatePrice() {
   var product = document.getElementById('productSelect').value;
   var days = document.getElementById('daysSelect').value;
   var klasse = document.getElementById('klasseSelect').value;
-  var ptype = document.getElementById('passengerSelect').value;
+  var ptype = getEffectivePassengerType();
   var pt = ALL_PRICES[product];
   if (pt && pt[days] && pt[days][klasse] && pt[days][klasse][ptype]) {
     document.getElementById('priceInput').value = pt[days][klasse][ptype];
   }
+  updateAutoHint();
 }
 
 function updateValidityEnd() {
@@ -1267,8 +1372,11 @@ document.getElementById('productSelect').addEventListener('change', onProductCha
 document.getElementById('daysSelect').addEventListener('change', function() { updatePrice(); updateValidityEnd(); });
 document.getElementById('klasseSelect').addEventListener('change', updatePrice);
 document.getElementById('passengerSelect').addEventListener('change', updatePrice);
-document.getElementById('validityStart').addEventListener('change', updateValidityEnd);
-document.getElementById('validityStart').addEventListener('input', updateValidityEnd);
+document.getElementById('validityStart').addEventListener('change', function() { updateValidityEnd(); updatePrice(); });
+document.getElementById('validityStart').addEventListener('input', function() { updateValidityEnd(); updatePrice(); });
+document.querySelector('input[name="birth_date"]').addEventListener('change', updatePrice);
+document.querySelector('input[name="birth_date"]').addEventListener('input', updatePrice);
+updateAutoHint();
 
 document.getElementById('ticketForm').addEventListener('submit', function() {
   document.getElementById('submitBtn').disabled = true;
