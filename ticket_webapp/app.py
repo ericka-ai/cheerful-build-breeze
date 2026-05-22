@@ -6,6 +6,7 @@ FastAPI backend with HTML frontend form.
 import fitz  # PyMuPDF
 import math
 import os
+import random
 import tempfile
 import io
 import zlib
@@ -20,6 +21,24 @@ from fastapi.staticfiles import StaticFiles
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(APP_DIR, "assets")
+
+# ─── PRICE TABLE ─────────────────────────────────────────────────────────────
+# Official German Rail Pass Consecutive prices (EUR)
+# Structure: PRICES[days][(class, passenger_type)] = price_string
+PRICES = {
+    3: {("2", "ERWACHSENER"): "191,00\u20ac", ("2", "JUGENDLICHER"): "153,00\u20ac",
+        ("1", "ERWACHSENER"): "255,00\u20ac", ("1", "JUGENDLICHER"): "204,00\u20ac"},
+    4: {("2", "ERWACHSENER"): "218,00\u20ac", ("2", "JUGENDLICHER"): "174,00\u20ac",
+        ("1", "ERWACHSENER"): "290,00\u20ac", ("1", "JUGENDLICHER"): "232,00\u20ac"},
+    5: {("2", "ERWACHSENER"): "240,00\u20ac", ("2", "JUGENDLICHER"): "192,00\u20ac",
+        ("1", "ERWACHSENER"): "320,00\u20ac", ("1", "JUGENDLICHER"): "256,00\u20ac"},
+    7: {("2", "ERWACHSENER"): "279,00\u20ac", ("2", "JUGENDLICHER"): "223,00\u20ac",
+        ("1", "ERWACHSENER"): "372,00\u20ac", ("1", "JUGENDLICHER"): "298,00\u20ac"},
+    10: {("2", "ERWACHSENER"): "367,00\u20ac", ("2", "JUGENDLICHER"): "294,00\u20ac",
+         ("1", "ERWACHSENER"): "490,00\u20ac", ("1", "JUGENDLICHER"): "392,00\u20ac"},
+    15: {("2", "ERWACHSENER"): "452,00\u20ac", ("2", "JUGENDLICHER"): "362,00\u20ac",
+         ("1", "ERWACHSENER"): "603,00\u20ac", ("1", "JUGENDLICHER"): "482,00\u20ac"},
+}
 
 # ─── FONTS ───────────────────────────────────────────────────────────────────
 FONT_REGULAR = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
@@ -198,7 +217,7 @@ def generate_aztec_barcode(cfg, output_path):
     barcode_data = (_FIXED_HEADER +
                     f"{len(compressed):04d}".encode('ascii') +
                     compressed)
-    code = aztec.AztecCode(barcode_data, ec_percent=70)
+    code = aztec.AztecCode(barcode_data, ec_percent=50)
     img = code.image(module_size=4, border=1)
     img.save(output_path, "JPEG", quality=95)
 
@@ -251,10 +270,10 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
     txt(page, (39.69, 132.68), "G\u00fcltigkeit: ", font="F0", size=10)
     txt(page, (86.93, 132.76), f"{cfg['validity_start']} - {cfg['validity_end']}",
         font="F1", size=10)
-    txt(page, (39.69, 225.17), f"GERMAN RAIL PASS 15 days CONSECUTIVE",
+    txt(page, (39.69, 225.17), f"GERMAN RAIL PASS {cfg['days']} days CONSECUTIVE",
         font="F1", size=10)
     txt(page, (39.69, 239.83), f"Klasse: {cfg['klasse']}", font="F0", size=10)
-    txt(page, (39.69, 254.57), f"Person(en): 1    ERWACHSENER", font="F0", size=10)
+    txt(page, (39.69, 254.57), f"Person(en): 1    {cfg['passenger_type']}", font="F0", size=10)
 
     page.draw_rect(fitz.Rect(36.60, 367.68, 349.54, 482.57),
                    color=(0, 0, 0), width=0.45)
@@ -268,9 +287,10 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
         txt(page, (x, 380.30), label, font="F1", size=8)
 
     price = cfg['price']
+    mwst7 = cfg.get('mwst7', '0,00\u20ac')
     for x, val in [(39.69, "Fahrkarte"), (133.23, price), (189.92, "0,00\u20ac"),
                    (232.44, "0,00\u20ac"), (266.46, price),
-                   (308.98, "29,57\u20ac")]:
+                   (308.98, mwst7)]:
         txt(page, (x, 394.41), val, font="F0", size=8)
 
     txt(page, (39.69, 417.15), cfg['payment_method'], font="F1", size=8)
@@ -301,7 +321,7 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
 
     txt(page, (36.85, 585.66), "Conditions of use:", font="F1", size=8)
     conditions = [
-        f"- Valid 15 days from {cfg['validity_start']} to {cfg['validity_end']}, 2nd class ERWACHSENER.",
+        f"- Valid {cfg['days']} days from {cfg['validity_start']} to {cfg['validity_end']}, {cfg['klasse_ordinal']} class {cfg['passenger_type']}.",
         "- Up to two children between 6 and 11 years of age may accompany one person for free who is holding one adult pass. Children must be in",
         "possession of CHILD passes.",
         "- The ticket must be printed on white A4 paper (letter).",
@@ -495,24 +515,44 @@ async def index():
     return HTML_FORM
 
 
+def _calc_mwst7(price_str):
+    """Calculate MwSt 7% from a price string like '191,00\u20ac'."""
+    raw = price_str.replace('\u20ac', '').replace('.', '').replace(',', '.').strip()
+    try:
+        total = float(raw)
+    except ValueError:
+        return '0,00\u20ac'
+    mwst = total * 7 / 107
+    return f"{mwst:,.2f}\u20ac".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
 @app.post("/generate")
 async def generate(
     name: str = Form(...),
     birth_date: str = Form(...),
     validity_start: str = Form(...),
     validity_end: str = Form(...),
-    ticket_id: str = Form(...),
-    order_number: str = Form(...),
+    ticket_id: str = Form(""),
+    order_number: str = Form(""),
     klasse: str = Form("2"),
-    price: str = Form("452,00€"),
+    days: str = Form("15"),
+    passenger_type: str = Form("ERWACHSENER"),
+    price: str = Form("452,00\u20ac"),
     payment_method: str = Form("SEPA"),
     payment_date: str = Form(""),
     booking_date: str = Form(""),
 ):
+    if not ticket_id:
+        ticket_id = str(random.randint(1000000, 9999999))
+    if not order_number:
+        order_number = str(random.randint(1000000000000, 9999999999999))
     if not payment_date:
         payment_date = validity_start
     if not booking_date:
         booking_date = validity_start
+
+    klasse_ordinal = "1st" if klasse == "1" else "2nd"
+    mwst7 = _calc_mwst7(price)
 
     cfg = {
         "name": name,
@@ -522,7 +562,11 @@ async def generate(
         "ticket_id": ticket_id,
         "order_number": order_number,
         "klasse": klasse,
+        "klasse_ordinal": klasse_ordinal,
+        "days": days,
+        "passenger_type": passenger_type,
         "price": price,
+        "mwst7": mwst7,
         "payment_method": payment_method,
         "payment_date": payment_date,
         "booking_date": booking_date,
@@ -577,7 +621,7 @@ button:disabled { background: #ccc; cursor: wait; }
 </head>
 <body>
 <div class="card">
-  <h1>🎫 Ticket Generator</h1>
+  <h1>Ticket Generator</h1>
   <p class="subtitle">German Rail Pass Online-Ticket erstellen</p>
 
   <form id="ticketForm" action="/generate" method="post">
@@ -595,23 +639,47 @@ button:disabled { background: #ccc; cursor: wait; }
 
     <div class="row">
       <div class="form-group">
-        <label>Gültigkeit Start</label>
-        <input type="text" name="validity_start" value="01.01.2026" placeholder="TT.MM.JJJJ" required>
+        <label>Tage</label>
+        <select name="days" id="daysSelect">
+          <option value="3">3 Tage</option>
+          <option value="4">4 Tage</option>
+          <option value="5">5 Tage</option>
+          <option value="7">7 Tage</option>
+          <option value="10">10 Tage</option>
+          <option value="15" selected>15 Tage</option>
+        </select>
       </div>
       <div class="form-group">
-        <label>Gültigkeit Ende</label>
-        <input type="text" name="validity_end" value="15.01.2026" placeholder="TT.MM.JJJJ" required>
+        <label>Passagiertyp</label>
+        <select name="passenger_type" id="passengerSelect">
+          <option value="ERWACHSENER" selected>Erwachsener</option>
+          <option value="JUGENDLICHER">Jugendlicher (12-27)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="form-group">
+        <label>Gueltigkeit Start</label>
+        <input type="text" name="validity_start" id="validityStart" value="01.01.2026" placeholder="TT.MM.JJJJ" required>
+      </div>
+      <div class="form-group">
+        <label>Gueltigkeit Ende</label>
+        <input type="text" name="validity_end" id="validityEnd" value="15.01.2026" placeholder="TT.MM.JJJJ" required>
+        <p class="hint">Wird automatisch berechnet</p>
       </div>
     </div>
 
     <div class="row">
       <div class="form-group">
         <label>Ticket-ID</label>
-        <input type="text" name="ticket_id" value="2310903" required>
+        <input type="text" name="ticket_id" value="" placeholder="Auto-Random">
+        <p class="hint">Leer = wird zufaellig generiert (7 Ziffern)</p>
       </div>
       <div class="form-group">
         <label>Auftragsnummer</label>
-        <input type="text" name="order_number" value="2026010100110" required>
+        <input type="text" name="order_number" value="" placeholder="Auto-Random">
+        <p class="hint">Leer = wird zufaellig generiert (13 Ziffern)</p>
       </div>
     </div>
 
@@ -620,14 +688,15 @@ button:disabled { background: #ccc; cursor: wait; }
     <div class="row">
       <div class="form-group">
         <label>Klasse</label>
-        <select name="klasse">
+        <select name="klasse" id="klasseSelect">
           <option value="1">1. Klasse</option>
           <option value="2" selected>2. Klasse</option>
         </select>
       </div>
       <div class="form-group">
         <label>Preis</label>
-        <input type="text" name="price" value="452,00€">
+        <input type="text" name="price" id="priceInput" value="452,00\u20ac">
+        <p class="hint">Wird automatisch gesetzt</p>
       </div>
     </div>
 
@@ -639,7 +708,7 @@ button:disabled { background: #ccc; cursor: wait; }
       <div class="form-group">
         <label>Zahlungsdatum</label>
         <input type="text" name="payment_date" placeholder="= Validity Start">
-        <p class="hint">Leer = gleich wie Gültigkeit Start</p>
+        <p class="hint">Leer = gleich wie Gueltigkeit Start</p>
       </div>
     </div>
 
@@ -648,10 +717,55 @@ button:disabled { background: #ccc; cursor: wait; }
     <button type="submit" id="submitBtn">PDF Generieren & Herunterladen</button>
   </form>
 
-  <div class="loading" id="loading">⏳ PDF wird generiert...</div>
+  <div class="loading" id="loading">PDF wird generiert...</div>
 </div>
 
 <script>
+var PRICES = {
+  "3":  {"2": {"ERWACHSENER": "191,00\\u20ac", "JUGENDLICHER": "153,00\\u20ac"},
+         "1": {"ERWACHSENER": "255,00\\u20ac", "JUGENDLICHER": "204,00\\u20ac"}},
+  "4":  {"2": {"ERWACHSENER": "218,00\\u20ac", "JUGENDLICHER": "174,00\\u20ac"},
+         "1": {"ERWACHSENER": "290,00\\u20ac", "JUGENDLICHER": "232,00\\u20ac"}},
+  "5":  {"2": {"ERWACHSENER": "240,00\\u20ac", "JUGENDLICHER": "192,00\\u20ac"},
+         "1": {"ERWACHSENER": "320,00\\u20ac", "JUGENDLICHER": "256,00\\u20ac"}},
+  "7":  {"2": {"ERWACHSENER": "279,00\\u20ac", "JUGENDLICHER": "223,00\\u20ac"},
+         "1": {"ERWACHSENER": "372,00\\u20ac", "JUGENDLICHER": "298,00\\u20ac"}},
+  "10": {"2": {"ERWACHSENER": "367,00\\u20ac", "JUGENDLICHER": "294,00\\u20ac"},
+         "1": {"ERWACHSENER": "490,00\\u20ac", "JUGENDLICHER": "392,00\\u20ac"}},
+  "15": {"2": {"ERWACHSENER": "452,00\\u20ac", "JUGENDLICHER": "362,00\\u20ac"},
+         "1": {"ERWACHSENER": "603,00\\u20ac", "JUGENDLICHER": "482,00\\u20ac"}}
+};
+
+function updatePrice() {
+  var days = document.getElementById('daysSelect').value;
+  var klasse = document.getElementById('klasseSelect').value;
+  var ptype = document.getElementById('passengerSelect').value;
+  if (PRICES[days] && PRICES[days][klasse] && PRICES[days][klasse][ptype]) {
+    document.getElementById('priceInput').value = PRICES[days][klasse][ptype];
+  }
+}
+
+function updateValidityEnd() {
+  var startStr = document.getElementById('validityStart').value;
+  var days = parseInt(document.getElementById('daysSelect').value);
+  var parts = startStr.split('.');
+  if (parts.length !== 3) return;
+  var d = parseInt(parts[0]), m = parseInt(parts[1]) - 1, y = parseInt(parts[2]);
+  if (isNaN(d) || isNaN(m) || isNaN(y)) return;
+  var dt = new Date(y, m, d);
+  dt.setDate(dt.getDate() + days - 1);
+  var dd = String(dt.getDate()).padStart(2, '0');
+  var mm = String(dt.getMonth() + 1).padStart(2, '0');
+  var yyyy = dt.getFullYear();
+  document.getElementById('validityEnd').value = dd + '.' + mm + '.' + yyyy;
+}
+
+document.getElementById('daysSelect').addEventListener('change', function() { updatePrice(); updateValidityEnd(); });
+document.getElementById('klasseSelect').addEventListener('change', updatePrice);
+document.getElementById('passengerSelect').addEventListener('change', updatePrice);
+document.getElementById('validityStart').addEventListener('change', updateValidityEnd);
+document.getElementById('validityStart').addEventListener('input', updateValidityEnd);
+
 document.getElementById('ticketForm').addEventListener('submit', function() {
   document.getElementById('submitBtn').disabled = true;
   document.getElementById('submitBtn').textContent = 'Wird generiert...';
