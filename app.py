@@ -1,30 +1,35 @@
 """
-Web app for generating Deutsche Bahn German Rail Pass Online-Tickets.
+Web app for generating Deutsche Bahn Online-Tickets.
+Supports: German Rail Pass, Eurail Global Pass, DB Sparpreis & Deutschlandticket.
 FastAPI backend with HTML frontend form.
 """
 
 import fitz  # PyMuPDF
+import csv
 import math
 import os
+import random
 import tempfile
 import io
+import zipfile
 import zlib
+from datetime import datetime, timedelta
 
+import asn1tools
 import cv2
 import numpy as np
 import aztec_code_generator as aztec
 from PIL import Image, ImageDraw, ImageFont
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(APP_DIR, "assets")
 
-# ─── PRICE TABLE ─────────────────────────────────────────────────────────────
-# Official German Rail Pass Consecutive prices (EUR)
-# Structure: PRICES[days][(class, passenger_type)] = price_string
-PRICES = {
+# ─── PRICE TABLES ────────────────────────────────────────────────────────────
+# Structure: PRODUCT_PRICES[product][days][(class, passenger_type)] = price_string
+PRICES_GRP_CONSECUTIVE = {
     3: {("2", "ERWACHSENER"): "191,00\u20ac", ("2", "JUGENDLICHER"): "153,00\u20ac",
         ("1", "ERWACHSENER"): "255,00\u20ac", ("1", "JUGENDLICHER"): "204,00\u20ac"},
     4: {("2", "ERWACHSENER"): "218,00\u20ac", ("2", "JUGENDLICHER"): "174,00\u20ac",
@@ -38,6 +43,73 @@ PRICES = {
     15: {("2", "ERWACHSENER"): "452,00\u20ac", ("2", "JUGENDLICHER"): "362,00\u20ac",
          ("1", "ERWACHSENER"): "603,00\u20ac", ("1", "JUGENDLICHER"): "482,00\u20ac"},
 }
+
+PRICES_GRP_FLEXI = {
+    3: {("2", "ERWACHSENER"): "192,00\u20ac", ("2", "JUGENDLICHER"): "154,00\u20ac",
+        ("1", "ERWACHSENER"): "256,00\u20ac", ("1", "JUGENDLICHER"): "205,00\u20ac"},
+    4: {("2", "ERWACHSENER"): "222,00\u20ac", ("2", "JUGENDLICHER"): "178,00\u20ac",
+        ("1", "ERWACHSENER"): "296,00\u20ac", ("1", "JUGENDLICHER"): "237,00\u20ac"},
+    5: {("2", "ERWACHSENER"): "246,00\u20ac", ("2", "JUGENDLICHER"): "197,00\u20ac",
+        ("1", "ERWACHSENER"): "328,00\u20ac", ("1", "JUGENDLICHER"): "262,00\u20ac"},
+    7: {("2", "ERWACHSENER"): "292,00\u20ac", ("2", "JUGENDLICHER"): "234,00\u20ac",
+        ("1", "ERWACHSENER"): "389,00\u20ac", ("1", "JUGENDLICHER"): "311,00\u20ac"},
+    10: {("2", "ERWACHSENER"): "392,00\u20ac", ("2", "JUGENDLICHER"): "314,00\u20ac",
+         ("1", "ERWACHSENER"): "523,00\u20ac", ("1", "JUGENDLICHER"): "418,00\u20ac"},
+    15: {("2", "ERWACHSENER"): "486,00\u20ac", ("2", "JUGENDLICHER"): "389,00\u20ac",
+         ("1", "ERWACHSENER"): "648,00\u20ac", ("1", "JUGENDLICHER"): "518,00\u20ac"},
+}
+
+PRICES_EURAIL_GLOBAL = {
+    4: {("2", "ERWACHSENER"): "261,00\u20ac", ("2", "JUGENDLICHER"): "209,00\u20ac",
+        ("1", "ERWACHSENER"): "348,00\u20ac", ("1", "JUGENDLICHER"): "278,00\u20ac"},
+    5: {("2", "ERWACHSENER"): "296,00\u20ac", ("2", "JUGENDLICHER"): "237,00\u20ac",
+        ("1", "ERWACHSENER"): "395,00\u20ac", ("1", "JUGENDLICHER"): "316,00\u20ac"},
+    7: {("2", "ERWACHSENER"): "349,00\u20ac", ("2", "JUGENDLICHER"): "279,00\u20ac",
+        ("1", "ERWACHSENER"): "465,00\u20ac", ("1", "JUGENDLICHER"): "372,00\u20ac"},
+    10: {("2", "ERWACHSENER"): "415,00\u20ac", ("2", "JUGENDLICHER"): "332,00\u20ac",
+         ("1", "ERWACHSENER"): "553,00\u20ac", ("1", "JUGENDLICHER"): "442,00\u20ac"},
+    15: {("2", "ERWACHSENER"): "489,00\u20ac", ("2", "JUGENDLICHER"): "391,00\u20ac",
+         ("1", "ERWACHSENER"): "652,00\u20ac", ("1", "JUGENDLICHER"): "522,00\u20ac"},
+    22: {("2", "ERWACHSENER"): "448,00\u20ac", ("2", "JUGENDLICHER"): "358,00\u20ac",
+         ("1", "ERWACHSENER"): "597,00\u20ac", ("1", "JUGENDLICHER"): "478,00\u20ac"},
+    31: {("2", "ERWACHSENER"): "560,00\u20ac", ("2", "JUGENDLICHER"): "448,00\u20ac",
+         ("1", "ERWACHSENER"): "747,00\u20ac", ("1", "JUGENDLICHER"): "597,00\u20ac"},
+}
+
+ALL_PRICES = {
+    "grp_consecutive": PRICES_GRP_CONSECUTIVE,
+    "grp_flexi": PRICES_GRP_FLEXI,
+    "eurail_global": PRICES_EURAIL_GLOBAL,
+    "deutschlandticket": {1: {("2", "ERWACHSENER"): "63,00\u20ac"}},
+}
+
+# DB station codes for Sparpreis (common stations)
+DB_STATIONS = {
+    "Berlin Hbf": 8011160, "Hamburg Hbf": 8002549, "München Hbf": 8000261,
+    "Köln Hbf": 8000207, "Frankfurt(Main)Hbf": 8000105, "Stuttgart Hbf": 8000096,
+    "Düsseldorf Hbf": 8000085, "Hannover Hbf": 8000152, "Leipzig Hbf": 8010205,
+    "Dresden Hbf": 8010085, "Nürnberg Hbf": 8000284, "Bremen Hbf": 8000050,
+    "Dortmund Hbf": 8000080, "Essen Hbf": 8000098, "Mannheim Hbf": 8000244,
+    "Karlsruhe Hbf": 8000191, "Augsburg Hbf": 8000013, "Freiburg(Brsg)Hbf": 8000107,
+    "Erfurt Hbf": 8010101, "Rostock Hbf": 8010304,
+}
+
+# ─── FCB (UIC 918.9) SCHEMA ───────────────────────────────────────────────────
+FCB_SCHEMA = asn1tools.compile_files(
+    os.path.join(ASSETS_DIR, 'uicRailTicketData_v1.3.5.asn'), 'uper')
+
+EURAIL_COUNTRIES = [
+    65, 71, 72, 73, 74, 10, 75, 76, 78, 79, 80, 81, 82, 83, 84,
+    85, 86, 87, 88, 24, 25, 26, 94, 44, 51, 52, 53, 54, 55, 56, 60, 62,
+]
+
+_EURAIL_HEADER = bytes.fromhex(
+    "2355543031393930313230323330302c"
+    "021459a6505160b7fa0386d9c982f6d9"
+    "0547a31fb62b021448fa19099165d2e3"
+    "a27fb1a6818a024a4d735744"
+    "00000000"
+)
 
 # ─── FONTS ───────────────────────────────────────────────────────────────────
 FONT_REGULAR = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
@@ -126,8 +198,9 @@ def _render_text_layer(width, height, repeat_str, repeats=8):
 
 def generate_watermark_main(cfg, output_path):
     width, height = 1024, 702
+    wm_label = cfg.get('product_label', 'GERMAN RAIL PASS').upper()
     repeat = (f"{cfg['name']} / {cfg['birth']} / "
-              f"GERMAN RAIL PASS / {cfg['klasse']} / {cfg['ticket_id']} / ")
+              f"{wm_label} / {cfg['klasse']} / {cfg['ticket_id']} / ")
     wavy = cv2.imread(asset("wavy_main.png"), cv2.IMREAD_GRAYSCALE)
     text = _render_text_layer(width, height, repeat)
     result = np.minimum(wavy, text)
@@ -136,8 +209,9 @@ def generate_watermark_main(cfg, output_path):
 
 def generate_watermark_bottom(cfg, output_path):
     width, height = 1024, 232
+    wm_label = cfg.get('product_label', 'GERMAN RAIL PASS').upper()
     repeat = (f"{cfg['name']} / {cfg['birth']} / "
-              f"GERMAN RAIL PASS / {cfg['klasse']} / {cfg['ticket_id']} / "
+              f"{wm_label} / {cfg['klasse']} / {cfg['ticket_id']} / "
               f"{cfg['name']}[passengers] / ")
     wavy_color = cv2.imread(asset("wavy_bottom.png"))
     wavy_grey = cv2.cvtColor(wavy_color, cv2.COLOR_BGR2GRAY)
@@ -182,7 +256,7 @@ def _build_uic918_payload(cfg):
         _uic_field(0, 18, 1, 33, 2, "Fahrkarte"),
         _uic_field(0, 52, 1, 9, 0, last),
         _uic_field(0, 62, 1, 9, 0, first),
-        _uic_field(1, 18, 1, 33, 1, "German Rail Pass"),
+        _uic_field(1, 18, 1, 33, 1, cfg.get('product_label', 'German Rail Pass')),
         _uic_field(1, 52, 1, 2, 0, "1"),
         _uic_field(1, 55, 1, 16, 0, "Person(en)"),
         _uic_field(3, 1, 1, 4, 0, vs[6:10]),
@@ -209,14 +283,415 @@ def _build_uic918_payload(cfg):
     return head + tlay
 
 
+def _build_eurail_tlay(cfg):
+    """Build U_TLAY block for Eurail Global Pass (Interrail/Eurail format)."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+    vs, ve = cfg['validity_start'], cfg['validity_end']
+    birth = cfg['birth']
+    birth_masked = birth[:3] + "**.**" + birth[8:]
+    klasse_num = "1" if cfg['klasse'] == "1" else "2"
+    ptype = "YOUTH" if cfg['passenger_type'] == "JUGENDLICHER" else "ADULT"
+    ref = cfg.get('eurail_ref', cfg['ticket_id'])
+
+    fields = [
+        _uic_field(0, 19, 1, 19, 0, "INTERRAIL"),
+        _uic_field(0, 39, 1, 4, 0, "NAME"),
+        _uic_field(0, 53, 1, 19, 0, f"{first[0]}. {last}"),
+        _uic_field(1, 19, 1, 19, 0, ""),
+        _uic_field(1, 39, 1, 9, 0, "RESIDENCE"),
+        _uic_field(1, 53, 1, 19, 0, cfg.get('residence', 'Germany')),
+        _uic_field(2, 2, 1, 3, 0, "CIV"),
+        _uic_field(2, 6, 1, 4, 0, "9901"),
+        _uic_field(2, 39, 1, 12, 0, "PASS-/ID"),
+        _uic_field(2, 53, 1, 19, 0, "*********"),
+        _uic_field(3, 2, 1, 5, 0, "VALID"),
+        _uic_field(3, 9, 1, 23, 0, f"{vs} - {ve}"),
+        _uic_field(3, 39, 1, 13, 0, "DATE OF BIRTH"),
+        _uic_field(3, 53, 1, 10, 0, birth_masked),
+        _uic_field(6, 14, 1, 26, 0, "EURAIL GLOBAL PASS"),
+        _uic_field(6, 67, 1, 1, 0, klasse_num),
+        _uic_field(13, 2, 1, 6, 0, ptype),
+        _uic_field(13, 15, 1, 37, 0, "ONLY VALID WITH PASS/ID"),
+        _uic_field(15, 38, 1, 6, 0, ref[:6]),
+    ]
+
+    fields_blob = b"".join(fields)
+    tlay_inner = b"RCT2" + f"{len(fields):04d}".encode('ascii') + fields_blob
+    tlay_len = 12 + len(tlay_inner)
+    return b"U_TLAY01" + f"{tlay_len:04d}".encode('ascii') + tlay_inner
+
+
+def _build_eurail_flex(cfg):
+    """Build U_FLEX block with UIC 918.9 FCB data for Eurail Global Pass."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+
+    vs = cfg['validity_start']
+    try:
+        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
+    except ValueError:
+        vs_dt = datetime(2026, 1, 1)
+    issuing_day = vs_dt.timetuple().tm_yday
+    issuing_year = vs_dt.year
+
+    birth = cfg['birth']
+    try:
+        birth_dt = datetime.strptime(birth, "%d.%m.%Y")
+    except ValueError:
+        birth_dt = datetime(2000, 1, 1)
+    birth_day = birth_dt.timetuple().tm_yday
+    birth_year = birth_dt.year
+
+    days_int = int(cfg['days'])
+    class_code = 'first' if cfg['klasse'] == '1' else 'second'
+    ptype = 'youth' if cfg['passenger_type'] == 'JUGENDLICHER' else 'adult'
+
+    ref_ia5 = cfg.get('eurail_ref', f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
+    product_id = 'P30903000000112'
+
+    valid_until = days_int - 1
+    activated = list(range(min(days_int, 1)))
+
+    fcb_data = {
+        'issuingDetail': {
+            'securityProviderNum': 9901,
+            'issuerName': 'Eurail B.V.',
+            'issuingYear': issuing_year,
+            'issuingDay': issuing_day,
+            'issuingTime': datetime.now().hour * 60 + datetime.now().minute,
+            'specimen': False,
+            'securePaperTicket': False,
+            'activated': True,
+            'currency': 'EUR',
+            'currencyFract': 2,
+        },
+        'travelerDetail': {
+            'traveler': [{
+                'firstName': first,
+                'lastName': last,
+                'yearOfBirth': birth_year,
+                'dayOfBirth': birth_day,
+                'ticketHolder': True,
+                'passengerType': ptype,
+                'countryOfResidence': cfg.get('residence_code', 80),
+                'passportId': '*********',
+            }]
+        },
+        'transportDocument': [{
+            'ticket': ('pass', {
+                'productOwnerNum': 9901,
+                'productIdIA5': product_id,
+                'referenceIA5': ref_ia5[:20],
+                'passType': 2,
+                'classCode': class_code,
+                'validFromDay': 0,
+                'validUntilDay': valid_until,
+                'countries': EURAIL_COUNTRIES,
+                'activatedDay': activated,
+            })
+        }],
+        'controlDetail': {
+            'passportValidationRequired': True,
+            'ageCheckRequired': True,
+            'onlineValidationRequired': False,
+            'identificationByIdCard': False,
+            'identificationByPassportId': False,
+            'reductionCardCheckRequired': False,
+            'infoText': ('Ticket is valid on a direct night train on the next '
+                         'day; the day after the ticket was valid'),
+        }
+    }
+
+    fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
+    flex_inner_len = 12 + len(fcb_bytes)
+    return (b"U_FLEX13" +
+            f"{flex_inner_len:04d}".encode('ascii') +
+            fcb_bytes)
+
+
+def _build_sparpreis_tlay(cfg):
+    """Build U_TLAY block for DB Sparpreis/Super Sparpreis (RCT2 format)."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+    vs, ve = cfg['validity_start'], cfg['validity_end']
+    price_raw = cfg['price'].replace('\u20ac', '').strip()
+    von = cfg.get('station_from', 'Berlin Hbf')
+    nach = cfg.get('station_to', 'M\u00fcnchen Hbf')
+    fare_name = cfg.get('fare_name', 'Super Sparpreis')
+    zugtyp = cfg.get('zugtyp', 'ICE')
+
+    fields = [
+        _uic_field(0, 18, 1, 33, 2, "Fahrkarte"),
+        _uic_field(0, 52, 1, 9, 0, last),
+        _uic_field(0, 62, 1, 9, 0, first),
+        _uic_field(1, 18, 1, 33, 1, fare_name),
+        _uic_field(1, 52, 1, 2, 0, "1"),
+        _uic_field(1, 55, 1, 16, 0, "Person(en)"),
+        _uic_field(3, 1, 1, 4, 0, vs[6:10]),
+        _uic_field(3, 52, 1, 10, 0, cfg['birth']),
+        _uic_field(4, 1, 1, 30, 0, f"Hin: {von}"),
+        _uic_field(4, 35, 1, 30, 0, f"-> {nach}"),
+        _uic_field(5, 1, 1, 30, 0, f"via: {zugtyp}"),
+        _uic_field(6, 1, 1, 5, 0, vs[:5]),
+        _uic_field(6, 7, 1, 5, 0, "00.00"),
+        _uic_field(6, 52, 1, 5, 0, ve[:5]),
+        _uic_field(6, 58, 1, 5, 0, "23.59"),
+        _uic_field(12, 1, 2, 50, 2, f"G\u00fcltig am {vs}"),
+        _uic_field(13, 52, 1, 3, 0, "EUR"),
+        _uic_field(13, 56, 1, 15, 0, price_raw),
+        _uic_field(14, 52, 1, 19, 0, cfg['payment_method']),
+    ]
+
+    fields_blob = b"".join(fields)
+    tlay_inner = b"RCT2" + f"{len(fields):04d}".encode('ascii') + fields_blob
+    tlay_len = 12 + len(tlay_inner)
+    return b"U_TLAY01" + f"{tlay_len:04d}".encode('ascii') + tlay_inner
+
+
+def _build_sparpreis_flex(cfg):
+    """Build U_FLEX block with UIC 918.9 FCB openTicket for DB Sparpreis."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+
+    vs = cfg['validity_start']
+    try:
+        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
+    except ValueError:
+        vs_dt = datetime(2026, 1, 1)
+    issuing_day = vs_dt.timetuple().tm_yday
+    issuing_year = vs_dt.year
+
+    birth = cfg['birth']
+    try:
+        birth_dt = datetime.strptime(birth, "%d.%m.%Y")
+    except ValueError:
+        birth_dt = datetime(2000, 1, 1)
+
+    class_code = 'first' if cfg['klasse'] == '1' else 'second'
+    fare_name = cfg.get('fare_name', 'Super Sparpreis')
+    ref = cfg.get('sparpreis_ref', cfg['order_number'][:6].upper())
+
+    price_raw = cfg['price'].replace('\u20ac', '').replace('.', '').replace(',', '.').strip()
+    try:
+        price_cents = int(float(price_raw) * 100)
+    except ValueError:
+        price_cents = 0
+
+    fcb_data = {
+        'issuingDetail': {
+            'securityProviderNum': 1080,
+            'issuerNum': 1080,
+            'issuerName': 'DB Fernverkehr AG',
+            'issuingYear': issuing_year,
+            'issuingDay': issuing_day,
+            'issuingTime': datetime.now().hour * 60 + datetime.now().minute,
+            'specimen': False,
+            'securePaperTicket': False,
+            'activated': True,
+            'currency': 'EUR',
+            'currencyFract': 2,
+            'issuerPNR': ref,
+        },
+        'travelerDetail': {
+            'traveler': [{
+                'firstName': first,
+                'lastName': last,
+                'yearOfBirth': birth_dt.year,
+                'dayOfBirth': birth_dt.timetuple().tm_yday,
+                'ticketHolder': True,
+            }]
+        },
+        'transportDocument': [{
+            'ticket': ('openTicket', {
+                'referenceIA5': ref,
+                'productOwnerNum': 1080,
+                'productIdNum': 1001,
+                'productIdIA5': fare_name,
+                'returnIncluded': False,
+                'classCode': class_code,
+                'validFromDay': 0,
+                'validUntilDay': 1,
+                'price': price_cents,
+            })
+        }],
+    }
+
+    fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
+    flex_inner_len = 12 + len(fcb_bytes)
+    return (b"U_FLEX13" +
+            f"{flex_inner_len:04d}".encode('ascii') +
+            fcb_bytes)
+
+
+def _build_dt_tlay(cfg):
+    """Build U_TLAY block for Deutschlandticket (RCT2 format)."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+    vs, ve = cfg['validity_start'], cfg['validity_end']
+    price_raw = cfg['price'].replace('\u20ac', '').strip()
+
+    fields = [
+        _uic_field(0, 18, 1, 33, 2, "Fahrkarte"),
+        _uic_field(0, 52, 1, 9, 0, last),
+        _uic_field(0, 62, 1, 9, 0, first),
+        _uic_field(1, 18, 1, 33, 1, "Deutschlandticket"),
+        _uic_field(1, 52, 1, 2, 0, "1"),
+        _uic_field(1, 55, 1, 16, 0, "Person(en)"),
+        _uic_field(3, 1, 1, 4, 0, vs[6:10]),
+        _uic_field(6, 1, 1, 5, 0, vs[:5]),
+        _uic_field(6, 7, 1, 5, 0, "00.00"),
+        _uic_field(6, 52, 1, 5, 0, ve[:5]),
+        _uic_field(6, 58, 1, 5, 0, "03.00"),
+        _uic_field(6, 66, 1, 5, 0, "2"),
+        _uic_field(12, 1, 2, 50, 2,
+                   f"G\u00fcltig vom {vs} bis {ve}"),
+        _uic_field(13, 52, 1, 3, 0, "EUR"),
+        _uic_field(13, 56, 1, 15, 0, price_raw),
+    ]
+
+    fields_blob = b"".join(fields)
+    tlay_inner = b"RCT2" + f"{len(fields):04d}".encode('ascii') + fields_blob
+    tlay_len = 12 + len(tlay_inner)
+    return b"U_TLAY01" + f"{tlay_len:04d}".encode('ascii') + tlay_inner
+
+
+def _build_dt_flex(cfg):
+    """Build U_FLEX block for Deutschlandticket (UIC 918.9 openTicket)."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+
+    vs = cfg['validity_start']
+    try:
+        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
+    except ValueError:
+        vs_dt = datetime(2026, 1, 1)
+    issuing_day = vs_dt.timetuple().tm_yday
+    issuing_year = vs_dt.year
+
+    birth = cfg['birth']
+    try:
+        birth_dt = datetime.strptime(birth, "%d.%m.%Y")
+    except ValueError:
+        birth_dt = datetime(2000, 1, 1)
+
+    ref = cfg.get('dt_ref', cfg['order_number'][:8].upper())
+
+    price_raw = cfg['price'].replace('\u20ac', '').replace('.', '').replace(',', '.').strip()
+    try:
+        price_cents = int(float(price_raw) * 100)
+    except ValueError:
+        price_cents = 6300
+
+    is_summer = vs_dt.month >= 4 and vs_dt.month <= 10
+    utc_offset = -8 if is_summer else -4
+
+    fcb_data = {
+        'issuingDetail': {
+            'securityProviderNum': 1080,
+            'issuerNum': 1080,
+            'issuerName': 'DB AG',
+            'issuingYear': issuing_year,
+            'issuingDay': issuing_day,
+            'issuingTime': datetime.now().hour * 60 + datetime.now().minute,
+            'specimen': False,
+            'securePaperTicket': False,
+            'activated': True,
+            'currency': 'EUR',
+            'currencyFract': 2,
+        },
+        'travelerDetail': {
+            'traveler': [{
+                'firstName': first,
+                'lastName': last,
+                'yearOfBirth': birth_dt.year,
+                'dayOfBirth': birth_dt.timetuple().tm_yday,
+                'ticketHolder': True,
+            }]
+        },
+        'transportDocument': [{
+            'ticket': ('openTicket', {
+                'referenceIA5': ref,
+                'productOwnerNum': 1080,
+                'productIdNum': 9999,
+                'productIdIA5': 'Fahrkarte',
+                'returnIncluded': False,
+                'validFromDay': -1,
+                'validFromTime': 1,
+                'validFromUTCOffset': utc_offset,
+                'validUntilDay': 31,
+                'validUntilTime': 180,
+                'classCode': 'second',
+                'price': price_cents,
+                'validRegion': [('zones', {'zoneId': [1]})],
+                'tariffs': [{
+                    'numberOfPassengers': 1,
+                    'passengerType': 'adult',
+                    'restrictedToCountryOfResidence': False,
+                    'tariffDesc': 'Deutschlandticket',
+                }],
+                'includedAddOns': [{
+                    'productOwnerIA5': 'VDV6263',
+                    'productIdNum': 9999,
+                    'validFromDay': -1,
+                    'validFromTime': 1,
+                    'validFromUTCOffset': utc_offset,
+                    'validUntilDay': 31,
+                    'validUntilTime': 180,
+                    'validRegion': [('zones', {
+                        'carrierIA5': 'VDV5000',
+                        'zoneId': [1],
+                    })],
+                }],
+            })
+        }],
+    }
+
+    fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
+    flex_inner_len = 12 + len(fcb_bytes)
+    return (b"U_FLEX13" +
+            f"{flex_inner_len:04d}".encode('ascii') +
+            fcb_bytes)
+
+
 def generate_aztec_barcode(cfg, output_path):
-    """Generate a UIC 918.3 Aztec barcode image."""
-    payload = _build_uic918_payload(cfg)
+    """Generate a UIC 918.3 (+ 918.9 for Eurail/Sparpreis/DT) Aztec barcode image."""
+    product = cfg.get('product', 'grp_consecutive')
+    now = datetime.now()
+    creation = f"{now.day:02d}{now.month:02d}{now.year}{now.hour:02d}{now.minute:02d}"
+
+    if product == 'eurail_global':
+        ref = cfg.get('eurail_ref',
+                      f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
+        head = (b"U_HEAD010053" + b"9994" +
+                ref[:20].ljust(20).encode('ascii') +
+                creation.encode('ascii') + b"1EN  ")
+        tlay = _build_eurail_tlay(cfg)
+        flex = _build_eurail_flex(cfg)
+        payload = head + tlay + flex
+    elif product == 'db_sparpreis':
+        head = (b"U_HEAD010053" + b"1080" +
+                cfg['order_number'][:20].ljust(20).encode('ascii') +
+                creation.encode('ascii') + b"0DE  ")
+        tlay = _build_sparpreis_tlay(cfg)
+        flex = _build_sparpreis_flex(cfg)
+        payload = head + tlay + flex
+    elif product == 'deutschlandticket':
+        head = (b"U_HEAD010053" + b"1080" +
+                cfg['order_number'][:20].ljust(20).encode('ascii') +
+                creation.encode('ascii') + b"0DE  ")
+        tlay = _build_dt_tlay(cfg)
+        flex = _build_dt_flex(cfg)
+        payload = head + tlay + flex
+    else:
+        payload = _build_uic918_payload(cfg)
+
     compressed = zlib.compress(payload)
     barcode_data = (_FIXED_HEADER +
                     f"{len(compressed):04d}".encode('ascii') +
                     compressed)
-    code = aztec.AztecCode(barcode_data, ec_percent=70)
+
+    code = aztec.AztecCode(barcode_data, ec_percent=50)
     img = code.image(module_size=4, border=1)
     img.save(output_path, "JPEG", quality=95)
 
@@ -269,10 +744,37 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
     txt(page, (39.69, 132.68), "G\u00fcltigkeit: ", font="F0", size=10)
     txt(page, (86.93, 132.76), f"{cfg['validity_start']} - {cfg['validity_end']}",
         font="F1", size=10)
-    txt(page, (39.69, 225.17), f"GERMAN RAIL PASS {cfg['days']} days CONSECUTIVE",
-        font="F1", size=10)
-    txt(page, (39.69, 239.83), f"Klasse: {cfg['klasse']}", font="F0", size=10)
-    txt(page, (39.69, 254.57), f"Person(en): 1    {cfg['passenger_type']}", font="F0", size=10)
+    product = cfg.get('product', 'grp_consecutive')
+    if product == 'eurail_global':
+        pass_title = f"EURAIL GLOBAL PASS {cfg['days']} days"
+        if int(cfg['days']) <= 15:
+            pass_title += " FLEXI"
+        else:
+            pass_title += " CONTINUOUS"
+    elif product == 'grp_flexi':
+        pass_title = f"GERMAN RAIL PASS {cfg['days']} days FLEXI"
+    elif product == 'db_sparpreis':
+        fare = cfg.get('fare_name', 'Super Sparpreis')
+        pass_title = fare
+    elif product == 'deutschlandticket':
+        pass_title = "Deutschlandticket"
+    else:
+        pass_title = f"GERMAN RAIL PASS {cfg['days']} days CONSECUTIVE"
+    txt(page, (39.69, 225.17), pass_title, font="F1", size=10)
+
+    if product == 'db_sparpreis':
+        von = cfg.get('station_from', 'Berlin Hbf')
+        nach = cfg.get('station_to', 'M\u00fcnchen Hbf')
+        zugtyp = cfg.get('zugtyp', 'ICE')
+        txt(page, (39.69, 239.83), f"Hin: {von} -> {nach}", font="F0", size=9)
+        txt(page, (39.69, 252.57), f"via: {zugtyp}", font="F0", size=9)
+        txt(page, (39.69, 265.31), f"Klasse: {cfg['klasse']}   1 Person(en)", font="F0", size=9)
+    elif product == 'deutschlandticket':
+        txt(page, (39.69, 239.83), "G\u00fcltig in allen Nahverkehrsz\u00fcgen in ganz Deutschland", font="F0", size=9)
+        txt(page, (39.69, 252.57), f"Klasse: 2   1 Person(en)", font="F0", size=9)
+    else:
+        txt(page, (39.69, 239.83), f"Klasse: {cfg['klasse']}", font="F0", size=10)
+        txt(page, (39.69, 254.57), f"Person(en): 1    {cfg['passenger_type']}", font="F0", size=10)
 
     page.draw_rect(fitz.Rect(36.60, 367.68, 349.54, 482.57),
                    color=(0, 0, 0), width=0.45)
@@ -319,16 +821,57 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
     txt(page, (519.77, 560.15), cfg['ticket_id'], font="F0", size=10)
 
     txt(page, (36.85, 585.66), "Conditions of use:", font="F1", size=8)
-    conditions = [
-        f"- Valid {cfg['days']} days from {cfg['validity_start']} to {cfg['validity_end']}, {cfg['klasse_ordinal']} class {cfg['passenger_type']}.",
-        "- Up to two children between 6 and 11 years of age may accompany one person for free who is holding one adult pass. Children must be in",
-        "possession of CHILD passes.",
-        "- The ticket must be printed on white A4 paper (letter).",
-        "- The German Rail Pass (GRP) is strictly personal, non-transferable and only valid in conjunction with the passenger\u2019s valid identification card.",
-        "- Travel with this GRP is carried out according to Germany\u2019s existing public regulations and Deutsche Bahn\u2019s (DB) general and specific",
-        "transportation regulations which can be obtained by applying to the carrier in question.",
-        "- For the validity of the GRP on trains of other carriers within Germany please refer to www.diebefoerderer.de",
-    ]
+    product = cfg.get('product', 'grp_consecutive')
+    if product == 'eurail_global':
+        pass_type_text = "FLEXI" if int(cfg['days']) <= 15 else "CONTINUOUS"
+        conditions = [
+            f"- Valid {cfg['days']} days from {cfg['validity_start']} to {cfg['validity_end']}, {cfg['klasse_ordinal']} class {cfg['passenger_type']}.",
+            f"- The Eurail Global Pass ({pass_type_text}) is valid in 33 European countries.",
+            "- The ticket must be printed on white A4 paper (letter).",
+            "- The Eurail Global Pass is strictly personal, non-transferable and only valid in conjunction with the passenger\u2019s valid passport.",
+            "- Travel with this pass is carried out according to the existing public regulations and the general and specific",
+            "transportation regulations of the participating railway companies.",
+            "- For detailed conditions of use and participating countries please refer to www.eurail.com",
+        ]
+    elif product == 'db_sparpreis':
+        conditions = [
+            f"- G\u00fcltig am {cfg['validity_start']}, {cfg['klasse_ordinal']} class.",
+            f"- Hin: {cfg.get('station_from', 'Berlin Hbf')} -> {cfg.get('station_to', 'M\u00fcnchen Hbf')}",
+            "- Gilt nur in Verbindung mit einer BahnCard oder einem amtlichen Lichtbildausweis.",
+            "- Super Sparpreis-Tickets sind vom Umtausch und von der Stornierung ausgeschlossen.",
+            "- Zugbindung: Gilt nur f\u00fcr den gebuchten Zug. Z\u00fcge des Nahverkehrs k\u00f6nnen f\u00fcr An-/Weiterreise genutzt werden.",
+            "- Kinder bis 14 Jahre reisen in Begleitung einer Person ab 15 Jahre kostenfrei.",
+        ]
+    elif product == 'deutschlandticket':
+        conditions = [
+            f"- G\u00fcltig vom {cfg['validity_start']} bis {cfg['validity_end']}.",
+            "- G\u00fcltig in allen Z\u00fcgen des \u00f6ffentlichen Nahverkehrs (RE, RB, S-Bahn, U-Bahn, Stra\u00dfenbahn, Bus) deutschlandweit.",
+            "- Das Deutschlandticket ist personengebunden und nicht \u00fcbertragbar.",
+            "- Gilt nicht im Fernverkehr (ICE, IC/EC).",
+            "- Monatsabonnement - automatische Verl\u00e4ngerung zum Monatsende.",
+        ]
+    elif product == 'grp_flexi':
+        conditions = [
+            f"- {cfg['days']} freely selectable travel days within validity from {cfg['validity_start']} to {cfg['validity_end']}, {cfg['klasse_ordinal']} class {cfg['passenger_type']}.",
+            "- Up to two children between 6 and 11 years of age may accompany one person for free who is holding one adult pass. Children must be in",
+            "possession of CHILD passes.",
+            "- The ticket must be printed on white A4 paper (letter).",
+            "- The German Rail Pass (GRP) is strictly personal, non-transferable and only valid in conjunction with the passenger\u2019s valid identification card.",
+            "- Travel with this GRP is carried out according to Germany\u2019s existing public regulations and Deutsche Bahn\u2019s (DB) general and specific",
+            "transportation regulations which can be obtained by applying to the carrier in question.",
+            "- For the validity of the GRP on trains of other carriers within Germany please refer to www.diebefoerderer.de",
+        ]
+    else:
+        conditions = [
+            f"- Valid {cfg['days']} days from {cfg['validity_start']} to {cfg['validity_end']}, {cfg['klasse_ordinal']} class {cfg['passenger_type']}.",
+            "- Up to two children between 6 and 11 years of age may accompany one person for free who is holding one adult pass. Children must be in",
+            "possession of CHILD passes.",
+            "- The ticket must be printed on white A4 paper (letter).",
+            "- The German Rail Pass (GRP) is strictly personal, non-transferable and only valid in conjunction with the passenger\u2019s valid identification card.",
+            "- Travel with this GRP is carried out according to Germany\u2019s existing public regulations and Deutsche Bahn\u2019s (DB) general and specific",
+            "transportation regulations which can be obtained by applying to the carrier in question.",
+            "- For the validity of the GRP on trains of other carriers within Germany please refer to www.diebefoerderer.de",
+        ]
     y = 594.67
     for line in conditions:
         txt(page, (36.85, y), line, font="F0", size=8)
@@ -342,14 +885,8 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
         font="F2", size=8)
 
 
-def build_page2(doc):
-    page = doc.new_page(width=W, height=H)
-    register_fonts(page)
-    SZ = 9.5
-
-    page.insert_image(fitz.Rect(36.85, 45.36, 82.20, 76.54),
-                      filename=asset("img_xref14.jpeg"))
-
+def _build_page2_grp(page, SZ):
+    """Page 2 content for German Rail Pass (Consecutive & Flexi)."""
     page.insert_image(fitz.Rect(52.55, 170.56, 91.93, 209.82),
                       filename=asset("img_xref19.jpeg"))
     page.insert_image(fitz.Rect(44.62, 219.37, 99.86, 270.77),
@@ -376,19 +913,16 @@ def build_page2(doc):
     txt(page, (70.61, 109.01),
         "Please note the following information about your online ticket:",
         font="F4", size=SZ)
-
     txt(page, (70.61, 136.31),
         "Please print out your online ticket on white A4 paper (letter). Make sure that images are displayed ",
         font="F4", size=SZ)
     txt(page, (70.61, 147.60),
         "when printing out your online ticket. ", font="F4", size=SZ)
-
     txt(page, (132.41, 175.91),
         "The German Rail Pass (GRP) is strictly personal, non-transferable and only valid ",
         font="F4", size=SZ)
     txt(page, (132.41, 187.31),
         "together with your passport.", font="F4", size=SZ)
-
     txt(page, (133.31, 230.11),
         "A ticket generally represents a contract of carriage. The contractual carrier in this ",
         font="F4", size=SZ)
@@ -401,13 +935,11 @@ def build_page2(doc):
     txt(page, (133.31, 264.30),
         "www.bahn.de/passengersrights", font="F5", size=SZ)
     txt(page, (303.19, 264.30), ".", font="F4", size=SZ)
-
     txt(page, (133.20, 296.61),
         "Refund or exchange is only possible up until 1 day before validity. As of 1st day of ",
         font="F4", size=SZ)
     txt(page, (133.20, 308.01),
         "validity, no exchange or refund possible.", font="F4", size=SZ)
-
     txt(page, (133.20, 337.91),
         "Just before you start your journey, please check any possible timetable changes. ",
         font="F4", size=SZ)
@@ -422,7 +954,6 @@ def build_page2(doc):
     txt(page, (133.20, 372.02),
         "depend on provider) daily from 00:00 to 24:00, and at the DB stations.",
         font="F4", size=SZ)
-
     txt(page, (53.69, 411.42), "Further conditions of use:", font="F5", size=SZ)
 
     further = [
@@ -447,37 +978,219 @@ def build_page2(doc):
     ]
     for x, y, font, text in further:
         txt(page, (x, y), text, font=font, size=SZ)
-
     txt(page, (76.39, 533.36), "\u2022", font="F4", size=4.3)
     txt(page, (76.39, 544.75), "\u2022", font="F4", size=4.3)
-
     for x, y, text in [
-        (93.40, 536.71,
-         "on ICE International trains to Li\u00e8ge and Brussels,"),
-        (93.40, 548.10,
-         "on DB-\u00d6BB EuroCity trains to Kufstein, Innsbruck, Bolzano/Bozen, Trento, Verona, Bologna and "),
+        (93.40, 536.71, "on ICE International trains to Li\u00e8ge and Brussels,"),
+        (93.40, 548.10, "on DB-\u00d6BB EuroCity trains to Kufstein, Innsbruck, Bolzano/Bozen, Trento, Verona, Bologna and "),
         (93.40, 559.50, "Venice."),
     ]:
         txt(page, (x, y), text, font="F4", size=SZ)
-
     for x, y, text in [
-        (53.69, 570.89,
-         "- In case of misuse the GRP holder will be charged with the maximum price of a DB domestic point-"),
+        (53.69, 570.89, "- In case of misuse the GRP holder will be charged with the maximum price of a DB domestic point-"),
         (53.69, 582.32, "  to-point ticket per journey."),
-        (53.69, 593.71,
-         "- The GRP exempts the holder from paying a surcharge on high speed trains.  "),
-        (53.69, 605.11,
-         "  Reservations are recommended. Reservations are mandatory on night trains. The GRP is not valid "),
+        (53.69, 593.71, "- The GRP exempts the holder from paying a surcharge on high speed trains.  "),
+        (53.69, 605.11, "  Reservations are recommended. Reservations are mandatory on night trains. The GRP is not valid "),
         (53.69, 616.50, "  on Autozug and charter trains."),
-        (53.69, 627.90,
-         "- GRP holders must pay all supplements and reservation fees for overnight accommodation, "),
-        (53.69, 639.29,
-         "  registered luggage, meals and other services available on board the trains."),
+        (53.69, 627.90, "- GRP holders must pay all supplements and reservation fees for overnight accommodation, "),
+        (53.69, 639.29, "  registered luggage, meals and other services available on board the trains."),
     ]:
         txt(page, (x, y), text, font="F4", size=SZ)
+    txt(page, (228.90, 737.31), "We wish you a pleasant journey.", font="F5", size=SZ)
 
-    txt(page, (228.90, 737.31), "We wish you a pleasant journey.",
+
+def _build_page2_eurail(page, SZ):
+    """Page 2 content for Eurail Global Pass."""
+    grey = (0.502, 0.502, 0.502)
+    for y in [160.0, 270.0, 370.0, 460.0]:
+        page.draw_line(fitz.Point(53.69, y), fitz.Point(544.42, y),
+                       color=grey, width=1.0)
+
+    txt(page, (70.61, 97.59),
+        "Thank you for booking your Eurail Global Pass!", font="F5", size=SZ)
+    txt(page, (70.61, 109.01),
+        "Please note the following information about your online ticket:",
+        font="F4", size=SZ)
+    txt(page, (70.61, 136.31),
+        "Please print out your online ticket on white A4 paper (letter). Make sure that images are displayed ",
+        font="F4", size=SZ)
+    txt(page, (70.61, 147.60),
+        "when printing out your online ticket. ", font="F4", size=SZ)
+    txt(page, (53.69, 175.91),
+        "The Eurail Global Pass is strictly personal, non-transferable and only valid together with your ",
+        font="F4", size=SZ)
+    txt(page, (53.69, 187.31),
+        "valid passport or national ID card.", font="F4", size=SZ)
+    txt(page, (53.69, 210.11),
+        "A ticket generally represents a contract of carriage. The contractual carrier in this contract may be ",
+        font="F4", size=SZ)
+    txt(page, (53.69, 221.51),
+        "one or more transport companies.", font="F4", size=SZ)
+    txt(page, (53.69, 245.00),
+        "Refund or exchange is only possible up until 1 day before validity. As of 1st day of validity, no ",
+        font="F4", size=SZ)
+    txt(page, (53.69, 256.40),
+        "exchange or refund possible.", font="F4", size=SZ)
+
+    txt(page, (53.69, 285.00), "Further conditions of use:", font="F5", size=SZ)
+    conditions = [
+        "- The Eurail Global Pass is valid in 33 European countries on the national railways and on selected",
+        "  private railway and ferry companies.",
+        "- The pass holder may not begin the first journey before 00h00 on the first day of validity.",
+        "  The last journey must be completed by 23h59 of the last day of validity.",
+        "- Flexi passes: Each travel day starts at 00:00 and ends at 23:59. The travel day must be recorded",
+        "  on the pass before boarding the first train of the day.",
+        "- Seat reservations are recommended on most high-speed and night trains. Reservation fees are not",
+        "  included in the pass price.",
+        "- The pass does not cover supplements for premium services, sleeping accommodations, meals,",
+        "  or other optional services on board.",
+        "- In case of misuse, the pass holder will be charged the full fare for the journey.",
+        "- For detailed route validity and participating companies please refer to www.eurail.com",
+    ]
+    y = 300.0
+    for line in conditions:
+        txt(page, (53.69, y), line, font="F4", size=SZ)
+        y += 11.4
+
+    txt(page, (53.69, y + 20), "Participating countries:", font="F5", size=SZ)
+    countries = (
+        "Austria, Belgium, Bosnia-Herzegovina, Bulgaria, Croatia, Czech Republic, Denmark, Estonia, "
+        "Finland, France, Germany, Great Britain, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, "
+        "Luxembourg, Montenegro, Netherlands, North Macedonia, Norway, Poland, Portugal, Romania, "
+        "Serbia, Slovakia, Slovenia, Spain, Sweden, Switzerland, Turkey."
+    )
+    cy = y + 35
+    while countries:
+        chunk = countries[:110]
+        last_space = chunk.rfind(' ')
+        if last_space > 0 and len(countries) > 110:
+            chunk = countries[:last_space]
+            countries = countries[last_space + 1:]
+        else:
+            countries = ""
+        txt(page, (53.69, cy), chunk, font="F4", size=SZ)
+        cy += 11.4
+
+    txt(page, (228.90, 737.31), "We wish you a pleasant journey.", font="F5", size=SZ)
+
+
+def _build_page2_sparpreis(page, SZ):
+    """Page 2 content for DB Sparpreis/Super Sparpreis."""
+    grey = (0.502, 0.502, 0.502)
+    for y in [160.0, 270.0, 370.0]:
+        page.draw_line(fitz.Point(53.69, y), fitz.Point(544.42, y),
+                       color=grey, width=1.0)
+
+    txt(page, (70.61, 97.59),
+        "Vielen Dank f\u00fcr Ihre Buchung auf www.bahn.de!", font="F5", size=SZ)
+    txt(page, (70.61, 109.01),
+        "Bitte beachten Sie die folgenden Informationen zu Ihrem Online-Ticket:",
+        font="F4", size=SZ)
+    txt(page, (70.61, 136.31),
+        "Bitte drucken Sie Ihr Online-Ticket auf wei\u00dfem A4-Papier aus. Achten Sie darauf, dass Bilder beim ",
+        font="F4", size=SZ)
+    txt(page, (70.61, 147.60),
+        "Drucken angezeigt werden.", font="F4", size=SZ)
+    txt(page, (53.69, 175.91),
+        "Das Online-Ticket ist nur in Verbindung mit einem g\u00fcltigen Ausweis (Personalausweis oder Reisepass) ",
+        font="F4", size=SZ)
+    txt(page, (53.69, 187.31),
+        "oder einer BahnCard g\u00fcltig.", font="F4", size=SZ)
+    txt(page, (53.69, 210.11),
+        "Zugbindung: Ihr Ticket gilt nur f\u00fcr die gebuchte Verbindung. Z\u00fcge des Nahverkehrs (z.B. RE, RB, ",
+        font="F4", size=SZ)
+    txt(page, (53.69, 221.51),
+        "IRE, S-Bahn) k\u00f6nnen Sie f\u00fcr die An-/Weiterreise zum/vom Fernverkehrsbahnhof nutzen.",
+        font="F4", size=SZ)
+    txt(page, (53.69, 245.00),
+        "Super Sparpreis-Tickets sind vom Umtausch und von der Stornierung ausgeschlossen.",
+        font="F4", size=SZ)
+    txt(page, (53.69, 256.40),
+        "Sofortstornierung: Innerhalb von 3 Stunden nach Buchung kostenlos m\u00f6glich.",
+        font="F4", size=SZ)
+
+    txt(page, (53.69, 285.00), "Weitere Hinweise:", font="F5", size=SZ)
+    conditions = [
+        "- Kinder bis 5 Jahre fahren immer kostenfrei.",
+        "- Kinder von 6 bis 14 Jahren fahren in Begleitung einer Person ab 15 Jahre kostenfrei.",
+        "  Sie m\u00fcssen aber bei der Buchung angegeben werden.",
+        "- \u00c4nderungen im Fahrplan finden Sie unter www.bahn.de oder im DB Navigator.",
+        "- Informationen zu Fahrg\u00e4sterechten: www.bahn.de/fahrgastrechte",
+        "- DB-Servicenummer: +49 (0)30 2970 (kostenpflichtig), t\u00e4glich 00:00 - 24:00 Uhr.",
+    ]
+    y = 300.0
+    for line in conditions:
+        txt(page, (53.69, y), line, font="F4", size=SZ)
+        y += 11.4
+
+    txt(page, (228.90, 737.31), "Wir w\u00fcnschen Ihnen eine gute Reise.", font="F5", size=SZ)
+
+
+def _build_page2_deutschlandticket(page, SZ):
+    """Page 2 content for Deutschlandticket."""
+    grey = (0.502, 0.502, 0.502)
+    for y in [160.0, 270.0, 370.0]:
+        page.draw_line(fitz.Point(53.69, y), fitz.Point(544.42, y),
+                       color=grey, width=1.0)
+
+    txt(page, (70.61, 97.59),
+        "Ihr Deutschlandticket", font="F5", size=SZ)
+    txt(page, (70.61, 109.01),
+        "Bitte beachten Sie die folgenden Informationen:",
+        font="F4", size=SZ)
+    txt(page, (70.61, 136.31),
+        "Bitte drucken Sie Ihr Ticket auf wei\u00dfem A4-Papier aus oder nutzen Sie es digital \u00fcber den ",
+        font="F4", size=SZ)
+    txt(page, (70.61, 147.60),
+        "DB Navigator.", font="F4", size=SZ)
+    txt(page, (53.69, 175.91),
+        "Das Deutschlandticket ist personengebunden und nicht \u00fcbertragbar. Es ist nur in Verbindung mit ",
+        font="F4", size=SZ)
+    txt(page, (53.69, 187.31),
+        "einem g\u00fcltigen Ausweis g\u00fcltig.", font="F4", size=SZ)
+
+    txt(page, (53.69, 210.11),
+        "G\u00fcltigkeit: Das Deutschlandticket berechtigt zur Nutzung aller Z\u00fcge des \u00f6ffentlichen Nahverkehrs ",
+        font="F4", size=SZ)
+    txt(page, (53.69, 221.51),
+        "(RE, RB, S-Bahn, U-Bahn, Stra\u00dfenbahn, Bus) in ganz Deutschland.",
+        font="F4", size=SZ)
+    txt(page, (53.69, 245.00),
+        "Das Ticket gilt NICHT im Fernverkehr (ICE, IC/EC, TGV, Nightjet).",
         font="F5", size=SZ)
+
+    txt(page, (53.69, 285.00), "Weitere Hinweise:", font="F5", size=SZ)
+    conditions = [
+        "- Preis: 63,00 EUR pro Monat (Abonnement).",
+        "- K\u00fcndigung: Monatlich k\u00fcndbar zum Monatsende.",
+        "- 1. Klasse: Aufstieg mit Zuschlag je nach Verkehrsverbund m\u00f6glich.",
+        "- Mitnahme: Keine kostenlose Mitnahme weiterer Personen oder Fahrr\u00e4der (je nach Verbund).",
+        "- Weitere Informationen: www.deutschlandticket.de",
+    ]
+    y = 300.0
+    for line in conditions:
+        txt(page, (53.69, y), line, font="F4", size=SZ)
+        y += 11.4
+
+    txt(page, (228.90, 737.31), "Wir w\u00fcnschen Ihnen eine gute Reise.", font="F5", size=SZ)
+
+
+def build_page2(doc, cfg=None):
+    page = doc.new_page(width=W, height=H)
+    register_fonts(page)
+    SZ = 9.5
+    page.insert_image(fitz.Rect(36.85, 45.36, 82.20, 76.54),
+                      filename=asset("img_xref14.jpeg"))
+
+    product = cfg.get('product', 'grp_consecutive') if cfg else 'grp_consecutive'
+    if product == 'eurail_global':
+        _build_page2_eurail(page, SZ)
+    elif product == 'db_sparpreis':
+        _build_page2_sparpreis(page, SZ)
+    elif product == 'deutschlandticket':
+        _build_page2_deutschlandticket(page, SZ)
+    else:
+        _build_page2_grp(page, SZ)
 
 
 def generate_pdf(cfg):
@@ -500,7 +1213,7 @@ def generate_pdf(cfg):
         })
 
         build_page1(doc, cfg, wm_main, wm_bottom, ticket_num, barcode)
-        build_page2(doc)
+        build_page2(doc, cfg)
 
         pdf_bytes = doc.tobytes(garbage=4, deflate=True)
         doc.close()
@@ -525,26 +1238,65 @@ def _calc_mwst7(price_str):
     return f"{mwst:,.2f}\u20ac".replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
-@app.post("/generate")
-async def generate(
-    name: str = Form(...),
-    birth_date: str = Form(...),
-    validity_start: str = Form(...),
-    validity_end: str = Form(...),
-    ticket_id: str = Form(...),
-    order_number: str = Form(...),
-    klasse: str = Form("2"),
-    days: str = Form("15"),
-    passenger_type: str = Form("ERWACHSENER"),
-    price: str = Form("452,00\u20ac"),
-    payment_method: str = Form("SEPA"),
-    payment_date: str = Form(""),
-    booking_date: str = Form(""),
-):
+PRODUCT_LABELS = {
+    "grp_consecutive": "German Rail Pass",
+    "grp_flexi": "German Rail Pass",
+    "eurail_global": "Eurail Global Pass",
+    "db_sparpreis": "Super Sparpreis",
+    "deutschlandticket": "Deutschlandticket",
+}
+
+
+RESIDENCE_CODES = {
+    "Germany": 80, "Austria": 65, "Belgium": 71, "Bulgaria": 73,
+    "Croatia": 74, "Czech Republic": 10, "Denmark": 75, "Estonia": 76,
+    "Finland": 78, "France": 79, "Great Britain": 81, "Greece": 82,
+    "Hungary": 83, "Ireland": 84, "Italy": 85, "Latvia": 86,
+    "Lithuania": 87, "Luxembourg": 88, "Netherlands": 25,
+    "Norway": 94, "Poland": 44, "Portugal": 51, "Romania": 52,
+    "Serbia": 53, "Slovakia": 54, "Slovenia": 55, "Spain": 56,
+    "Sweden": 60, "Switzerland": 62, "Turkey": 70,
+    "United Kingdom": 826, "United States": 840,
+}
+
+
+def _detect_passenger_type(birth_date_str, reference_date_str):
+    """Auto-detect ERWACHSENER/JUGENDLICHER from birth date (youth = 12-27)."""
+    try:
+        birth = datetime.strptime(birth_date_str, "%d.%m.%Y")
+        ref = datetime.strptime(reference_date_str, "%d.%m.%Y")
+    except ValueError:
+        return "ERWACHSENER"
+    age = ref.year - birth.year - ((ref.month, ref.day) < (birth.month, birth.day))
+    if 12 <= age <= 27:
+        return "JUGENDLICHER"
+    return "ERWACHSENER"
+
+
+def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
+               order_number, klasse, days, passenger_type, price,
+               payment_method, payment_date, booking_date, product,
+               residence="Germany", station_from="", station_to="",
+               zugtyp="ICE", fare_name=""):
+    if not ticket_id:
+        ticket_id = str(random.randint(1000000, 9999999))
+    if not order_number:
+        order_number = str(random.randint(1000000000000, 9999999999999))
     if not payment_date:
         payment_date = validity_start
     if not booking_date:
         booking_date = validity_start
+
+    if product == 'deutschlandticket':
+        passenger_type = "ERWACHSENER"
+        klasse = "2"
+        if not price or price == "0,00\u20ac":
+            price = "63,00\u20ac"
+    elif not passenger_type or passenger_type == "AUTO":
+        passenger_type = _detect_passenger_type(birth_date, validity_start)
+
+    if not fare_name:
+        fare_name = "Super Sparpreis" if product == "db_sparpreis" else ""
 
     klasse_ordinal = "1st" if klasse == "1" else "2nd"
     mwst7 = _calc_mwst7(price)
@@ -565,7 +1317,47 @@ async def generate(
         "payment_method": payment_method,
         "payment_date": payment_date,
         "booking_date": booking_date,
+        "product": product,
+        "product_label": PRODUCT_LABELS.get(product, "German Rail Pass"),
+        "residence": residence,
+        "residence_code": RESIDENCE_CODES.get(residence, 80),
     }
+
+    if product == 'db_sparpreis':
+        cfg['station_from'] = station_from or 'Berlin Hbf'
+        cfg['station_to'] = station_to or 'M\u00fcnchen Hbf'
+        cfg['zugtyp'] = zugtyp or 'ICE'
+        cfg['fare_name'] = fare_name
+
+    return cfg
+
+
+@app.post("/generate")
+async def generate(
+    name: str = Form(...),
+    birth_date: str = Form(...),
+    validity_start: str = Form(...),
+    validity_end: str = Form(...),
+    ticket_id: str = Form(""),
+    order_number: str = Form(""),
+    klasse: str = Form("2"),
+    days: str = Form("15"),
+    passenger_type: str = Form("ERWACHSENER"),
+    price: str = Form("452,00\u20ac"),
+    payment_method: str = Form("SEPA"),
+    payment_date: str = Form(""),
+    booking_date: str = Form(""),
+    product: str = Form("grp_consecutive"),
+    residence: str = Form("Germany"),
+    station_from: str = Form(""),
+    station_to: str = Form(""),
+    zugtyp: str = Form("ICE"),
+    fare_name: str = Form(""),
+):
+    cfg = _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
+                     order_number, klasse, days, passenger_type, price,
+                     payment_method, payment_date, booking_date, product,
+                     residence, station_from, station_to, zugtyp, fare_name)
 
     pdf_bytes = generate_pdf(cfg)
 
@@ -573,14 +1365,98 @@ async def generate(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename=ticket_{ticket_id}.pdf"
+            "Content-Disposition": f"attachment; filename=ticket_{cfg['ticket_id']}.pdf"
         }
+    )
+
+
+def _calc_validity_end(start_str, days_int, product):
+    """Calculate validity end date from start + days."""
+    try:
+        dt = datetime.strptime(start_str, "%d.%m.%Y")
+    except ValueError:
+        return start_str
+    if product == "deutschlandticket":
+        if dt.month == 12:
+            end_dt = datetime(dt.year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_dt = datetime(dt.year, dt.month + 1, 1) - timedelta(days=1)
+    elif product == "db_sparpreis":
+        end_dt = dt + timedelta(days=1)
+    elif product == "grp_flexi":
+        end_dt = dt + timedelta(days=29)
+    elif product == "eurail_global" and days_int <= 15:
+        end_dt = dt + timedelta(days=29)
+    else:
+        end_dt = dt + timedelta(days=days_int - 1)
+    return end_dt.strftime("%d.%m.%Y")
+
+
+@app.post("/batch")
+async def batch_generate(file: UploadFile = File(...)):
+    """Generate multiple tickets from CSV upload. Returns ZIP with PDFs."""
+    content = await file.read()
+    text = content.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, row in enumerate(reader):
+            product = row.get("product", "grp_consecutive").strip()
+            days_str = row.get("days", "15").strip()
+            klasse = row.get("klasse", "2").strip()
+            ptype = row.get("passenger_type", "ERWACHSENER").strip()
+            start = row.get("validity_start", "01.01.2026").strip()
+            days_int = int(days_str)
+
+            price_table = ALL_PRICES.get(product, PRICES_GRP_CONSECUTIVE)
+            price = row.get("price", "").strip()
+            if not price and days_int in price_table:
+                price = price_table[days_int].get((klasse, ptype), "0,00\u20ac")
+            if not price:
+                price = "0,00\u20ac"
+
+            end = row.get("validity_end", "").strip()
+            if not end:
+                end = _calc_validity_end(start, days_int, product)
+
+            cfg = _build_cfg(
+                name=row.get("name", "Passenger").strip(),
+                birth_date=row.get("birth_date", "01.01.2000").strip(),
+                validity_start=start,
+                validity_end=end,
+                ticket_id=row.get("ticket_id", "").strip(),
+                order_number=row.get("order_number", "").strip(),
+                klasse=klasse,
+                days=days_str,
+                passenger_type=ptype,
+                price=price,
+                payment_method=row.get("payment_method", "SEPA").strip(),
+                payment_date=row.get("payment_date", "").strip(),
+                booking_date=row.get("booking_date", "").strip(),
+                product=product,
+                residence=row.get("residence", "Germany").strip(),
+                station_from=row.get("station_from", "").strip(),
+                station_to=row.get("station_to", "").strip(),
+                zugtyp=row.get("zugtyp", "ICE").strip(),
+                fare_name=row.get("fare_name", "").strip(),
+            )
+
+            pdf_bytes = generate_pdf(cfg)
+            filename = f"ticket_{i+1:03d}_{cfg['ticket_id']}.pdf"
+            zf.writestr(filename, pdf_bytes)
+
+    zip_buffer.seek(0)
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=tickets_batch.zip"}
     )
 
 
 # ─── HTML ────────────────────────────────────────────────────────────────────
 
-HTML_FORM = """<!DOCTYPE html>
+HTML_FORM = r"""<!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -591,9 +1467,11 @@ HTML_FORM = """<!DOCTYPE html>
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
        background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center;
        align-items: flex-start; padding: 40px 20px; }
+.container { max-width: 560px; width: 100%; }
 .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08);
-        padding: 40px; max-width: 520px; width: 100%; }
+        padding: 40px; margin-bottom: 20px; }
 h1 { font-size: 24px; margin-bottom: 8px; color: #1a1a1a; }
+h2 { font-size: 18px; margin-bottom: 12px; color: #1a1a1a; }
 .subtitle { color: #666; font-size: 14px; margin-bottom: 28px; }
 .form-group { margin-bottom: 16px; }
 label { display: block; font-size: 13px; font-weight: 600; color: #333;
@@ -604,22 +1482,112 @@ input, select { width: 100%; padding: 10px 12px; border: 1px solid #d0d5dd;
 input:focus, select:focus { outline: none; border-color: #ec0016; box-shadow: 0 0 0 3px rgba(236,0,22,0.1); }
 .row { display: flex; gap: 12px; }
 .row .form-group { flex: 1; }
-button { width: 100%; padding: 12px; background: #ec0016; color: #fff;
+button, .btn { width: 100%; padding: 12px; background: #ec0016; color: #fff;
          border: none; border-radius: 8px; font-size: 16px; font-weight: 600;
          cursor: pointer; transition: background 0.2s; margin-top: 8px; }
-button:hover { background: #c9000f; }
+button:hover, .btn:hover { background: #c9000f; }
 button:disabled { background: #ccc; cursor: wait; }
+.btn-secondary { background: #1a365d; }
+.btn-secondary:hover { background: #0f2440; }
 .divider { border-top: 1px solid #eee; margin: 20px 0; }
 .hint { font-size: 12px; color: #888; margin-top: 4px; }
 .loading { display: none; text-align: center; padding: 20px; color: #666; }
+.batch-info { background: #f8f9fa; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 12px; color: #555; }
+.batch-info code { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
 </style>
 </head>
 <body>
+<div class="container">
+
 <div class="card">
   <h1>Ticket Generator</h1>
-  <p class="subtitle">German Rail Pass Online-Ticket erstellen</p>
+  <p class="subtitle">German Rail Pass, Eurail, DB Sparpreis & Deutschlandticket</p>
 
   <form id="ticketForm" action="/generate" method="post">
+    <div class="form-group">
+      <label>Produkt</label>
+      <select name="product" id="productSelect">
+        <option value="grp_consecutive" selected>German Rail Pass - Consecutive</option>
+        <option value="grp_flexi">German Rail Pass - Flexi</option>
+        <option value="eurail_global">Eurail Global Pass</option>
+        <option value="db_sparpreis">DB Sparpreis / Super Sparpreis</option>
+        <option value="deutschlandticket">Deutschlandticket (63&euro;)</option>
+      </select>
+    </div>
+
+    <div id="sparpreisFields" style="display:none">
+      <div class="row">
+        <div class="form-group">
+          <label>Von (Abfahrt)</label>
+          <select name="station_from" id="stationFrom">
+            <option value="Berlin Hbf" selected>Berlin Hbf</option>
+            <option value="Hamburg Hbf">Hamburg Hbf</option>
+            <option value="M&uuml;nchen Hbf">M&uuml;nchen Hbf</option>
+            <option value="K&ouml;ln Hbf">K&ouml;ln Hbf</option>
+            <option value="Frankfurt(Main)Hbf">Frankfurt(Main)Hbf</option>
+            <option value="Stuttgart Hbf">Stuttgart Hbf</option>
+            <option value="D&uuml;sseldorf Hbf">D&uuml;sseldorf Hbf</option>
+            <option value="Hannover Hbf">Hannover Hbf</option>
+            <option value="Leipzig Hbf">Leipzig Hbf</option>
+            <option value="Dresden Hbf">Dresden Hbf</option>
+            <option value="N&uuml;rnberg Hbf">N&uuml;rnberg Hbf</option>
+            <option value="Bremen Hbf">Bremen Hbf</option>
+            <option value="Dortmund Hbf">Dortmund Hbf</option>
+            <option value="Essen Hbf">Essen Hbf</option>
+            <option value="Mannheim Hbf">Mannheim Hbf</option>
+            <option value="Karlsruhe Hbf">Karlsruhe Hbf</option>
+            <option value="Augsburg Hbf">Augsburg Hbf</option>
+            <option value="Freiburg(Brsg)Hbf">Freiburg(Brsg)Hbf</option>
+            <option value="Erfurt Hbf">Erfurt Hbf</option>
+            <option value="Rostock Hbf">Rostock Hbf</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nach (Ankunft)</label>
+          <select name="station_to" id="stationTo">
+            <option value="Berlin Hbf">Berlin Hbf</option>
+            <option value="Hamburg Hbf">Hamburg Hbf</option>
+            <option value="M&uuml;nchen Hbf" selected>M&uuml;nchen Hbf</option>
+            <option value="K&ouml;ln Hbf">K&ouml;ln Hbf</option>
+            <option value="Frankfurt(Main)Hbf">Frankfurt(Main)Hbf</option>
+            <option value="Stuttgart Hbf">Stuttgart Hbf</option>
+            <option value="D&uuml;sseldorf Hbf">D&uuml;sseldorf Hbf</option>
+            <option value="Hannover Hbf">Hannover Hbf</option>
+            <option value="Leipzig Hbf">Leipzig Hbf</option>
+            <option value="Dresden Hbf">Dresden Hbf</option>
+            <option value="N&uuml;rnberg Hbf">N&uuml;rnberg Hbf</option>
+            <option value="Bremen Hbf">Bremen Hbf</option>
+            <option value="Dortmund Hbf">Dortmund Hbf</option>
+            <option value="Essen Hbf">Essen Hbf</option>
+            <option value="Mannheim Hbf">Mannheim Hbf</option>
+            <option value="Karlsruhe Hbf">Karlsruhe Hbf</option>
+            <option value="Augsburg Hbf">Augsburg Hbf</option>
+            <option value="Freiburg(Brsg)Hbf">Freiburg(Brsg)Hbf</option>
+            <option value="Erfurt Hbf">Erfurt Hbf</option>
+            <option value="Rostock Hbf">Rostock Hbf</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Zugtyp</label>
+          <select name="zugtyp" id="zugtypSelect">
+            <option value="ICE" selected>ICE</option>
+            <option value="IC/EC">IC/EC</option>
+            <option value="ICE/IC">ICE/IC</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tarifname</label>
+          <select name="fare_name" id="fareNameSelect">
+            <option value="Super Sparpreis" selected>Super Sparpreis</option>
+            <option value="Sparpreis">Sparpreis</option>
+            <option value="Flexpreis">Flexpreis</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <div class="form-group">
       <label>Passagier Name</label>
       <input type="text" name="name" value="Test Mustermann" required>
@@ -647,10 +1615,50 @@ button:disabled { background: #ccc; cursor: wait; }
       <div class="form-group">
         <label>Passagiertyp</label>
         <select name="passenger_type" id="passengerSelect">
-          <option value="ERWACHSENER" selected>Erwachsener</option>
+          <option value="AUTO" selected>Auto (aus Geburtsdatum)</option>
+          <option value="ERWACHSENER">Erwachsener</option>
           <option value="JUGENDLICHER">Jugendlicher (12-27)</option>
         </select>
+        <p class="hint" id="autoTypeHint"></p>
       </div>
+    </div>
+
+    <div class="form-group">
+      <label>Wohnsitz / Residence</label>
+      <select name="residence" id="residenceSelect">
+        <option value="Germany" selected>Germany</option>
+        <option value="Austria">Austria</option>
+        <option value="Belgium">Belgium</option>
+        <option value="Bulgaria">Bulgaria</option>
+        <option value="Croatia">Croatia</option>
+        <option value="Czech Republic">Czech Republic</option>
+        <option value="Denmark">Denmark</option>
+        <option value="Estonia">Estonia</option>
+        <option value="Finland">Finland</option>
+        <option value="France">France</option>
+        <option value="Great Britain">Great Britain</option>
+        <option value="Greece">Greece</option>
+        <option value="Hungary">Hungary</option>
+        <option value="Ireland">Ireland</option>
+        <option value="Italy">Italy</option>
+        <option value="Latvia">Latvia</option>
+        <option value="Lithuania">Lithuania</option>
+        <option value="Luxembourg">Luxembourg</option>
+        <option value="Netherlands">Netherlands</option>
+        <option value="Norway">Norway</option>
+        <option value="Poland">Poland</option>
+        <option value="Portugal">Portugal</option>
+        <option value="Romania">Romania</option>
+        <option value="Serbia">Serbia</option>
+        <option value="Slovakia">Slovakia</option>
+        <option value="Slovenia">Slovenia</option>
+        <option value="Spain">Spain</option>
+        <option value="Sweden">Sweden</option>
+        <option value="Switzerland">Switzerland</option>
+        <option value="Turkey">Turkey</option>
+        <option value="United Kingdom">United Kingdom</option>
+        <option value="United States">United States</option>
+      </select>
     </div>
 
     <div class="row">
@@ -668,11 +1676,13 @@ button:disabled { background: #ccc; cursor: wait; }
     <div class="row">
       <div class="form-group">
         <label>Ticket-ID</label>
-        <input type="text" name="ticket_id" value="2310903" required>
+        <input type="text" name="ticket_id" value="" placeholder="Auto-Random">
+        <p class="hint">Leer = zufaellig (7 Ziffern)</p>
       </div>
       <div class="form-group">
         <label>Auftragsnummer</label>
-        <input type="text" name="order_number" value="2026010100110" required>
+        <input type="text" name="order_number" value="" placeholder="Auto-Random">
+        <p class="hint">Leer = zufaellig (13 Ziffern)</p>
       </div>
     </div>
 
@@ -688,7 +1698,7 @@ button:disabled { background: #ccc; cursor: wait; }
       </div>
       <div class="form-group">
         <label>Preis</label>
-        <input type="text" name="price" id="priceInput" value="452,00\u20ac">
+        <input type="text" name="price" id="priceInput" value="452,00&#8364;">
         <p class="hint">Wird automatisch gesetzt</p>
       </div>
     </div>
@@ -701,7 +1711,7 @@ button:disabled { background: #ccc; cursor: wait; }
       <div class="form-group">
         <label>Zahlungsdatum</label>
         <input type="text" name="payment_date" placeholder="= Validity Start">
-        <p class="hint">Leer = gleich wie Gueltigkeit Start</p>
+        <p class="hint">Leer = gleich wie Start</p>
       </div>
     </div>
 
@@ -713,32 +1723,157 @@ button:disabled { background: #ccc; cursor: wait; }
   <div class="loading" id="loading">PDF wird generiert...</div>
 </div>
 
+<div class="card">
+  <h2>Batch-Generierung</h2>
+  <p class="subtitle">Mehrere Tickets aus CSV-Datei generieren</p>
+  <form id="batchForm" action="/batch" method="post" enctype="multipart/form-data">
+    <div class="form-group">
+      <label>CSV-Datei hochladen</label>
+      <input type="file" name="file" accept=".csv" required>
+    </div>
+    <button type="submit" class="btn btn-secondary" id="batchBtn">Batch generieren (ZIP)</button>
+  </form>
+  <div class="batch-info">
+    <strong>CSV-Spalten:</strong><br>
+    <code>name</code>, <code>birth_date</code>, <code>days</code>, <code>klasse</code>,
+    <code>passenger_type</code>, <code>validity_start</code>, <code>product</code><br>
+    <strong>Optional:</strong> <code>validity_end</code>, <code>price</code>,
+    <code>ticket_id</code>, <code>order_number</code>, <code>payment_method</code><br>
+    <strong>Produkt-Werte:</strong> <code>grp_consecutive</code>, <code>grp_flexi</code>, <code>eurail_global</code>,
+    <code>db_sparpreis</code>, <code>deutschlandticket</code><br>
+    <strong>Sparpreis extra:</strong> <code>station_from</code>, <code>station_to</code>, <code>zugtyp</code>, <code>fare_name</code>
+  </div>
+</div>
+
+</div>
+
 <script>
-var PRICES = {
-  "3":  {"2": {"ERWACHSENER": "191,00\\u20ac", "JUGENDLICHER": "153,00\\u20ac"},
-         "1": {"ERWACHSENER": "255,00\\u20ac", "JUGENDLICHER": "204,00\\u20ac"}},
-  "4":  {"2": {"ERWACHSENER": "218,00\\u20ac", "JUGENDLICHER": "174,00\\u20ac"},
-         "1": {"ERWACHSENER": "290,00\\u20ac", "JUGENDLICHER": "232,00\\u20ac"}},
-  "5":  {"2": {"ERWACHSENER": "240,00\\u20ac", "JUGENDLICHER": "192,00\\u20ac"},
-         "1": {"ERWACHSENER": "320,00\\u20ac", "JUGENDLICHER": "256,00\\u20ac"}},
-  "7":  {"2": {"ERWACHSENER": "279,00\\u20ac", "JUGENDLICHER": "223,00\\u20ac"},
-         "1": {"ERWACHSENER": "372,00\\u20ac", "JUGENDLICHER": "298,00\\u20ac"}},
-  "10": {"2": {"ERWACHSENER": "367,00\\u20ac", "JUGENDLICHER": "294,00\\u20ac"},
-         "1": {"ERWACHSENER": "490,00\\u20ac", "JUGENDLICHER": "392,00\\u20ac"}},
-  "15": {"2": {"ERWACHSENER": "452,00\\u20ac", "JUGENDLICHER": "362,00\\u20ac"},
-         "1": {"ERWACHSENER": "603,00\\u20ac", "JUGENDLICHER": "482,00\\u20ac"}}
+var ALL_PRICES = {
+  "grp_consecutive": {
+    "3":  {"2": {"ERWACHSENER": "191,00\u20ac", "JUGENDLICHER": "153,00\u20ac"},
+           "1": {"ERWACHSENER": "255,00\u20ac", "JUGENDLICHER": "204,00\u20ac"}},
+    "4":  {"2": {"ERWACHSENER": "218,00\u20ac", "JUGENDLICHER": "174,00\u20ac"},
+           "1": {"ERWACHSENER": "290,00\u20ac", "JUGENDLICHER": "232,00\u20ac"}},
+    "5":  {"2": {"ERWACHSENER": "240,00\u20ac", "JUGENDLICHER": "192,00\u20ac"},
+           "1": {"ERWACHSENER": "320,00\u20ac", "JUGENDLICHER": "256,00\u20ac"}},
+    "7":  {"2": {"ERWACHSENER": "279,00\u20ac", "JUGENDLICHER": "223,00\u20ac"},
+           "1": {"ERWACHSENER": "372,00\u20ac", "JUGENDLICHER": "298,00\u20ac"}},
+    "10": {"2": {"ERWACHSENER": "367,00\u20ac", "JUGENDLICHER": "294,00\u20ac"},
+           "1": {"ERWACHSENER": "490,00\u20ac", "JUGENDLICHER": "392,00\u20ac"}},
+    "15": {"2": {"ERWACHSENER": "452,00\u20ac", "JUGENDLICHER": "362,00\u20ac"},
+           "1": {"ERWACHSENER": "603,00\u20ac", "JUGENDLICHER": "482,00\u20ac"}}
+  },
+  "grp_flexi": {
+    "3":  {"2": {"ERWACHSENER": "192,00\u20ac", "JUGENDLICHER": "154,00\u20ac"},
+           "1": {"ERWACHSENER": "256,00\u20ac", "JUGENDLICHER": "205,00\u20ac"}},
+    "4":  {"2": {"ERWACHSENER": "222,00\u20ac", "JUGENDLICHER": "178,00\u20ac"},
+           "1": {"ERWACHSENER": "296,00\u20ac", "JUGENDLICHER": "237,00\u20ac"}},
+    "5":  {"2": {"ERWACHSENER": "246,00\u20ac", "JUGENDLICHER": "197,00\u20ac"},
+           "1": {"ERWACHSENER": "328,00\u20ac", "JUGENDLICHER": "262,00\u20ac"}},
+    "7":  {"2": {"ERWACHSENER": "292,00\u20ac", "JUGENDLICHER": "234,00\u20ac"},
+           "1": {"ERWACHSENER": "389,00\u20ac", "JUGENDLICHER": "311,00\u20ac"}},
+    "10": {"2": {"ERWACHSENER": "392,00\u20ac", "JUGENDLICHER": "314,00\u20ac"},
+           "1": {"ERWACHSENER": "523,00\u20ac", "JUGENDLICHER": "418,00\u20ac"}},
+    "15": {"2": {"ERWACHSENER": "486,00\u20ac", "JUGENDLICHER": "389,00\u20ac"},
+           "1": {"ERWACHSENER": "648,00\u20ac", "JUGENDLICHER": "518,00\u20ac"}}
+  },
+  "eurail_global": {
+    "4":  {"2": {"ERWACHSENER": "261,00\u20ac", "JUGENDLICHER": "209,00\u20ac"},
+           "1": {"ERWACHSENER": "348,00\u20ac", "JUGENDLICHER": "278,00\u20ac"}},
+    "5":  {"2": {"ERWACHSENER": "296,00\u20ac", "JUGENDLICHER": "237,00\u20ac"},
+           "1": {"ERWACHSENER": "395,00\u20ac", "JUGENDLICHER": "316,00\u20ac"}},
+    "7":  {"2": {"ERWACHSENER": "349,00\u20ac", "JUGENDLICHER": "279,00\u20ac"},
+           "1": {"ERWACHSENER": "465,00\u20ac", "JUGENDLICHER": "372,00\u20ac"}},
+    "10": {"2": {"ERWACHSENER": "415,00\u20ac", "JUGENDLICHER": "332,00\u20ac"},
+           "1": {"ERWACHSENER": "553,00\u20ac", "JUGENDLICHER": "442,00\u20ac"}},
+    "15": {"2": {"ERWACHSENER": "489,00\u20ac", "JUGENDLICHER": "391,00\u20ac"},
+           "1": {"ERWACHSENER": "652,00\u20ac", "JUGENDLICHER": "522,00\u20ac"}},
+    "22": {"2": {"ERWACHSENER": "448,00\u20ac", "JUGENDLICHER": "358,00\u20ac"},
+           "1": {"ERWACHSENER": "597,00\u20ac", "JUGENDLICHER": "478,00\u20ac"}},
+    "31": {"2": {"ERWACHSENER": "560,00\u20ac", "JUGENDLICHER": "448,00\u20ac"},
+           "1": {"ERWACHSENER": "747,00\u20ac", "JUGENDLICHER": "597,00\u20ac"}}
+  },
+  "deutschlandticket": {
+    "1": {"2": {"ERWACHSENER": "63,00\u20ac"}}
+  }
 };
 
-function updatePrice() {
-  var days = document.getElementById('daysSelect').value;
-  var klasse = document.getElementById('klasseSelect').value;
-  var ptype = document.getElementById('passengerSelect').value;
-  if (PRICES[days] && PRICES[days][klasse] && PRICES[days][klasse][ptype]) {
-    document.getElementById('priceInput').value = PRICES[days][klasse][ptype];
+var DAY_OPTIONS = {
+  "grp_consecutive": [3, 4, 5, 7, 10, 15],
+  "grp_flexi": [3, 4, 5, 7, 10, 15],
+  "eurail_global": [4, 5, 7, 10, 15, 22, 31],
+  "db_sparpreis": [1],
+  "deutschlandticket": [1]
+};
+
+function updateDaysOptions() {
+  var product = document.getElementById('productSelect').value;
+  var daysSelect = document.getElementById('daysSelect');
+  var options = DAY_OPTIONS[product] || [15];
+  var currentVal = parseInt(daysSelect.value);
+  daysSelect.innerHTML = '';
+  options.forEach(function(d) {
+    var opt = document.createElement('option');
+    opt.value = d;
+    opt.text = d + ' Tage';
+    if (d === currentVal) opt.selected = true;
+    daysSelect.appendChild(opt);
+  });
+  if (!options.includes(currentVal)) {
+    daysSelect.value = options[options.length - 1];
   }
 }
 
+function detectPassengerType() {
+  var birthStr = document.querySelector('input[name="birth_date"]').value;
+  var startStr = document.getElementById('validityStart').value;
+  var bp = birthStr.split('.'), sp = startStr.split('.');
+  if (bp.length !== 3 || sp.length !== 3) return 'ERWACHSENER';
+  var bd = new Date(parseInt(bp[2]), parseInt(bp[1])-1, parseInt(bp[0]));
+  var sd = new Date(parseInt(sp[2]), parseInt(sp[1])-1, parseInt(sp[0]));
+  var age = sd.getFullYear() - bd.getFullYear();
+  if (sd.getMonth() < bd.getMonth() || (sd.getMonth() === bd.getMonth() && sd.getDate() < bd.getDate())) age--;
+  return (age >= 12 && age <= 27) ? 'JUGENDLICHER' : 'ERWACHSENER';
+}
+
+function getEffectivePassengerType() {
+  var sel = document.getElementById('passengerSelect').value;
+  if (sel === 'AUTO') return detectPassengerType();
+  return sel;
+}
+
+function updateAutoHint() {
+  var sel = document.getElementById('passengerSelect').value;
+  var hint = document.getElementById('autoTypeHint');
+  if (sel === 'AUTO') {
+    var detected = detectPassengerType();
+    hint.textContent = 'Erkannt: ' + (detected === 'JUGENDLICHER' ? 'Jugendlicher' : 'Erwachsener');
+  } else {
+    hint.textContent = '';
+  }
+}
+
+function updatePrice() {
+  var product = document.getElementById('productSelect').value;
+  if (product === 'deutschlandticket') {
+    document.getElementById('priceInput').value = "63,00\u20ac";
+    return;
+  }
+  if (product === 'db_sparpreis') {
+    return;
+  }
+  var days = document.getElementById('daysSelect').value;
+  var klasse = document.getElementById('klasseSelect').value;
+  var ptype = getEffectivePassengerType();
+  var pt = ALL_PRICES[product];
+  if (pt && pt[days] && pt[days][klasse] && pt[days][klasse][ptype]) {
+    document.getElementById('priceInput').value = pt[days][klasse][ptype];
+  }
+  updateAutoHint();
+}
+
 function updateValidityEnd() {
+  var product = document.getElementById('productSelect').value;
   var startStr = document.getElementById('validityStart').value;
   var days = parseInt(document.getElementById('daysSelect').value);
   var parts = startStr.split('.');
@@ -746,18 +1881,70 @@ function updateValidityEnd() {
   var d = parseInt(parts[0]), m = parseInt(parts[1]) - 1, y = parseInt(parts[2]);
   if (isNaN(d) || isNaN(m) || isNaN(y)) return;
   var dt = new Date(y, m, d);
-  dt.setDate(dt.getDate() + days - 1);
+  if (product === 'deutschlandticket') {
+    dt = new Date(y, m + 1, 0);
+  } else if (product === 'db_sparpreis') {
+    dt.setDate(dt.getDate() + 1);
+  } else if (product === 'grp_flexi' || (product === 'eurail_global' && days <= 15)) {
+    dt.setDate(dt.getDate() + 29);
+  } else {
+    dt.setDate(dt.getDate() + days - 1);
+  }
   var dd = String(dt.getDate()).padStart(2, '0');
   var mm = String(dt.getMonth() + 1).padStart(2, '0');
   var yyyy = dt.getFullYear();
   document.getElementById('validityEnd').value = dd + '.' + mm + '.' + yyyy;
 }
 
+function toggleProductFields() {
+  var product = document.getElementById('productSelect').value;
+  var spFields = document.getElementById('sparpreisFields');
+  var daysRow = document.getElementById('daysSelect').closest('.row');
+  var residenceGrp = document.getElementById('residenceSelect').closest('.form-group');
+  var passengerGrp = document.getElementById('passengerSelect').closest('.row');
+
+  spFields.style.display = (product === 'db_sparpreis') ? 'block' : 'none';
+
+  if (product === 'db_sparpreis' || product === 'deutschlandticket') {
+    daysRow.style.display = 'none';
+  } else {
+    daysRow.style.display = 'flex';
+  }
+
+  if (product === 'deutschlandticket') {
+    document.getElementById('klasseSelect').value = '2';
+    document.getElementById('klasseSelect').disabled = true;
+    document.getElementById('priceInput').value = "63,00\u20ac";
+    document.getElementById('priceInput').readOnly = true;
+    document.getElementById('passengerSelect').value = 'ERWACHSENER';
+  } else {
+    document.getElementById('klasseSelect').disabled = false;
+    document.getElementById('priceInput').readOnly = false;
+  }
+
+  if (product === 'eurail_global') {
+    residenceGrp.style.display = 'block';
+  } else {
+    residenceGrp.style.display = 'none';
+  }
+}
+
+function onProductChange() {
+  updateDaysOptions();
+  toggleProductFields();
+  updatePrice();
+  updateValidityEnd();
+}
+
+document.getElementById('productSelect').addEventListener('change', onProductChange);
 document.getElementById('daysSelect').addEventListener('change', function() { updatePrice(); updateValidityEnd(); });
 document.getElementById('klasseSelect').addEventListener('change', updatePrice);
 document.getElementById('passengerSelect').addEventListener('change', updatePrice);
-document.getElementById('validityStart').addEventListener('change', updateValidityEnd);
-document.getElementById('validityStart').addEventListener('input', updateValidityEnd);
+document.getElementById('validityStart').addEventListener('change', function() { updateValidityEnd(); updatePrice(); });
+document.getElementById('validityStart').addEventListener('input', function() { updateValidityEnd(); updatePrice(); });
+document.querySelector('input[name="birth_date"]').addEventListener('change', updatePrice);
+document.querySelector('input[name="birth_date"]').addEventListener('input', updatePrice);
+updateAutoHint();
 
 document.getElementById('ticketForm').addEventListener('submit', function() {
   document.getElementById('submitBtn').disabled = true;
@@ -768,6 +1955,15 @@ document.getElementById('ticketForm').addEventListener('submit', function() {
     document.getElementById('submitBtn').textContent = 'PDF Generieren & Herunterladen';
     document.getElementById('loading').style.display = 'none';
   }, 8000);
+});
+
+document.getElementById('batchForm').addEventListener('submit', function() {
+  document.getElementById('batchBtn').disabled = true;
+  document.getElementById('batchBtn').textContent = 'Wird generiert...';
+  setTimeout(function() {
+    document.getElementById('batchBtn').disabled = false;
+    document.getElementById('batchBtn').textContent = 'Batch generieren (ZIP)';
+  }, 30000);
 });
 </script>
 </body>
