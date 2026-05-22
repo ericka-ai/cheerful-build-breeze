@@ -714,9 +714,9 @@ def generate_aztec_barcode(cfg, output_path):
                     f"{len(compressed):04d}".encode('ascii') +
                     compressed)
 
-    code = aztec.AztecCode(barcode_data, ec_percent=50)
-    img = code.image(module_size=4, border=1)
-    img.save(output_path, "JPEG", quality=95)
+    code = aztec.AztecCode(barcode_data, ec_percent=23)
+    img = code.image(module_size=6, border=1)
+    img.save(output_path, "PNG")
 
 
 # ─── PDF BUILDING ────────────────────────────────────────────────────────────
@@ -1222,7 +1222,7 @@ def generate_pdf(cfg):
         wm_main = os.path.join(tmpdir, "wm_main.jpeg")
         wm_bottom = os.path.join(tmpdir, "wm_bottom.jpeg")
         ticket_num = os.path.join(tmpdir, "ticket_num.jpeg")
-        barcode = os.path.join(tmpdir, "barcode.jpeg")
+        barcode = os.path.join(tmpdir, "barcode.png")
 
         generate_watermark_main(cfg, wm_main)
         generate_watermark_bottom(cfg, wm_bottom)
