@@ -111,6 +111,20 @@ _EURAIL_HEADER = bytes.fromhex(
     "00000000"
 )
 
+DB_STATIONS = {
+    'Berlin Hbf': 8011160, 'Hamburg Hbf': 8002549,
+    'M\u00fcnchen Hbf': 8000261, 'K\u00f6ln Hbf': 8000207,
+    'K\u00f6ln Messe/Deutz': 8003368, 'Frankfurt(Main)Hbf': 8000105,
+    'Stuttgart Hbf': 8000096, 'D\u00fcsseldorf Hbf': 8000085,
+    'Hannover Hbf': 8000152, 'Leipzig Hbf': 8010205,
+    'Dresden Hbf': 8010085, 'N\u00fcrnberg Hbf': 8000284,
+    'Bremen Hbf': 8000050, 'Dortmund Hbf': 8000080,
+    'Essen Hbf': 8000098, 'Mannheim Hbf': 8000244,
+    'Karlsruhe Hbf': 8000191, 'Augsburg Hbf': 8000013,
+    'Freiburg(Brsg)Hbf': 8000107, 'Erfurt Hbf': 8010101,
+    'Rostock Hbf': 8010304,
+}
+
 # ─── FONTS ───────────────────────────────────────────────────────────────────
 FONT_REGULAR = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
 FONT_BOLD = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
@@ -227,13 +241,20 @@ def generate_watermark_bottom(cfg, output_path):
 
 # ─── UIC 918.3 AZTEC BARCODE ─────────────────────────────────────────────────
 
-# Fixed header (64 bytes) - DSA signature envelope, always the same
-_FIXED_HEADER = bytes.fromhex(
-    "2355543031393939343030303031302d"
-    "021500a559211259a8065b62af96b3b7"
-    "50b457d3ac9dae021418b09f4ff8592a"
-    "662d289aacdad6910177f704af000000"
+# Dummy 64-byte raw signature (r[32] || s[32]) for #UT02 format
+_DUMMY_SIG_64 = bytes.fromhex(
+    "865bf227a095803c434e70e6b9edf960"
+    "e26ceba3b0cdc6b4cc9e56fb54eac0b5"
+    "80d386ebc94291b3be27bafa3aefc2ba"
+    "1f7da9d46584af65ede881ee64234d4b"
 )
+
+
+def _build_918_header(rics='1080', key_id='00008'):
+    """Build UIC 918.3 outer header: #UT02 + RICS + keyID + 64-byte signature."""
+    hdr = b'#UT02' + rics.encode('ascii') + key_id.encode('ascii')
+    hdr += _DUMMY_SIG_64
+    return hdr
 
 
 def _uic_field(line, col, height, width, fmt, text):
@@ -327,13 +348,16 @@ def _build_eurail_flex(cfg):
     parts = cfg['name'].split(' ', 1)
     first, last = parts[0], (parts[1] if len(parts) == 2 else "")
 
+    now = datetime.now()
+    issuing_day = now.timetuple().tm_yday
+    issuing_year = now.year
+    issuing_time = now.hour * 60 + now.minute
+
     vs = cfg['validity_start']
     try:
         vs_dt = datetime.strptime(vs, "%d.%m.%Y")
     except ValueError:
         vs_dt = datetime(2026, 1, 1)
-    issuing_day = vs_dt.timetuple().tm_yday
-    issuing_year = vs_dt.year
 
     birth = cfg['birth']
     try:
@@ -359,7 +383,7 @@ def _build_eurail_flex(cfg):
             'issuerName': 'Eurail B.V.',
             'issuingYear': issuing_year,
             'issuingDay': issuing_day,
-            'issuingTime': datetime.now().hour * 60 + datetime.now().minute,
+            'issuingTime': issuing_time,
             'specimen': False,
             'securePaperTicket': False,
             'activated': True,
@@ -450,17 +474,18 @@ def _build_sparpreis_tlay(cfg):
 
 
 def _build_sparpreis_flex(cfg):
-    """Build U_FLEX block with UIC 918.9 FCB openTicket for DB Sparpreis."""
+    """Build U_FLEX block with UIC 918.9 FCB openTicket for DB Sparpreis.
+
+    Format matches real DB Online-Tickets: issuerName='DB AG', fromStationNum/
+    toStationNum with UIC codes, trainLink with departure time, tariffs block.
+    """
     parts = cfg['name'].split(' ', 1)
     first, last = parts[0], (parts[1] if len(parts) == 2 else "")
 
-    vs = cfg['validity_start']
-    try:
-        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
-    except ValueError:
-        vs_dt = datetime(2026, 1, 1)
-    issuing_day = vs_dt.timetuple().tm_yday
-    issuing_year = vs_dt.year
+    now = datetime.now()
+    issuing_day = now.timetuple().tm_yday
+    issuing_year = now.year
+    issuing_time = now.hour * 60 + now.minute
 
     birth = cfg['birth']
     try:
@@ -468,9 +493,21 @@ def _build_sparpreis_flex(cfg):
     except ValueError:
         birth_dt = datetime(2000, 1, 1)
 
+    vs = cfg['validity_start']
+    try:
+        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
+    except ValueError:
+        vs_dt = datetime(2026, 1, 1)
+
     class_code = 'first' if cfg['klasse'] == '1' else 'second'
     fare_name = cfg.get('fare_name', 'Super Sparpreis')
-    ref = cfg.get('sparpreis_ref', cfg['order_number'][:6].upper())
+    ref = cfg.get('sparpreis_ref', cfg['order_number'][:8].upper())
+    zugtyp = cfg.get('zugtyp', 'ICE')
+    von = cfg.get('station_from', 'Berlin Hbf')
+    nach = cfg.get('station_to', 'München Hbf')
+
+    from_code = DB_STATIONS.get(von, 8011160)
+    to_code = DB_STATIONS.get(nach, 8000261)
 
     price_raw = cfg['price'].replace('\u20ac', '').replace('.', '').replace(',', '.').strip()
     try:
@@ -478,14 +515,61 @@ def _build_sparpreis_flex(cfg):
     except ValueError:
         price_cents = 0
 
+    is_summer = vs_dt.month >= 4 and vs_dt.month <= 10
+    utc_offset = -8 if is_summer else -4
+
+    valid_from_day = (vs_dt - datetime(issuing_year, 1, 1)).days
+
+    dep_hour = cfg.get('departure_hour', 13)
+    dep_min = cfg.get('departure_minute', 30)
+    dep_time = int(dep_hour) * 60 + int(dep_min)
+
+    train_id = f"{zugtyp}{cfg.get('train_number', '919')}"
+    travel_day = valid_from_day
+
+    via_text = cfg.get('via_text', '')
+
+    open_ticket = {
+        'referenceIA5': ref,
+        'productIdIA5': f"{zugtyp} Fahrkarte",
+        'returnIncluded': False,
+        'stationCodeTable': 'stationUIC',
+        'fromStationNum': from_code,
+        'toStationNum': to_code,
+        'fromStationNameUTF8': von,
+        'toStationNameUTF8': nach,
+        'validFromDay': valid_from_day,
+        'validFromTime': 0,
+        'validFromUTCOffset': utc_offset,
+        'validUntilDay': valid_from_day + 1,
+        'validUntilTime': 600,
+        'classCode': class_code,
+        'tariffs': [{
+            'numberOfPassengers': 1,
+            'passengerType': 'adult',
+            'restrictedToCountryOfResidence': False,
+            'tariffDesc': fare_name,
+        }],
+    }
+
+    if via_text:
+        open_ticket['validRegionDesc'] = via_text
+
+    open_ticket['validRegion'] = [('trainLink', {
+        'trainIA5': train_id,
+        'travelDate': travel_day,
+        'departureTime': dep_time,
+        'departureUTCOffset': utc_offset,
+    })]
+
     fcb_data = {
         'issuingDetail': {
             'securityProviderNum': 1080,
             'issuerNum': 1080,
-            'issuerName': 'DB Fernverkehr AG',
             'issuingYear': issuing_year,
             'issuingDay': issuing_day,
-            'issuingTime': datetime.now().hour * 60 + datetime.now().minute,
+            'issuingTime': issuing_time,
+            'issuerName': 'DB AG',
             'specimen': False,
             'securePaperTicket': False,
             'activated': True,
@@ -497,23 +581,11 @@ def _build_sparpreis_flex(cfg):
             'traveler': [{
                 'firstName': first,
                 'lastName': last,
-                'yearOfBirth': birth_dt.year,
-                'dayOfBirth': birth_dt.timetuple().tm_yday,
                 'ticketHolder': True,
             }]
         },
         'transportDocument': [{
-            'ticket': ('openTicket', {
-                'referenceIA5': ref,
-                'productOwnerNum': 1080,
-                'productIdNum': 1001,
-                'productIdIA5': fare_name,
-                'returnIncluded': False,
-                'classCode': class_code,
-                'validFromDay': 0,
-                'validUntilDay': 1,
-                'price': price_cents,
-            })
+            'ticket': ('openTicket', open_ticket)
         }],
     }
 
@@ -557,17 +629,23 @@ def _build_dt_tlay(cfg):
 
 
 def _build_dt_flex(cfg):
-    """Build U_FLEX block for Deutschlandticket (UIC 918.9 openTicket)."""
+    """Build U_FLEX block for Deutschlandticket (UIC 918.9 openTicket).
+
+    Validity: month start 0:00 to next month start 3:00.
+    """
     parts = cfg['name'].split(' ', 1)
     first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+
+    now = datetime.now()
+    issuing_day = now.timetuple().tm_yday
+    issuing_year = now.year
+    issuing_time = now.hour * 60 + now.minute
 
     vs = cfg['validity_start']
     try:
         vs_dt = datetime.strptime(vs, "%d.%m.%Y")
     except ValueError:
         vs_dt = datetime(2026, 1, 1)
-    issuing_day = vs_dt.timetuple().tm_yday
-    issuing_year = vs_dt.year
 
     birth = cfg['birth']
     try:
@@ -586,6 +664,13 @@ def _build_dt_flex(cfg):
     is_summer = vs_dt.month >= 4 and vs_dt.month <= 10
     utc_offset = -8 if is_summer else -4
 
+    valid_from_day = (vs_dt - datetime(issuing_year, 1, 1)).days
+    if vs_dt.month == 12:
+        next_month_dt = datetime(vs_dt.year + 1, 1, 1)
+    else:
+        next_month_dt = datetime(vs_dt.year, vs_dt.month + 1, 1)
+    valid_until_day = (next_month_dt - datetime(issuing_year, 1, 1)).days
+
     fcb_data = {
         'issuingDetail': {
             'securityProviderNum': 1080,
@@ -593,7 +678,7 @@ def _build_dt_flex(cfg):
             'issuerName': 'DB AG',
             'issuingYear': issuing_year,
             'issuingDay': issuing_day,
-            'issuingTime': datetime.now().hour * 60 + datetime.now().minute,
+            'issuingTime': issuing_time,
             'specimen': False,
             'securePaperTicket': False,
             'activated': True,
@@ -616,10 +701,10 @@ def _build_dt_flex(cfg):
                 'productIdNum': 9999,
                 'productIdIA5': 'Fahrkarte',
                 'returnIncluded': False,
-                'validFromDay': -1,
-                'validFromTime': 1,
+                'validFromDay': valid_from_day,
+                'validFromTime': 0,
                 'validFromUTCOffset': utc_offset,
-                'validUntilDay': 31,
+                'validUntilDay': valid_until_day,
                 'validUntilTime': 180,
                 'classCode': 'second',
                 'price': price_cents,
@@ -633,10 +718,10 @@ def _build_dt_flex(cfg):
                 'includedAddOns': [{
                     'productOwnerIA5': 'VDV6263',
                     'productIdNum': 9999,
-                    'validFromDay': -1,
-                    'validFromTime': 1,
+                    'validFromDay': valid_from_day,
+                    'validFromTime': 0,
                     'validFromUTCOffset': utc_offset,
-                    'validUntilDay': 31,
+                    'validUntilDay': valid_until_day,
                     'validUntilTime': 180,
                     'validRegion': [('zones', {
                         'carrierIA5': 'VDV5000',
@@ -663,19 +748,15 @@ def generate_aztec_barcode(cfg, output_path):
     if product == 'eurail_global':
         ref = cfg.get('eurail_ref',
                       f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
-        head = (b"U_HEAD010053" + b"9994" +
+        head = (b"U_HEAD010053" + b"9901" +
                 ref[:20].ljust(20).encode('ascii') +
-                creation.encode('ascii') + b"1EN  ")
+                creation.encode('ascii') + b"5EN  ")
         tlay = _build_eurail_tlay(cfg)
         flex = _build_eurail_flex(cfg)
         payload = head + tlay + flex
     elif product == 'db_sparpreis':
-        head = (b"U_HEAD010053" + b"1080" +
-                cfg['order_number'][:20].ljust(20).encode('ascii') +
-                creation.encode('ascii') + b"0DE  ")
-        tlay = _build_sparpreis_tlay(cfg)
         flex = _build_sparpreis_flex(cfg)
-        payload = head + tlay + flex
+        payload = flex
     elif product == 'deutschlandticket':
         head = (b"U_HEAD010053" + b"1080" +
                 cfg['order_number'][:20].ljust(20).encode('ascii') +
@@ -687,13 +768,21 @@ def generate_aztec_barcode(cfg, output_path):
         payload = _build_uic918_payload(cfg)
 
     compressed = zlib.compress(payload)
-    barcode_data = (_FIXED_HEADER +
+
+    if product == 'eurail_global':
+        outer_hdr = _build_918_header(rics='9901', key_id='TTEU1')
+    elif product in ('db_sparpreis', 'deutschlandticket'):
+        outer_hdr = _build_918_header(rics='1080', key_id='00008')
+    else:
+        outer_hdr = _build_918_header(rics='9994', key_id='00001')
+
+    barcode_data = (outer_hdr +
                     f"{len(compressed):04d}".encode('ascii') +
                     compressed)
 
-    code = aztec.AztecCode(barcode_data, ec_percent=50)
-    img = code.image(module_size=4, border=1)
-    img.save(output_path, "JPEG", quality=95)
+    code = aztec.AztecCode(barcode_data, ec_percent=23)
+    img = code.image(module_size=6, border=1)
+    img.save(output_path, "PNG")
 
 
 # ─── PDF BUILDING ────────────────────────────────────────────────────────────
@@ -712,7 +801,189 @@ def txt(page, pos, text, font="F0", size=10, color=(0, 0, 0), rotate=0):
                      fontname=font, fontsize=size, color=color, rotate=rotate)
 
 
+def _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
+    """Build page 1 for DB Sparpreis matching real DB Online-Ticket layout."""
+    page = doc.new_page(width=W, height=H)
+    register_fonts(page)
+
+    page.insert_image(fitz.Rect(36.85, 45.36, 82.20, 76.54),
+                      filename=asset("img_xref14.jpeg"))
+    txt(page, (38.27, 115.23), "CIV 1080", font="F0", size=9)
+    txt(page, (350.0, 72.60), "Online-Ticket", font="F5", size=16)
+
+    page.insert_image(fitz.Rect(430.0, 80.0, 560.0, 210.0),
+                      filename=barcode_img)
+    txt(page, (430.0, 220.0), "Barcode bitte nicht knicken!",
+        font="F2", size=7)
+
+    von = cfg.get('station_from', 'Berlin Hbf')
+    nach = cfg.get('station_to', 'M\u00fcnchen Hbf')
+    zugtyp = cfg.get('zugtyp', 'ICE')
+    fare = cfg.get('fare_name', 'Super Sparpreis')
+    vs, ve = cfg['validity_start'], cfg['validity_end']
+    price = cfg['price']
+
+    txt(page, (38.27, 130.0), f"{zugtyp} Fahrkarte", font="F1", size=10)
+
+    page.draw_rect(fitz.Rect(36.85, 135.0, 420.0, 150.0),
+                   color=(0.9, 0.9, 0.0), fill=(1.0, 1.0, 0.85), width=0.5)
+    txt(page, (39.0, 148.0), "G\u00fcltigkeit: ", font="F0", size=9)
+    txt(page, (86.0, 148.0),
+        f"{vs} 00:00 Uhr bis {ve} 10:00 Uhr",
+        font="F1", size=9)
+
+    txt(page, (38.27, 162.0),
+        "Sie k\u00f6nnen alle Z\u00fcge nutzen, die auf Ihrer Fahrkarte angegeben sind. F\u00fcr Z\u00fcge des Nahverkehrs",
+        font="F0", size=7)
+    txt(page, (38.27, 170.0),
+        "(z.B. RE, RB, S) besteht keine Zugbindung.",
+        font="F0", size=7)
+
+    txt(page, (38.27, 186.0), f"{fare} (Einfache Fahrt)", font="F1", size=9)
+    txt(page, (38.27, 200.0), "Klasse", font="F0", size=8)
+    txt(page, (115.0, 200.0), f"{cfg['klasse']}. Klasse", font="F1", size=8)
+    txt(page, (38.27, 212.0), "Reisender", font="F0", size=8)
+
+    birth = cfg['birth']
+    try:
+        birth_dt = datetime.strptime(birth, "%d.%m.%Y")
+        ref_dt = datetime.strptime(vs, "%d.%m.%Y")
+        age = ref_dt.year - birth_dt.year - ((ref_dt.month, ref_dt.day) < (birth_dt.month, birth_dt.day))
+        age_range = f"{age // 10 * 10 + 7}-{age // 10 * 10 + 14}"
+    except ValueError:
+        age_range = "27-64"
+    txt(page, (115.0, 212.0), f"1 Person ({age_range} Jahre)", font="F1", size=8)
+
+    txt(page, (38.27, 226.0), "Einfache Fahrt", font="F0", size=8)
+    txt(page, (115.0, 226.0), f"{von}", font="F1", size=8)
+    txt(page, (115.0, 237.0), f"  {nach}", font="F1", size=8)
+
+    via_text = cfg.get('via_text', '')
+    if via_text:
+        txt(page, (38.27, 252.0), "Via:", font="F0", size=7)
+        txt(page, (55.0, 252.0), via_text, font="F0", size=7)
+
+    dep_hour = cfg.get('departure_hour', 13)
+    dep_min = cfg.get('departure_minute', 30)
+    train_num = cfg.get('train_number', '919')
+    txt(page, (38.27, 266.0), "Zugbindung", font="F0", size=8)
+    txt(page, (115.0, 266.0),
+        f"{zugtyp} {train_num}, {int(dep_hour):02d}:{int(dep_min):02d} Uhr am {vs}",
+        font="F1", size=8)
+
+    if fare == 'Super Sparpreis':
+        txt(page, (38.27, 280.0),
+            "Eine Stornierung Ihrer Fahrkarte ist ausgeschlossen.",
+            font="F2", size=8)
+    elif fare == 'Sparpreis':
+        txt(page, (38.27, 280.0),
+            "Stornierung bis 1 Tag vor Geltungstag gegen 10,00\u20ac Geb\u00fchr m\u00f6glich.",
+            font="F2", size=8)
+
+    txt(page, (38.27, 298.0),
+        f"Gesamtpreis {price}. Gebucht am {cfg['booking_date']} um {datetime.now().strftime('%H:%M')} Uhr.",
+        font="F0", size=8)
+    txt(page, (38.27, 308.0),
+        "Dieses Dokument ist nicht vorsteuerabzugsf\u00e4hig.",
+        font="F0", size=7)
+
+    page.insert_image(fitz.Rect(392.31, 248.0, 534.04, 290.0),
+                      filename=ticket_num_img)
+
+    page.draw_line(fitz.Point(476.22, 300.0), fitz.Point(563.22, 300.0),
+                   color=(0, 0, 0), width=1.11)
+    txt(page, (507.40, 311.0), "Zangenabdruck", font="F0", size=8)
+
+    txt(page, (362.84, 330.0), cfg['name'], font="F1", size=10)
+    txt(page, (362.84, 345.0), "Auftragsnummer:", font="F0", size=9)
+    txt(page, (460.0, 345.0), cfg['order_number'], font="F0", size=9)
+
+    y_table = 370.0
+    txt(page, (38.27, y_table - 5),
+        f"Ihre Reiseverbindung und Reservierung - Einfache Fahrt am {vs}",
+        font="F1", size=9)
+
+    page.draw_line(fitz.Point(36.85, y_table), fitz.Point(558.0, y_table),
+                   color=(0, 0, 0), width=0.5)
+
+    headers = [("Halt", 38.27), ("Datum", 230.0), ("Zeit", 275.0),
+               ("Gleis", 320.0), ("Produkte", 355.0),
+               ("Reservierung / Hinweise", 420.0)]
+    for label, x in headers:
+        txt(page, (x, y_table + 10), label, font="F1", size=7)
+
+    page.draw_line(fitz.Point(36.85, y_table + 14), fitz.Point(558.0, y_table + 14),
+                   color=(0, 0, 0), width=0.3)
+
+    row_y = y_table + 24
+    dep_gleis = cfg.get('departure_track', '11')
+    arr_gleis = cfg.get('arrival_track', '15')
+    arr_hour = int(dep_hour) + 2
+    arr_min = int(dep_min) + 3
+    if arr_min >= 60:
+        arr_min -= 60
+        arr_hour += 1
+
+    txt(page, (38.27, row_y), von, font="F0", size=7)
+    txt(page, (230.0, row_y), vs[:5], font="F0", size=7)
+    txt(page, (275.0, row_y), f"ab {int(dep_hour):02d}:{int(dep_min):02d}", font="F0", size=7)
+    txt(page, (320.0, row_y), dep_gleis, font="F0", size=7)
+    txt(page, (355.0, row_y), f"{zugtyp} {train_num}", font="F0", size=7)
+
+    row_y += 12
+    txt(page, (38.27, row_y), nach, font="F0", size=7)
+    txt(page, (230.0, row_y), vs[:5], font="F0", size=7)
+    txt(page, (275.0, row_y), f"an {arr_hour:02d}:{arr_min:02d}", font="F0", size=7)
+    txt(page, (320.0, row_y), arr_gleis, font="F0", size=7)
+
+    y_cond = row_y + 20
+    txt(page, (38.27, y_cond), "Wichtige Nutzungshinweise:", font="F1", size=8)
+    y_cond += 12
+    conditions = [
+        "- Ihre Fahrkarte ist nur g\u00fcltig mit einem amtlichen Lichtbildausweis. Dieser ist bei der Kontrolle vorzuzeigen.",
+        "- Bei Fahrkarten mit BahnCard-Rabatt zeigen Sie bitte zus\u00e4tzlich Ihre g\u00fcltige BahnCard vor.",
+        "- Es gelten die nationalen und internationalen Bef\u00f6rderungsbedingungen der DB AG. Innerhalb von",
+        "  Verkehrsverb\u00fcnden und Tarifgemeinschaften gelten deren Bestimmungen. Alle Bedingungen finden Sie unter",
+        "  www.bahn.de/agb und www.diebefoerderer.de.",
+        "- Eine Fahrkarte entspricht grunds\u00e4tzlich einem Bef\u00f6rderungsvertrag, mehrere Fahrkarten mehreren",
+        "  Bef\u00f6rderungsvertr\u00e4gen. Vertraglicher Bef\u00f6rderer k\u00f6nnen dabei ein oder mehrere Verkehrsunternehmen sein. F\u00fcr",
+        "  die Eisenbahnfahrt handelt es sich bei dieser Fahrkarte um eine Durchgangsfahrkarte gem\u00e4\u00df der Fahrgastrechte-",
+        "  Verordnung (EU) 2021/782 f\u00fcr den Eisenbahnverkehr.",
+        "- Bei einer zu erwartenden Versp\u00e4tung ab 20 Minuten am Zielbahnhof Ihrer Fahrkarte ist die Zugbindung Ihrer Fahrt",
+        "  ohne besondere Bescheinigung aufgehoben.",
+        "- Kleinkindabteile, Rollstuhlpl\u00e4tze und Vorrangpl\u00e4tze f\u00fcr Personen mit eingeschr\u00e4nkter Mobilit\u00e4t sowie Pl\u00e4tze f\u00fcr",
+        "  Reisende mit BahnBonus Gold- oder Platinstatus sind bei Bedarf f\u00fcr diese Personengruppen freizugeben.",
+    ]
+    for line in conditions:
+        txt(page, (38.27, y_cond), line, font="F0", size=7)
+        y_cond += 9
+
+    y_cond += 4
+    txt(page, (38.27, y_cond),
+        "Bitte informieren Sie sich kurz vor Reisebeginn auf unserer Website oder in der App, ob kurzfristige Fahrplan\u00e4nderungen vorliegen. Wir",
+        font="F2", size=6.5)
+    y_cond += 8
+    txt(page, (38.27, y_cond),
+        "danken Ihnen f\u00fcr Ihre Buchung und w\u00fcnschen eine angenehme Reise.",
+        font="F2", size=6.5)
+
+    page.insert_image(fitz.Rect(38.27, 667.00, 561.83, 785.20), filename=wm_bottom)
+    page.draw_rect(fitz.Rect(37.39, 665.66, 563.24, 785.79),
+                   color=(0, 0, 0), width=0.48)
+    txt(page, (184.25, 724.07), cfg['name'], font="F1", size=10)
+
+    ticket_code = cfg.get('sparpreis_ref', cfg['order_number'][:8].upper())
+    txt(page, (38.27, 808.71), f"Ticketcode: {ticket_code}", font="F0", size=8)
+    txt(page, (494.27, 808.71), "Seite 1 / 1", font="F2", size=8)
+
+
 def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
+    product = cfg.get('product', 'grp_consecutive')
+
+    if product == 'db_sparpreis':
+        _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img)
+        return
+
     page = doc.new_page(width=W, height=H)
     register_fonts(page)
 
@@ -744,7 +1015,6 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
     txt(page, (39.69, 132.68), "G\u00fcltigkeit: ", font="F0", size=10)
     txt(page, (86.93, 132.76), f"{cfg['validity_start']} - {cfg['validity_end']}",
         font="F1", size=10)
-    product = cfg.get('product', 'grp_consecutive')
     if product == 'eurail_global':
         pass_title = f"EURAIL GLOBAL PASS {cfg['days']} days"
         if int(cfg['days']) <= 15:
@@ -753,23 +1023,13 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
             pass_title += " CONTINUOUS"
     elif product == 'grp_flexi':
         pass_title = f"GERMAN RAIL PASS {cfg['days']} days FLEXI"
-    elif product == 'db_sparpreis':
-        fare = cfg.get('fare_name', 'Super Sparpreis')
-        pass_title = fare
     elif product == 'deutschlandticket':
         pass_title = "Deutschlandticket"
     else:
         pass_title = f"GERMAN RAIL PASS {cfg['days']} days CONSECUTIVE"
     txt(page, (39.69, 225.17), pass_title, font="F1", size=10)
 
-    if product == 'db_sparpreis':
-        von = cfg.get('station_from', 'Berlin Hbf')
-        nach = cfg.get('station_to', 'M\u00fcnchen Hbf')
-        zugtyp = cfg.get('zugtyp', 'ICE')
-        txt(page, (39.69, 239.83), f"Hin: {von} -> {nach}", font="F0", size=9)
-        txt(page, (39.69, 252.57), f"via: {zugtyp}", font="F0", size=9)
-        txt(page, (39.69, 265.31), f"Klasse: {cfg['klasse']}   1 Person(en)", font="F0", size=9)
-    elif product == 'deutschlandticket':
+    if product == 'deutschlandticket':
         txt(page, (39.69, 239.83), "G\u00fcltig in allen Nahverkehrsz\u00fcgen in ganz Deutschland", font="F0", size=9)
         txt(page, (39.69, 252.57), f"Klasse: 2   1 Person(en)", font="F0", size=9)
     else:
@@ -821,7 +1081,6 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
     txt(page, (519.77, 560.15), cfg['ticket_id'], font="F0", size=10)
 
     txt(page, (36.85, 585.66), "Conditions of use:", font="F1", size=8)
-    product = cfg.get('product', 'grp_consecutive')
     if product == 'eurail_global':
         pass_type_text = "FLEXI" if int(cfg['days']) <= 15 else "CONTINUOUS"
         conditions = [
@@ -832,15 +1091,6 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
             "- Travel with this pass is carried out according to the existing public regulations and the general and specific",
             "transportation regulations of the participating railway companies.",
             "- For detailed conditions of use and participating countries please refer to www.eurail.com",
-        ]
-    elif product == 'db_sparpreis':
-        conditions = [
-            f"- G\u00fcltig am {cfg['validity_start']}, {cfg['klasse_ordinal']} class.",
-            f"- Hin: {cfg.get('station_from', 'Berlin Hbf')} -> {cfg.get('station_to', 'M\u00fcnchen Hbf')}",
-            "- Gilt nur in Verbindung mit einer BahnCard oder einem amtlichen Lichtbildausweis.",
-            "- Super Sparpreis-Tickets sind vom Umtausch und von der Stornierung ausgeschlossen.",
-            "- Zugbindung: Gilt nur f\u00fcr den gebuchten Zug. Z\u00fcge des Nahverkehrs k\u00f6nnen f\u00fcr An-/Weiterreise genutzt werden.",
-            "- Kinder bis 14 Jahre reisen in Begleitung einer Person ab 15 Jahre kostenfrei.",
         ]
     elif product == 'deutschlandticket':
         conditions = [
@@ -1277,7 +1527,10 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
                order_number, klasse, days, passenger_type, price,
                payment_method, payment_date, booking_date, product,
                residence="Germany", station_from="", station_to="",
-               zugtyp="ICE", fare_name=""):
+               zugtyp="ICE", fare_name="",
+               departure_hour="13", departure_minute="30",
+               train_number="919", via_text="",
+               departure_track="", arrival_track=""):
     if not ticket_id:
         ticket_id = str(random.randint(1000000, 9999999))
     if not order_number:
@@ -1328,6 +1581,12 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
         cfg['station_to'] = station_to or 'M\u00fcnchen Hbf'
         cfg['zugtyp'] = zugtyp or 'ICE'
         cfg['fare_name'] = fare_name
+        cfg['departure_hour'] = int(departure_hour) if departure_hour else 13
+        cfg['departure_minute'] = int(departure_minute) if departure_minute else 30
+        cfg['train_number'] = train_number or '919'
+        cfg['via_text'] = via_text or ''
+        cfg['departure_track'] = departure_track or ''
+        cfg['arrival_track'] = arrival_track or ''
 
     return cfg
 
@@ -1353,11 +1612,19 @@ async def generate(
     station_to: str = Form(""),
     zugtyp: str = Form("ICE"),
     fare_name: str = Form(""),
+    departure_hour: str = Form("13"),
+    departure_minute: str = Form("30"),
+    train_number: str = Form("919"),
+    via_text: str = Form(""),
+    departure_track: str = Form(""),
+    arrival_track: str = Form(""),
 ):
     cfg = _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
                      order_number, klasse, days, passenger_type, price,
                      payment_method, payment_date, booking_date, product,
-                     residence, station_from, station_to, zugtyp, fare_name)
+                     residence, station_from, station_to, zugtyp, fare_name,
+                     departure_hour, departure_minute, train_number,
+                     via_text, departure_track, arrival_track)
 
     pdf_bytes = generate_pdf(cfg)
 
@@ -1524,6 +1791,7 @@ button:disabled { background: #ccc; cursor: wait; }
             <option value="Hamburg Hbf">Hamburg Hbf</option>
             <option value="M&uuml;nchen Hbf">M&uuml;nchen Hbf</option>
             <option value="K&ouml;ln Hbf">K&ouml;ln Hbf</option>
+            <option value="K&ouml;ln Messe/Deutz">K&ouml;ln Messe/Deutz</option>
             <option value="Frankfurt(Main)Hbf">Frankfurt(Main)Hbf</option>
             <option value="Stuttgart Hbf">Stuttgart Hbf</option>
             <option value="D&uuml;sseldorf Hbf">D&uuml;sseldorf Hbf</option>
@@ -1549,6 +1817,7 @@ button:disabled { background: #ccc; cursor: wait; }
             <option value="Hamburg Hbf">Hamburg Hbf</option>
             <option value="M&uuml;nchen Hbf" selected>M&uuml;nchen Hbf</option>
             <option value="K&ouml;ln Hbf">K&ouml;ln Hbf</option>
+            <option value="K&ouml;ln Messe/Deutz">K&ouml;ln Messe/Deutz</option>
             <option value="Frankfurt(Main)Hbf">Frankfurt(Main)Hbf</option>
             <option value="Stuttgart Hbf">Stuttgart Hbf</option>
             <option value="D&uuml;sseldorf Hbf">D&uuml;sseldorf Hbf</option>
@@ -1585,6 +1854,33 @@ button:disabled { background: #ccc; cursor: wait; }
             <option value="Flexpreis">Flexpreis</option>
           </select>
         </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Zugnummer</label>
+          <input type="text" name="train_number" value="919" placeholder="z.B. 919">
+        </div>
+        <div class="form-group">
+          <label>Abfahrt (Std:Min)</label>
+          <div class="row">
+            <input type="number" name="departure_hour" value="13" min="0" max="23" style="width:45%">
+            <input type="number" name="departure_minute" value="30" min="0" max="59" style="width:45%">
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="form-group">
+          <label>Gleis Abfahrt</label>
+          <input type="text" name="departure_track" value="" placeholder="z.B. 11">
+        </div>
+        <div class="form-group">
+          <label>Gleis Ankunft</label>
+          <input type="text" name="arrival_track" value="" placeholder="z.B. 15">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Via (Route)</label>
+        <input type="text" name="via_text" value="" placeholder="z.B. Mannheim Hbf, Stuttgart Hbf">
       </div>
     </div>
 
