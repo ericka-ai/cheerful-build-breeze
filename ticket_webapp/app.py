@@ -112,17 +112,17 @@ _EURAIL_HEADER = bytes.fromhex(
 )
 
 DB_STATIONS = {
-    'Berlin Hbf': 8011160, 'Hamburg Hbf': 8002549,
-    'M\u00fcnchen Hbf': 8000261, 'K\u00f6ln Hbf': 8000207,
-    'K\u00f6ln Messe/Deutz': 8003368, 'Frankfurt(Main)Hbf': 8000105,
-    'Stuttgart Hbf': 8000096, 'D\u00fcsseldorf Hbf': 8000085,
-    'Hannover Hbf': 8000152, 'Leipzig Hbf': 8010205,
-    'Dresden Hbf': 8010085, 'N\u00fcrnberg Hbf': 8000284,
-    'Bremen Hbf': 8000050, 'Dortmund Hbf': 8000080,
-    'Essen Hbf': 8000098, 'Mannheim Hbf': 8000244,
-    'Karlsruhe Hbf': 8000191, 'Augsburg Hbf': 8000013,
-    'Freiburg(Brsg)Hbf': 8000107, 'Erfurt Hbf': 8010101,
-    'Rostock Hbf': 8010304,
+    'Berlin Hbf': 8065969, 'Hamburg Hbf': 8001071,
+    'M\u00fcnchen Hbf': 8020347, 'K\u00f6ln Hbf': 8015458,
+    'K\u00f6ln Messe/Deutz': 8015561, 'Frankfurt(Main)Hbf': 8011068,
+    'Stuttgart Hbf': 8029034, 'D\u00fcsseldorf Hbf': 8008094,
+    'Hannover Hbf': 8013552, 'Leipzig Hbf': 8023179,
+    'Dresden Hbf': 8006050, 'N\u00fcrnberg Hbf': 8022193,
+    'Bremen Hbf': 8013751, 'Dortmund Hbf': 8010053,
+    'Essen Hbf': 8010184, 'Mannheim Hbf': 8014008,
+    'Karlsruhe Hbf': 8014228, 'Augsburg Hbf': 8002140,
+    'Freiburg(Brsg)Hbf': 8014350, 'Erfurt Hbf': 8016043,
+    'Rostock Hbf': 8027089,
 }
 
 # ─── FONTS ───────────────────────────────────────────────────────────────────
@@ -518,7 +518,9 @@ def _build_sparpreis_flex(cfg):
     is_summer = vs_dt.month >= 4 and vs_dt.month <= 10
     utc_offset = -8 if is_summer else -4
 
-    valid_from_day = (vs_dt - datetime(issuing_year, 1, 1)).days
+    vs_day_of_year = (vs_dt - datetime(issuing_year, 1, 1)).days
+    valid_from_day = vs_day_of_year - issuing_day
+    valid_until_day = 1
 
     dep_hour = cfg.get('departure_hour', 13)
     dep_min = cfg.get('departure_minute', 30)
@@ -529,6 +531,8 @@ def _build_sparpreis_flex(cfg):
 
     via_text = cfg.get('via_text', '')
 
+    ticketcode = cfg.get('sparpreis_ref', cfg['order_number'][:8].upper())
+
     open_ticket = {
         'referenceIA5': ref,
         'productIdIA5': f"{zugtyp} Fahrkarte",
@@ -538,10 +542,17 @@ def _build_sparpreis_flex(cfg):
         'toStationNum': to_code,
         'fromStationNameUTF8': von,
         'toStationNameUTF8': nach,
+        'validRegionDesc': via_text if via_text else f"Via: <1080>{von}*{nach}",
+        'validRegion': [('trainLink', {
+            'trainIA5': train_id,
+            'travelDate': travel_day,
+            'departureTime': dep_time,
+            'departureUTCOffset': utc_offset,
+        })],
         'validFromDay': valid_from_day,
         'validFromTime': 0,
         'validFromUTCOffset': utc_offset,
-        'validUntilDay': valid_from_day + 1,
+        'validUntilDay': valid_until_day,
         'validUntilTime': 600,
         'classCode': class_code,
         'tariffs': [{
@@ -551,16 +562,6 @@ def _build_sparpreis_flex(cfg):
             'tariffDesc': fare_name,
         }],
     }
-
-    if via_text:
-        open_ticket['validRegionDesc'] = via_text
-
-    open_ticket['validRegion'] = [('trainLink', {
-        'trainIA5': train_id,
-        'travelDate': travel_day,
-        'departureTime': dep_time,
-        'departureUTCOffset': utc_offset,
-    })]
 
     fcb_data = {
         'issuingDetail': {
@@ -575,7 +576,7 @@ def _build_sparpreis_flex(cfg):
             'activated': True,
             'currency': 'EUR',
             'currencyFract': 2,
-            'issuerPNR': ref,
+            'issuerPNR': ticketcode,
         },
         'travelerDetail': {
             'traveler': [{
@@ -590,9 +591,9 @@ def _build_sparpreis_flex(cfg):
     }
 
     fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
-    flex_inner_len = 12 + len(fcb_bytes)
+    flex_len = len(fcb_bytes)
     return (b"U_FLEX13" +
-            f"{flex_inner_len:04d}".encode('ascii') +
+            f"{flex_len:04d}".encode('ascii') +
             fcb_bytes)
 
 
@@ -664,12 +665,14 @@ def _build_dt_flex(cfg):
     is_summer = vs_dt.month >= 4 and vs_dt.month <= 10
     utc_offset = -8 if is_summer else -4
 
-    valid_from_day = (vs_dt - datetime(issuing_year, 1, 1)).days
+    vs_abs_day = (vs_dt - datetime(issuing_year, 1, 1)).days
+    valid_from_day = vs_abs_day - issuing_day
     if vs_dt.month == 12:
         next_month_dt = datetime(vs_dt.year + 1, 1, 1)
     else:
         next_month_dt = datetime(vs_dt.year, vs_dt.month + 1, 1)
-    valid_until_day = (next_month_dt - datetime(issuing_year, 1, 1)).days
+    next_month_abs = (next_month_dt - datetime(issuing_year, 1, 1)).days
+    valid_until_day = next_month_abs - vs_abs_day
 
     fcb_data = {
         'issuingDetail': {
@@ -802,19 +805,9 @@ def txt(page, pos, text, font="F0", size=10, color=(0, 0, 0), rotate=0):
 
 
 def _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
-    """Build page 1 for DB Sparpreis matching real DB Online-Ticket layout."""
+    """Build page 1 for DB Sparpreis matching real DB Online-Ticket layout 1:1."""
     page = doc.new_page(width=W, height=H)
     register_fonts(page)
-
-    page.insert_image(fitz.Rect(36.85, 45.36, 82.20, 76.54),
-                      filename=asset("img_xref14.jpeg"))
-    txt(page, (38.27, 115.23), "CIV 1080", font="F0", size=9)
-    txt(page, (350.0, 72.60), "Online-Ticket", font="F5", size=16)
-
-    page.insert_image(fitz.Rect(430.0, 80.0, 560.0, 210.0),
-                      filename=barcode_img)
-    txt(page, (430.0, 220.0), "Barcode bitte nicht knicken!",
-        font="F2", size=7)
 
     von = cfg.get('station_from', 'Berlin Hbf')
     nach = cfg.get('station_to', 'M\u00fcnchen Hbf')
@@ -822,100 +815,9 @@ def _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode
     fare = cfg.get('fare_name', 'Super Sparpreis')
     vs, ve = cfg['validity_start'], cfg['validity_end']
     price = cfg['price']
-
-    txt(page, (38.27, 130.0), f"{zugtyp} Fahrkarte", font="F1", size=10)
-
-    page.draw_rect(fitz.Rect(36.85, 135.0, 420.0, 150.0),
-                   color=(0.9, 0.9, 0.0), fill=(1.0, 1.0, 0.85), width=0.5)
-    txt(page, (39.0, 148.0), "G\u00fcltigkeit: ", font="F0", size=9)
-    txt(page, (86.0, 148.0),
-        f"{vs} 00:00 Uhr bis {ve} 10:00 Uhr",
-        font="F1", size=9)
-
-    txt(page, (38.27, 162.0),
-        "Sie k\u00f6nnen alle Z\u00fcge nutzen, die auf Ihrer Fahrkarte angegeben sind. F\u00fcr Z\u00fcge des Nahverkehrs",
-        font="F0", size=7)
-    txt(page, (38.27, 170.0),
-        "(z.B. RE, RB, S) besteht keine Zugbindung.",
-        font="F0", size=7)
-
-    txt(page, (38.27, 186.0), f"{fare} (Einfache Fahrt)", font="F1", size=9)
-    txt(page, (38.27, 200.0), "Klasse", font="F0", size=8)
-    txt(page, (115.0, 200.0), f"{cfg['klasse']}. Klasse", font="F1", size=8)
-    txt(page, (38.27, 212.0), "Reisender", font="F0", size=8)
-
-    birth = cfg['birth']
-    try:
-        birth_dt = datetime.strptime(birth, "%d.%m.%Y")
-        ref_dt = datetime.strptime(vs, "%d.%m.%Y")
-        age = ref_dt.year - birth_dt.year - ((ref_dt.month, ref_dt.day) < (birth_dt.month, birth_dt.day))
-        age_range = f"{age // 10 * 10 + 7}-{age // 10 * 10 + 14}"
-    except ValueError:
-        age_range = "27-64"
-    txt(page, (115.0, 212.0), f"1 Person ({age_range} Jahre)", font="F1", size=8)
-
-    txt(page, (38.27, 226.0), "Einfache Fahrt", font="F0", size=8)
-    txt(page, (115.0, 226.0), f"{von}", font="F1", size=8)
-    txt(page, (115.0, 237.0), f"  {nach}", font="F1", size=8)
-
-    via_text = cfg.get('via_text', '')
-    if via_text:
-        txt(page, (38.27, 252.0), "Via:", font="F0", size=7)
-        txt(page, (55.0, 252.0), via_text, font="F0", size=7)
-
     dep_hour = cfg.get('departure_hour', 13)
     dep_min = cfg.get('departure_minute', 30)
     train_num = cfg.get('train_number', '919')
-    txt(page, (38.27, 266.0), "Zugbindung", font="F0", size=8)
-    txt(page, (115.0, 266.0),
-        f"{zugtyp} {train_num}, {int(dep_hour):02d}:{int(dep_min):02d} Uhr am {vs}",
-        font="F1", size=8)
-
-    if fare == 'Super Sparpreis':
-        txt(page, (38.27, 280.0),
-            "Eine Stornierung Ihrer Fahrkarte ist ausgeschlossen.",
-            font="F2", size=8)
-    elif fare == 'Sparpreis':
-        txt(page, (38.27, 280.0),
-            "Stornierung bis 1 Tag vor Geltungstag gegen 10,00\u20ac Geb\u00fchr m\u00f6glich.",
-            font="F2", size=8)
-
-    txt(page, (38.27, 298.0),
-        f"Gesamtpreis {price}. Gebucht am {cfg['booking_date']} um {datetime.now().strftime('%H:%M')} Uhr.",
-        font="F0", size=8)
-    txt(page, (38.27, 308.0),
-        "Dieses Dokument ist nicht vorsteuerabzugsf\u00e4hig.",
-        font="F0", size=7)
-
-    page.insert_image(fitz.Rect(392.31, 248.0, 534.04, 290.0),
-                      filename=ticket_num_img)
-
-    page.draw_line(fitz.Point(476.22, 300.0), fitz.Point(563.22, 300.0),
-                   color=(0, 0, 0), width=1.11)
-    txt(page, (507.40, 311.0), "Zangenabdruck", font="F0", size=8)
-
-    txt(page, (362.84, 330.0), cfg['name'], font="F1", size=10)
-    txt(page, (362.84, 345.0), "Auftragsnummer:", font="F0", size=9)
-    txt(page, (460.0, 345.0), cfg['order_number'], font="F0", size=9)
-
-    y_table = 370.0
-    txt(page, (38.27, y_table - 5),
-        f"Ihre Reiseverbindung und Reservierung - Einfache Fahrt am {vs}",
-        font="F1", size=9)
-
-    page.draw_line(fitz.Point(36.85, y_table), fitz.Point(558.0, y_table),
-                   color=(0, 0, 0), width=0.5)
-
-    headers = [("Halt", 38.27), ("Datum", 230.0), ("Zeit", 275.0),
-               ("Gleis", 320.0), ("Produkte", 355.0),
-               ("Reservierung / Hinweise", 420.0)]
-    for label, x in headers:
-        txt(page, (x, y_table + 10), label, font="F1", size=7)
-
-    page.draw_line(fitz.Point(36.85, y_table + 14), fitz.Point(558.0, y_table + 14),
-                   color=(0, 0, 0), width=0.3)
-
-    row_y = y_table + 24
     dep_gleis = cfg.get('departure_track', '11')
     arr_gleis = cfg.get('arrival_track', '15')
     arr_hour = int(dep_hour) + 2
@@ -924,57 +826,199 @@ def _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode
         arr_min -= 60
         arr_hour += 1
 
-    txt(page, (38.27, row_y), von, font="F0", size=7)
-    txt(page, (230.0, row_y), vs[:5], font="F0", size=7)
-    txt(page, (275.0, row_y), f"ab {int(dep_hour):02d}:{int(dep_min):02d}", font="F0", size=7)
-    txt(page, (320.0, row_y), dep_gleis, font="F0", size=7)
-    txt(page, (355.0, row_y), f"{zugtyp} {train_num}", font="F0", size=7)
+    page.insert_image(fitz.Rect(36.85, 45.36, 82.20, 76.54),
+                      filename=asset("img_xref14.jpeg"))
+    txt(page, (43.9, 68.7), "CIV 1080", font="F1", size=6.9)
+    txt(page, (244.9, 61.2), "Online-Ticket", font="F1", size=17.3)
 
-    row_y += 12
-    txt(page, (38.27, row_y), nach, font="F0", size=7)
-    txt(page, (230.0, row_y), vs[:5], font="F0", size=7)
-    txt(page, (275.0, row_y), f"an {arr_hour:02d}:{arr_min:02d}", font="F0", size=7)
-    txt(page, (320.0, row_y), arr_gleis, font="F0", size=7)
+    page.draw_rect(fitz.Rect(381.0, 35.4, 551.6, 206.0),
+                   color=(0, 0, 0), width=0.283)
+    page.insert_image(fitz.Rect(395.4, 49.8, 537.2, 191.6),
+                      filename=barcode_img)
+    txt(page, (366.5, 164.2), "Barcode bitte nicht knicken!",
+        font="F2", size=8.3, rotate=90)
 
-    y_cond = row_y + 20
-    txt(page, (38.27, y_cond), "Wichtige Nutzungshinweise:", font="F1", size=8)
-    y_cond += 12
-    conditions = [
-        "- Ihre Fahrkarte ist nur g\u00fcltig mit einem amtlichen Lichtbildausweis. Dieser ist bei der Kontrolle vorzuzeigen.",
-        "- Bei Fahrkarten mit BahnCard-Rabatt zeigen Sie bitte zus\u00e4tzlich Ihre g\u00fcltige BahnCard vor.",
-        "- Es gelten die nationalen und internationalen Bef\u00f6rderungsbedingungen der DB AG. Innerhalb von",
-        "  Verkehrsverb\u00fcnden und Tarifgemeinschaften gelten deren Bestimmungen. Alle Bedingungen finden Sie unter",
-        "  www.bahn.de/agb und www.diebefoerderer.de.",
-        "- Eine Fahrkarte entspricht grunds\u00e4tzlich einem Bef\u00f6rderungsvertrag, mehrere Fahrkarten mehreren",
-        "  Bef\u00f6rderungsvertr\u00e4gen. Vertraglicher Bef\u00f6rderer k\u00f6nnen dabei ein oder mehrere Verkehrsunternehmen sein. F\u00fcr",
-        "  die Eisenbahnfahrt handelt es sich bei dieser Fahrkarte um eine Durchgangsfahrkarte gem\u00e4\u00df der Fahrgastrechte-",
-        "  Verordnung (EU) 2021/782 f\u00fcr den Eisenbahnverkehr.",
-        "- Bei einer zu erwartenden Versp\u00e4tung ab 20 Minuten am Zielbahnhof Ihrer Fahrkarte ist die Zugbindung Ihrer Fahrt",
-        "  ohne besondere Bescheinigung aufgehoben.",
-        "- Kleinkindabteile, Rollstuhlpl\u00e4tze und Vorrangpl\u00e4tze f\u00fcr Personen mit eingeschr\u00e4nkter Mobilit\u00e4t sowie Pl\u00e4tze f\u00fcr",
-        "  Reisende mit BahnBonus Gold- oder Platinstatus sind bei Bedarf f\u00fcr diese Personengruppen freizugeben.",
+    txt(page, (42.5, 86.3), f"{zugtyp} Fahrkarte", font="F1", size=10.0)
+
+    page.draw_rect(fitz.Rect(42.5, 86.7, 354.3, 124.3),
+                   color=(0, 0, 0), width=0.283)
+    txt(page, (45.6, 101.3), "G\u00fcltigkeit:", font="F0", size=10.0)
+    txt(page, (92.9, 101.4),
+        f"{vs} 00:00 Uhr bis {ve} 10:00 Uhr",
+        font="F1", size=10.0)
+    txt(page, (45.6, 112.6),
+        "Sie k\u00f6nnen alle Z\u00fcge nutzen, die auf Ihrer Fahrkarte angegeben sind. F\u00fcr Z\u00fcge des Nahverkehrs",
+        font="F0", size=6.9)
+    txt(page, (45.6, 121.0),
+        "(z.B. RE, RB, S) besteht keine Zugbindung.",
+        font="F0", size=6.9)
+
+    page.draw_rect(fitz.Rect(42.5, 124.3, 354.3, 228.3),
+                   color=(0, 0, 0), width=0.283)
+    txt(page, (45.6, 138.9), f"{fare} (Einfache Fahrt)", font="F1", size=10.0)
+    txt(page, (45.6, 153.6), "Klasse", font="F0", size=10.0)
+    txt(page, (116.5, 153.7), f"{cfg['klasse']}. Klasse", font="F1", size=10.0)
+    txt(page, (45.6, 165.6), "Reisender", font="F0", size=10.0)
+
+    birth = cfg['birth']
+    try:
+        birth_dt = datetime.strptime(birth, "%d.%m.%Y")
+        ref_dt = datetime.strptime(vs, "%d.%m.%Y")
+        age = ref_dt.year - birth_dt.year - ((ref_dt.month, ref_dt.day) < (birth_dt.month, birth_dt.day))
+        if age < 6:
+            age_range = "0-5"
+        elif age < 15:
+            age_range = "6-14"
+        elif age < 27:
+            age_range = "15-26"
+        elif age < 65:
+            age_range = "27-64"
+        else:
+            age_range = "65+"
+    except ValueError:
+        age_range = "27-64"
+    txt(page, (116.5, 165.7), f"1 Person ({age_range} Jahre)", font="F1", size=10.0)
+
+    txt(page, (45.6, 177.6), "Einfache Fahrt", font="F0", size=10.0)
+    txt(page, (116.5, 177.7), von, font="F1", size=10.0)
+    von_w = fitz.get_text_length(von, fontname="helv", fontsize=10.0)
+    txt(page, (116.5 + von_w + 10, 177.7), nach, font="F1", size=10.0)
+
+    via_text = cfg.get('via_text', '')
+    if via_text:
+        lines = []
+        cur = via_text
+        max_w = 354.3 - 116.5 - 5
+        while cur:
+            w = fitz.get_text_length(cur, fontname="helv", fontsize=10.0)
+            if w <= max_w:
+                lines.append(cur)
+                break
+            split = len(cur) - 1
+            while split > 0:
+                test = cur[:split]
+                if fitz.get_text_length(test, fontname="helv", fontsize=10.0) <= max_w:
+                    sp = test.rfind(' ')
+                    if sp > 0:
+                        split = sp + 1
+                    break
+                split -= 1
+            lines.append(cur[:split])
+            cur = cur[split:]
+        via_y = 189.7
+        for vl in lines:
+            txt(page, (116.5, via_y), vl, font="F1", size=10.0)
+            via_y += 12.0
+
+    txt(page, (45.6, 213.6), "Zugbindung", font="F0", size=10.0)
+    txt(page, (116.5, 213.7),
+        f"{zugtyp} {train_num}, {int(dep_hour):02d}:{int(dep_min):02d} Uhr am {vs}",
+        font="F1", size=10.0)
+
+    if fare == 'Super Sparpreis':
+        txt(page, (45.6, 224.9),
+            "Eine Stornierung Ihrer Fahrkarte ist ausgeschlossen.",
+            font="F0", size=6.9)
+    elif fare == 'Sparpreis':
+        txt(page, (45.6, 224.9),
+            "Stornierung bis 1 Tag vor Geltungstag gegen 10,00\u20ac Geb\u00fchr m\u00f6glich.",
+            font="F0", size=6.9)
+
+    txt(page, (42.5, 242.0),
+        f"Gesamtpreis {price}. Gebucht am {cfg['booking_date']} um {datetime.now().strftime('%H:%M')} Uhr.",
+        font="F0", size=6.9)
+    txt(page, (42.5, 250.4),
+        "Dieses Dokument ist nicht vorsteuerabzugsf\u00e4hig.",
+        font="F0", size=6.9)
+
+    page.insert_image(fitz.Rect(372.8, 209.5, 545.6, 300.0),
+                      filename=ticket_num_img)
+
+    page.draw_line(fitz.Point(453.5, 255.1), fitz.Point(549.9, 255.1),
+                   color=(0, 0, 0), width=0.566)
+    txt(page, (501.7, 266.0), "Zangenabdruck", font="F0", size=6.9)
+
+    txt(page, (368.5, 281.8), cfg['name'], font="F0", size=10.0)
+    txt(page, (368.5, 293.8), f"Auftragsnummer: {cfg['order_number']}",
+        font="F0", size=10.0)
+
+    txt(page, (42.5, 321.5),
+        f"Ihre Reiseverbindung und Reservierung - Einfache Fahrt am {vs}",
+        font="F1", size=10.0)
+
+    col_x = [42.5, 170.1, 209.8, 249.4, 283.5, 340.2, 549.9]
+    for i in range(len(col_x)):
+        x0, x1 = col_x[i], col_x[i + 1] if i + 1 < len(col_x) else 549.9
+        page.draw_line(fitz.Point(x0, 321.9), fitz.Point(x1, 321.9),
+                       color=(0, 0, 0), width=0.566)
+        page.draw_line(fitz.Point(x1, 335.2), fitz.Point(x0, 335.2),
+                       color=(0, 0, 0), width=0.283)
+
+    headers = [("Halt", 42.5), ("Datum", 170.1), ("Zeit", 209.8),
+               ("Gleis", 249.4), ("Produkte", 283.5),
+               ("Reservierung / Hinweise", 340.2)]
+    for label, x in headers:
+        txt(page, (x, 334.7), label, font="F1", size=8.3)
+
+    vs_short = vs[:6] if len(vs) >= 6 else vs[:5]
+    dep_gl_str = f" Gl.{dep_gleis}" if dep_gleis else ""
+    txt(page, (42.5, 347.8), f"{von}{dep_gl_str}", font="F0", size=8.3)
+    txt(page, (42.5, 357.8), nach, font="F0", size=8.3)
+    txt(page, (170.1, 347.8), vs_short, font="F0", size=8.3)
+    txt(page, (170.1, 357.8), vs_short, font="F0", size=8.3)
+    txt(page, (209.8, 347.8), f"ab {int(dep_hour):02d}:{int(dep_min):02d}", font="F0", size=8.3)
+    txt(page, (209.8, 357.8), f"an {arr_hour:02d}:{arr_min:02d}", font="F0", size=8.3)
+    txt(page, (249.4, 347.8), dep_gleis, font="F0", size=8.3)
+    txt(page, (249.4, 357.8), arr_gleis, font="F0", size=8.3)
+    txt(page, (283.5, 347.8), f"{zugtyp} {train_num}", font="F0", size=8.3)
+
+    txt(page, (42.5, 377.9), "Wichtige Nutzungshinweise:", font="F1", size=8.3)
+    cond_items = [
+        "Ihre Fahrkarte ist nur g\u00fcltig mit einem amtlichen Lichtbildausweis. Dieser ist bei der Kontrolle vorzuzeigen.",
+        "Bei Fahrkarten mit BahnCard-Rabatt zeigen Sie bitte zus\u00e4tzlich Ihre g\u00fcltige BahnCard vor.",
+        ["Es gelten die nationalen und internationalen Bef\u00f6rderungsbedingungen der DB AG. Innerhalb von",
+         "Verkehrsverb\u00fcnden und Tarifgemeinschaften gelten deren Bestimmungen. Alle Bedingungen finden Sie unter",
+         "www.bahn.de/agb und www.diebefoerderer.de."],
+        ["Eine Fahrkarte entspricht grunds\u00e4tzlich einem Bef\u00f6rderungsvertrag, mehrere Fahrkarten mehreren",
+         "Bef\u00f6rderungsvertr\u00e4gen. Vertraglicher Bef\u00f6rderer k\u00f6nnen dabei ein oder mehrere Verkehrsunternehmen sein. F\u00fcr",
+         "die Eisenbahnfahrt handelt es sich bei dieser Fahrkarte um eine Durchgangsfahrkarte gem\u00e4\u00df der Fahrgastrechte-",
+         "Verordnung (EU) 2021/782 f\u00fcr den Eisenbahnverkehr. F\u00fcr eine Fahrkarte, die neben der Eisenbahnfahrt noch",
+         "die Fahrt mit einem anderen Verkehrstr\u00e4ger umfasst (z.B. Schiff zu den Nordseeinseln; \u00d6PNV) gilt: Die Fahrkarte",
+         "dokumentiert dann je einen gesonderten Bef\u00f6rderungsvertrag pro Richtung und pro Verkehrstr\u00e4ger. Die Haftung",
+         "f\u00fcr fahrgastrechtliche Anspr\u00fcche gilt dann auch nur f\u00fcr den jeweiligen Bef\u00f6rderungsvertrag."],
+        ["Bei einer zu erwartenden Versp\u00e4tung ab 20 Minuten am Zielbahnhof Ihrer Fahrkarte ist die Zugbindung Ihrer Fahrt",
+         "ohne besondere Bescheinigung aufgehoben."],
+        ["Kleinkindabteile, Rollstuhlpl\u00e4tze und Vorrangpl\u00e4tze f\u00fcr Personen mit eingeschr\u00e4nkter Mobilit\u00e4t sowie Pl\u00e4tze f\u00fcr",
+         "Reisende mit BahnBonus Gold- oder Platinstatus sind bei Bedarf f\u00fcr diese Personengruppen freizugeben."],
     ]
-    for line in conditions:
-        txt(page, (38.27, y_cond), line, font="F0", size=7)
-        y_cond += 9
+    cy = 388.4
+    for item in cond_items:
+        if isinstance(item, str):
+            txt(page, (42.9, cy), "-", font="F0", size=8.3)
+            txt(page, (48.5, cy), item, font="F0", size=8.3)
+            cy += 10.0
+        else:
+            txt(page, (42.9, cy), "-", font="F0", size=8.3)
+            txt(page, (48.5, cy), item[0], font="F0", size=8.3)
+            cy += 10.0
+            for sub in item[1:]:
+                txt(page, (48.5, cy), sub, font="F0", size=8.3)
+                cy += 10.0
 
-    y_cond += 4
-    txt(page, (38.27, y_cond),
+    cy += 5.0
+    txt(page, (42.5, cy),
         "Bitte informieren Sie sich kurz vor Reisebeginn auf unserer Website oder in der App, ob kurzfristige Fahrplan\u00e4nderungen vorliegen. Wir",
-        font="F2", size=6.5)
-    y_cond += 8
-    txt(page, (38.27, y_cond),
+        font="F0", size=8.3)
+    cy += 10.0
+    txt(page, (42.5, cy),
         "danken Ihnen f\u00fcr Ihre Buchung und w\u00fcnschen eine angenehme Reise.",
-        font="F2", size=6.5)
+        font="F0", size=8.3)
 
-    page.insert_image(fitz.Rect(38.27, 667.00, 561.83, 785.20), filename=wm_bottom)
-    page.draw_rect(fitz.Rect(37.39, 665.66, 563.24, 785.79),
-                   color=(0, 0, 0), width=0.48)
-    txt(page, (184.25, 724.07), cfg['name'], font="F1", size=10)
+    page.insert_image(fitz.Rect(178.9, 681.1, 434.0, 794.5), filename=wm_bottom)
 
     ticket_code = cfg.get('sparpreis_ref', cfg['order_number'][:8].upper())
-    txt(page, (38.27, 808.71), f"Ticketcode: {ticket_code}", font="F0", size=8)
-    txt(page, (494.27, 808.71), "Seite 1 / 1", font="F2", size=8)
+    txt(page, (42.5, 807.9), f"Ticketcode: {ticket_code}", font="F0", size=8.3)
+    txt(page, (515.2, 807.7), "Seite 1 / 1", font="F2", size=8.3)
 
 
 def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
