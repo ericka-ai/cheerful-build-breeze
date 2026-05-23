@@ -144,7 +144,16 @@ class MainActivity : AppCompatActivity() {
                         TicketStore.updateTicketBarcodePath(this@MainActivity, ticket.id, imgFile.absolutePath)
                     }
 
-                    downloadWatermarkSync(ticket)
+                    val watermarkBase64 = json.optString("watermark_base64", "")
+                    if (watermarkBase64.isNotEmpty()) {
+                        val wmBytes = android.util.Base64.decode(watermarkBase64, android.util.Base64.DEFAULT)
+                        val dir = File(filesDir, "watermarks")
+                        dir.mkdirs()
+                        val imgFile = File(dir, "watermark_${ticket.ticketId}.jpg")
+                        FileOutputStream(imgFile).use { it.write(wmBytes) }
+                        TicketStore.updateTicketWatermarkPath(this@MainActivity, ticket.id, imgFile.absolutePath)
+                    }
+
                     downloadPdfAsync(ticket)
 
                     runOnUiThread {
@@ -166,31 +175,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-    }
-
-    private fun downloadWatermarkSync(ticket: Ticket) {
-        val serverUrl = TicketStore.getServerUrl(this)
-        val client = createHttpClient()
-        val formBody = buildFormBody(ticket)
-
-        val request = Request.Builder()
-            .url("$serverUrl/api/watermark")
-            .post(formBody)
-            .build()
-
-        try {
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val imgBytes = response.body?.bytes()
-                if (imgBytes != null) {
-                    val dir = File(filesDir, "watermarks")
-                    dir.mkdirs()
-                    val imgFile = File(dir, "watermark_${ticket.ticketId}.jpg")
-                    FileOutputStream(imgFile).use { it.write(imgBytes) }
-                    TicketStore.updateTicketWatermarkPath(this, ticket.id, imgFile.absolutePath)
-                }
-            }
-        } catch (_: Exception) { }
     }
 
     private fun downloadPdfAsync(ticket: Ticket) {
