@@ -480,7 +480,7 @@ def _build_eurail_flex(cfg):
             'issuingDay': issuing_day,
             'issuingTime': issuing_time,
             'issuerName': 'Eurail B.V.',
-            'specimen': False,
+            'specimen': True,
             'securePaperTicket': False,
             'activated': True,
             'currency': 'EUR',
@@ -495,7 +495,7 @@ def _build_eurail_flex(cfg):
                 'dayOfBirth': birth_day,
                 'ticketHolder': True,
                 'passengerType': ptype,
-                'countryOfResidence': cfg.get('residence_code', 80),
+                'countryOfResidence': cfg.get('residence_code', 840),
             }]
         },
         'transportDocument': [{
