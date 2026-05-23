@@ -25,14 +25,7 @@
             android:textSize="20sp"
             android:textStyle="bold" />
 
-        <ImageButton
-            android:id="@+id/btnSettings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_manage"
-            android:contentDescription="@string/settings_title"
-            android:tint="@color/db_white" />
+
     </LinearLayout>
 
     <ScrollView
