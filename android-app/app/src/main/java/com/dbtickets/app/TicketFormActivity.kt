@@ -228,10 +228,7 @@ class TicketFormActivity : AppCompatActivity() {
     }
 
     private fun createHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder()
-            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
+        return ApiClient.client
     }
 
     private fun downloadBarcodeSync(
