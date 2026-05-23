@@ -16,6 +16,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.aztec.AztecWriter
 import com.google.zxing.common.BitMatrix
 import java.io.File
+import java.text.SimpleDateFormat
 import java.util.*
 
 class TicketResultActivity : AppCompatActivity() {
@@ -60,29 +61,31 @@ class TicketResultActivity : AppCompatActivity() {
         loadBarcode(t)
 
         binding.tvResultName.text = "${t.vorname} ${t.nachname}"
-        binding.tvCiv.text = "CIV ${t.ticketId}"
-        binding.tvResultTicketType.text = t.ticketTypeLabel
+        binding.tvCiv.text = "CIV 1080"
+
+        val typeLabel = t.ticketTypeLabel
+        binding.tvResultTicketType.text = typeLabel
         binding.tvResultKlasse.text = "${t.klasse}. Klasse"
 
-        val passTypLabel = if (t.passagierTyp == "ERWACHSENER") {
-            "1 Erwachsener"
-        } else {
-            "1 Jugendlicher (12-27 J.)"
+        val passTypLabel = when (t.passagierTyp) {
+            "ERWACHSENER" -> "1 Erwachsener"
+            "JUGENDLICHER" -> "1 Jugendlicher (12-27 J.)"
+            else -> "1 ${t.passagierTyp}"
         }
         binding.tvResultPassagierTyp.text = passTypLabel
-
-        binding.tvResultGeburtsdatum.text = "Geb. ${t.geburtsdatum}"
 
         val von = t.gueltigVon
         val bis = t.gueltigBis
         binding.tvResultGueltigkeit.text = "Von: $von, 00:00 Uhr\nBis: $bis, 03:00 Uhr"
 
+        if (t.product == "db_sparpreis") {
+            binding.sectionVerbindung.visibility = View.VISIBLE
+            binding.tvVerbindung.text = "Verbindung wird angezeigt"
+        }
+
         binding.tvResultCreatedAt.text = "Gebucht am: ${t.createdAt} Uhr"
         binding.tvAuftragsnummer.text = "Auftrags-Nr: ${t.auftragsnummer}"
         binding.tvResultPreis.text = "Gesamtpreis: ${t.preis}"
-
-        val ticketCode = generateTicketCode()
-        binding.tvTicketCode.text = "Ticketcode: $ticketCode"
 
         binding.tvKonditionen.text = buildString {
             append("Freie Zugwahl\n\n")
@@ -97,8 +100,29 @@ class TicketResultActivity : AppCompatActivity() {
             append("unter www.bahn.de/agb und www.diebefoerderer.de.\n")
             append("Eine Fahrkarte entspricht grunds\u00e4tzlich einem ")
             append("Bef\u00f6rderungsvertrag, mehrere Fahrkarten mehreren ")
-            append("Bef\u00f6rderungsvertr\u00e4gen.")
+            append("Bef\u00f6rderungsvertr\u00e4gen. Vertraglicher Bef\u00f6rderer ")
+            append("k\u00f6nnen dabei ein oder mehrere Verkehrsunternehmen ")
+            append("sein. Es handelt sich bei dieser Fahrkarte um eine ")
+            append("Durchgangsfahrkarte gem\u00e4\u00df Europ\u00e4ischer ")
+            append("Fahrgastrechte-Verordnung f\u00fcr den Eisenbahnverkehr.")
         }
+
+        try {
+            val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
+            val startDate = sdf.parse(von)
+            if (startDate != null) {
+                val cal = Calendar.getInstance()
+                cal.time = startDate
+                cal.add(Calendar.DAY_OF_MONTH, -1)
+                val stornoDate = sdf.format(cal.time)
+                binding.tvStornierung.text = "Stornierung bis $stornoDate kostenfrei"
+            }
+        } catch (e: Exception) {
+            binding.tvStornierung.text = ""
+        }
+
+        val ticketCode = generateTicketCode()
+        binding.tvTicketCode.text = "Ticketcode: $ticketCode"
 
         binding.tvAuftragBig.text = t.auftragsnummer
         binding.tvNameFooter.text = "${t.vorname} ${t.nachname}"
@@ -180,7 +204,7 @@ class TicketResultActivity : AppCompatActivity() {
             }
 
             val writer = AztecWriter()
-            val bitMatrix: BitMatrix = writer.encode(barcodeData, BarcodeFormat.AZTEC, 600, 600)
+            val bitMatrix: BitMatrix = writer.encode(barcodeData, BarcodeFormat.AZTEC, 800, 800)
             val width = bitMatrix.width
             val height = bitMatrix.height
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)

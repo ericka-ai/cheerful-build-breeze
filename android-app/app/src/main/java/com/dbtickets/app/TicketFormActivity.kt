@@ -183,13 +183,18 @@ class TicketFormActivity : AppCompatActivity() {
 
         TicketStore.saveTicket(this, ticket)
 
-        downloadBarcode(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
-        downloadPdf(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
+        binding.btnSubmit.text = "Barcode wird geladen..."
 
-        val intent = Intent(this, TicketResultActivity::class.java)
-        intent.putExtra("ticket_store_id", uniqueId)
-        startActivity(intent)
-        finish()
+        downloadBarcodeSync(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString()) {
+            downloadPdf(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
+
+            runOnUiThread {
+                val intent = Intent(this, TicketResultActivity::class.java)
+                intent.putExtra("ticket_store_id", uniqueId)
+                startActivity(intent)
+                finish()
+            }
+        }
     }
 
     private fun buildFormBody(
@@ -228,12 +233,13 @@ class TicketFormActivity : AppCompatActivity() {
             .build()
     }
 
-    private fun downloadBarcode(
+    private fun downloadBarcodeSync(
         ticket: Ticket,
         nachname: String, vorname: String, geburtsdatum: String,
         klasse: String, passagierTyp: String,
         gueltigVon: String, gueltigBis: String,
         product: String, days: String,
+        onComplete: () -> Unit,
     ) {
         val serverUrl = TicketStore.getServerUrl(this)
         val formBody = buildFormBody(nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days, ticket)
@@ -244,17 +250,20 @@ class TicketFormActivity : AppCompatActivity() {
             .build()
 
         createHttpClient().newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) { }
+            override fun onFailure(call: Call, e: IOException) {
+                onComplete()
+            }
 
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
-                    val imgBytes = response.body?.bytes() ?: return
+                    val imgBytes = response.body?.bytes() ?: run { onComplete(); return }
                     val dir = File(filesDir, "barcodes")
                     dir.mkdirs()
                     val imgFile = File(dir, "barcode_${ticket.ticketId}.png")
                     FileOutputStream(imgFile).use { it.write(imgBytes) }
                     TicketStore.updateTicketBarcodePath(this@TicketFormActivity, ticket.id, imgFile.absolutePath)
                 }
+                onComplete()
             }
         })
     }
