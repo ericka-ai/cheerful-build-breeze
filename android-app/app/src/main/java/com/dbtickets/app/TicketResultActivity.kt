@@ -13,10 +13,10 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.dbtickets.app.databinding.ActivityTicketResultBinding
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.aztec.AztecWriter
-import com.google.zxing.common.BitMatrix
+import okhttp3.*
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -216,70 +216,66 @@ class TicketResultActivity : AppCompatActivity() {
 
         binding.tvBarcodeLoading.visibility = View.VISIBLE
         binding.tvBarcodeLoading.text = "Barcode wird geladen..."
-        generateFallbackBarcode(t)
-        startBarcodePolling(t)
+        downloadBarcodeFromServer(t)
     }
 
-    private fun startBarcodePolling(t: Ticket) {
-        barcodeCheckRunnable = object : Runnable {
-            override fun run() {
-                val updated = TicketStore.getTicketById(this@TicketResultActivity, t.id)
-                val path = updated?.barcodePath ?: ""
-                if (path.isNotEmpty() && File(path).exists()) {
-                    val bitmap = BitmapFactory.decodeFile(path)
-                    if (bitmap != null) {
-                        binding.ivBarcode.setImageBitmap(bitmap)
-                        binding.tvBarcodeLoading.visibility = View.GONE
+    private fun downloadBarcodeFromServer(t: Ticket) {
+        val serverUrl = TicketStore.getServerUrl(this)
+        val client = ApiClient.client
+
+        val formBody = FormBody.Builder()
+            .add("nachname", t.nachname)
+            .add("vorname", t.vorname)
+            .add("geburtsdatum", t.geburtsdatum)
+            .add("klasse", t.klasse)
+            .add("passagier_typ", t.passagierTyp)
+            .add("gueltig_von", t.gueltigVon)
+            .add("gueltig_bis", t.gueltigBis)
+            .add("product", t.product)
+            .add("tage", "15")
+            .add("ticket_id", t.ticketId)
+            .add("order_number", t.auftragsnummer)
+            .build()
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/barcode")
+            .post(formBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    binding.tvBarcodeLoading.text = "Barcode konnte nicht geladen werden"
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val imgBytes = response.body?.bytes()
+                    if (imgBytes != null && imgBytes.isNotEmpty()) {
+                        val dir = File(filesDir, "barcodes")
+                        dir.mkdirs()
+                        val imgFile = File(dir, "barcode_${t.ticketId}.png")
+                        FileOutputStream(imgFile).use { it.write(imgBytes) }
+                        TicketStore.updateTicketBarcodePath(this@TicketResultActivity, t.id, imgFile.absolutePath)
+
+                        val bitmap = BitmapFactory.decodeFile(imgFile.absolutePath)
+                        runOnUiThread {
+                            if (bitmap != null) {
+                                binding.ivBarcode.setImageBitmap(bitmap)
+                                binding.tvBarcodeLoading.visibility = View.GONE
+                            } else {
+                                binding.tvBarcodeLoading.text = "Barcode konnte nicht geladen werden"
+                            }
+                        }
                         return
                     }
                 }
-                handler.postDelayed(this, 2000)
-            }
-        }
-        handler.postDelayed(barcodeCheckRunnable!!, 2000)
-    }
-
-    private fun generateFallbackBarcode(t: Ticket) {
-        try {
-            val barcodeData = buildString {
-                append("#UT01;OTI:")
-                append(t.auftragsnummer)
-                append(";TI:")
-                append(t.ticketId)
-                append(";NA:")
-                append(t.nachname)
-                append("/")
-                append(t.vorname)
-                append(";GD:")
-                append(t.geburtsdatum)
-                append(";KL:")
-                append(t.klasse)
-                append(";PR:")
-                append(t.product)
-                append(";VN:")
-                append(t.gueltigVon)
-                append(";BS:")
-                append(t.gueltigBis)
-                append(";PT:")
-                append(t.preis)
-            }
-
-            val writer = AztecWriter()
-            val bitMatrix: BitMatrix = writer.encode(barcodeData, BarcodeFormat.AZTEC, 800, 800)
-            val width = bitMatrix.width
-            val height = bitMatrix.height
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
-
-            for (x in 0 until width) {
-                for (y in 0 until height) {
-                    bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) Color.BLACK else Color.WHITE)
+                runOnUiThread {
+                    binding.tvBarcodeLoading.text = "Barcode konnte nicht geladen werden"
                 }
             }
-
-            binding.ivBarcode.setImageBitmap(bitmap)
-        } catch (e: Exception) {
-            binding.ivBarcode.visibility = View.GONE
-        }
+        })
     }
 
     private fun loadWatermark(t: Ticket) {
