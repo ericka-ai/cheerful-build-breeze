@@ -344,7 +344,7 @@
             <com.dbtickets.app.WatermarkView
                 android:id="@+id/watermarkView"
                 android:layout_width="match_parent"
-                android:layout_height="220dp"
+                android:layout_height="300dp"
                 android:layout_marginTop="0dp" />
 
             <!-- Weitere Aktionen Button -->
