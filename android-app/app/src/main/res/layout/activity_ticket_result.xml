@@ -86,8 +86,7 @@
     <ScrollView
         android:id="@+id/scrollContent"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="match_parent"
         android:background="@color/db_white">
 
         <LinearLayout
@@ -341,52 +340,12 @@
                 android:layout_marginEnd="16dp"
                 android:layout_marginTop="16dp" />
 
-            <!-- Watermark Footer -->
-            <LinearLayout
+            <!-- Watermark Footer - uses custom Canvas view -->
+            <com.dbtickets.app.WatermarkView
+                android:id="@+id/watermarkView"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:paddingBottom="24dp"
-                android:background="#F0F0F0">
-
-                <TextView
-                    android:id="@+id/tvAuftragBig"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="28sp"
-                    android:textStyle="bold"
-                    android:textColor="#CCCCCC"
-                    android:letterSpacing="0.03" />
-
-                <TextView
-                    android:id="@+id/tvNameFooter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:layout_marginTop="4dp" />
-
-                <TextView
-                    android:id="@+id/tvDateFooter"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textSize="32sp"
-                    android:textStyle="bold"
-                    android:textColor="#CCCCCC"
-                    android:layout_marginTop="4dp" />
-
-                <!-- Watermark background text -->
-                <TextView
-                    android:id="@+id/tvWatermarkText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="11sp"
-                    android:textColor="#DDDDDD"
-                    android:lineSpacingExtra="-2dp"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
+                android:layout_height="220dp"
+                android:layout_marginTop="0dp" />
 
             <!-- Weitere Aktionen Button -->
             <LinearLayout
@@ -417,115 +376,5 @@
 
         </LinearLayout>
     </ScrollView>
-
-    <!-- Bottom Navigation Bar -->
-    <LinearLayout
-        android:id="@+id/bottomNav"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="#1A1A1A"
-        android:orientation="horizontal"
-        android:elevation="8dp">
-
-        <LinearLayout
-            android:id="@+id/btnNewTicket"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackground">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\u21C4"
-                android:textSize="20sp"
-                android:textColor="#888888" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Buchen"
-                android:textColor="#888888"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\u25C9"
-                android:textSize="20sp"
-                android:textColor="#888888" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Umgebung"
-                android:textColor="#888888"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="#333333"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\u2708"
-                android:textSize="20sp"
-                android:textColor="@color/db_white" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Reisen"
-                android:textColor="@color/db_white"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/btnDownloadPdf"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackground">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\u263A"
-                android:textSize="20sp"
-                android:textColor="#888888" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Profil"
-                android:textColor="#888888"
-                android:textSize="11sp" />
-        </LinearLayout>
-    </LinearLayout>
 
 </LinearLayout>
