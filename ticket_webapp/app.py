@@ -231,6 +231,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# In-memory ticket storage keyed by auftragsnummer
+TICKET_STORE: dict[str, dict] = {}
+
 
 def asset(name):
     return os.path.join(ASSETS_DIR, name)
@@ -1794,6 +1797,28 @@ async def generate(
 
     pdf_bytes = generate_pdf(cfg)
 
+    parts = name.split("/", 1)
+    nachname_part = parts[0] if parts else name
+    vorname_part = parts[1] if len(parts) > 1 else ""
+
+    TICKET_STORE[cfg["order_number"]] = {
+        "auftragsnummer": cfg["order_number"],
+        "ticket_id": cfg["ticket_id"],
+        "preis": cfg["price"],
+        "product": product,
+        "ticket_type_label": PRODUCT_LABELS.get(product, product),
+        "name": name,
+        "nachname": nachname_part,
+        "vorname": vorname_part,
+        "geburtsdatum": birth_date,
+        "klasse": klasse,
+        "passagier_typ": passenger_type,
+        "gueltig_von": cfg["validity_start"],
+        "gueltig_bis": cfg["validity_end"],
+        "created_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "pdf_url": f"/download/{cfg['ticket_id']}",
+    }
+
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
@@ -1860,17 +1885,36 @@ async def api_generate(
 
     generate_pdf(cfg)
 
-    return JSONResponse({
+    ticket_data = {
         "auftragsnummer": cfg["order_number"],
         "ticket_id": cfg["ticket_id"],
         "preis": cfg["price"],
         "product": product,
+        "ticket_type_label": PRODUCT_LABELS.get(product, product),
         "name": name,
+        "nachname": nachname,
+        "vorname": vorname,
         "geburtsdatum": geburtsdatum,
+        "klasse": klasse,
+        "passagier_typ": passagier_typ,
         "gueltig_von": gueltig_von,
         "gueltig_bis": gueltig_bis,
+        "created_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
         "pdf_url": f"/download/{cfg['ticket_id']}",
-    })
+    }
+
+    TICKET_STORE[cfg["order_number"]] = ticket_data
+
+    return JSONResponse(ticket_data)
+
+
+@app.get("/api/ticket/{auftragsnummer}")
+async def api_ticket_lookup(auftragsnummer: str):
+    """Look up a ticket by Auftragsnummer."""
+    ticket = TICKET_STORE.get(auftragsnummer)
+    if ticket is None:
+        return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
+    return JSONResponse(ticket)
 
 
 @app.get("/download/{ticket_id}")
