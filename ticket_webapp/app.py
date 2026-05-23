@@ -887,7 +887,7 @@ def generate_aztec_barcode(cfg, output_path):
                     f"{len(compressed):04d}".encode('ascii') +
                     compressed)
 
-    code = aztec.AztecCode(barcode_data, ec_percent=23)
+    code = aztec.AztecCode(barcode_data, ec_percent=50)
     img = code.image(module_size=6, border=1)
     img.save(output_path, "PNG")
 
