@@ -1,5 +1,6 @@
 package com.dbtickets.app
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -41,6 +42,11 @@ class TicketResultActivity : AppCompatActivity() {
         }
 
         val t = ticket!!
+
+        val isDarkMode = getSharedPreferences("db_tickets", MODE_PRIVATE)
+            .getBoolean("dark_mode", false)
+        applyTheme(isDarkMode)
+
         displayTicket(t)
 
         binding.btnBackTicket.setOnClickListener { finish() }
@@ -55,6 +61,84 @@ class TicketResultActivity : AppCompatActivity() {
         binding.btnDownloadPdf.setOnClickListener {
             openPdf()
         }
+
+        binding.btnWeitereAktionen.setOnClickListener {
+            showWeitereAktionen()
+        }
+    }
+
+    private fun applyTheme(isDark: Boolean) {
+        if (isDark) {
+            binding.rootLayout.setBackgroundColor(Color.parseColor("#282828"))
+            binding.scrollContent.setBackgroundColor(Color.parseColor("#282828"))
+            setTextColors(Color.WHITE, Color.parseColor("#CCCCCC"))
+        }
+    }
+
+    private fun setTextColors(primary: Int, secondary: Int) {
+        binding.tvResultName.setTextColor(primary)
+        binding.tvCiv.setTextColor(primary)
+        binding.tvResultTicketType.setTextColor(primary)
+        binding.tvResultKlasse.setTextColor(primary)
+        binding.tvResultPassagierTyp.setTextColor(primary)
+        binding.tvResultGueltigkeit.setTextColor(primary)
+        binding.tvResultCreatedAt.setTextColor(primary)
+        binding.tvAuftragsnummer.setTextColor(primary)
+        binding.tvResultPreis.setTextColor(primary)
+        binding.tvKonditionen.setTextColor(primary)
+        binding.tvStornierung.setTextColor(primary)
+        binding.tvTicketCode.setTextColor(primary)
+        binding.tvNameFooter.setTextColor(primary)
+        binding.tvAuftragBig.setTextColor(secondary)
+        binding.tvDateFooter.setTextColor(secondary)
+    }
+
+    private fun showWeitereAktionen() {
+        val t = ticket ?: return
+        val items = arrayOf(
+            "Entsch\u00e4digung beantragen",
+            "Rechnung \u00f6ffnen",
+            "Feedback zur Reise",
+            "Zur Stornierung"
+        )
+
+        val builder = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog)
+        builder.setItems(items) { dialog, which ->
+            when (which) {
+                0 -> Toast.makeText(this, "Entsch\u00e4digungsantrag wird vorbereitet...", Toast.LENGTH_SHORT).show()
+                1 -> openPdf()
+                2 -> Toast.makeText(this, "Vielen Dank f\u00fcr Ihr Feedback!", Toast.LENGTH_SHORT).show()
+                3 -> showStornierungDialog(t)
+            }
+            dialog.dismiss()
+        }
+        builder.setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
+        builder.show()
+    }
+
+    private fun showStornierungDialog(t: Ticket) {
+        val von = t.gueltigVon
+        var stornoDate = von
+        try {
+            val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
+            val startDate = sdf.parse(von)
+            if (startDate != null) {
+                val cal = Calendar.getInstance()
+                cal.time = startDate
+                cal.add(Calendar.DAY_OF_MONTH, -1)
+                stornoDate = sdf.format(cal.time)
+            }
+        } catch (e: Exception) { }
+
+        AlertDialog.Builder(this)
+            .setTitle("Stornierung")
+            .setMessage("Auftrags-Nr: ${t.auftragsnummer}\n\nKostenfreie Stornierung bis $stornoDate m\u00f6glich.\n\nM\u00f6chten Sie dieses Ticket stornieren?")
+            .setPositiveButton("Stornieren") { dialog, _ ->
+                Toast.makeText(this, "Stornierung wurde simuliert. Ticket-Nr: ${t.auftragsnummer}", Toast.LENGTH_LONG).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 
     private fun displayTicket(t: Ticket) {
@@ -63,8 +147,7 @@ class TicketResultActivity : AppCompatActivity() {
         binding.tvResultName.text = "${t.vorname} ${t.nachname}"
         binding.tvCiv.text = "CIV 1080"
 
-        val typeLabel = t.ticketTypeLabel
-        binding.tvResultTicketType.text = typeLabel
+        binding.tvResultTicketType.text = t.ticketTypeLabel
         binding.tvResultKlasse.text = "${t.klasse}. Klasse"
 
         val passTypLabel = when (t.passagierTyp) {
@@ -87,6 +170,7 @@ class TicketResultActivity : AppCompatActivity() {
         binding.tvAuftragsnummer.text = "Auftrags-Nr: ${t.auftragsnummer}"
         binding.tvResultPreis.text = "Gesamtpreis: ${t.preis}"
 
+        val productName = t.ticketTypeLabel
         binding.tvKonditionen.text = buildString {
             append("Freie Zugwahl\n\n")
             append("Nur g\u00fcltig mit amtlichen Lichtbildausweis. ")
@@ -104,7 +188,8 @@ class TicketResultActivity : AppCompatActivity() {
             append("k\u00f6nnen dabei ein oder mehrere Verkehrsunternehmen ")
             append("sein. Es handelt sich bei dieser Fahrkarte um eine ")
             append("Durchgangsfahrkarte gem\u00e4\u00df Europ\u00e4ischer ")
-            append("Fahrgastrechte-Verordnung f\u00fcr den Eisenbahnverkehr.")
+            append("Fahrgastrechte-Verordnung f\u00fcr den Eisenbahnverkehr.\n\n")
+            append("Produkt: $productName")
         }
 
         try {
@@ -135,6 +220,19 @@ class TicketResultActivity : AppCompatActivity() {
         } catch (e: Exception) {
             binding.tvDateFooter.text = von
         }
+
+        val wmText = buildString {
+            val items = listOf(
+                t.auftragsnummer, "${t.klasse}. Kl.", productName,
+                "${t.vorname} ${t.nachname}", "Fahrkarte",
+                t.gueltigVon, t.auftragsnummer
+            )
+            for (i in 0..5) {
+                append(items.joinToString(" "))
+                append(" ")
+            }
+        }
+        binding.tvWatermarkText.text = wmText
     }
 
     private fun loadBarcode(t: Ticket) {

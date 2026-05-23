@@ -18,11 +18,18 @@ class SettingsActivity : AppCompatActivity() {
         val savedUrl = prefs.getString("server_url", "") ?: ""
         binding.etServerUrl.setText(savedUrl.ifEmpty { TicketStore.getDefaultServerUrl() })
 
+        val isDarkMode = prefs.getBoolean("dark_mode", false)
+        binding.switchDarkMode.isChecked = isDarkMode
+
         binding.btnBack.setOnClickListener { finish() }
 
         binding.btnSave.setOnClickListener {
             val serverUrl = binding.etServerUrl.text.toString().trim().trimEnd('/')
-            prefs.edit().putString("server_url", serverUrl).apply()
+            val darkMode = binding.switchDarkMode.isChecked
+            prefs.edit()
+                .putString("server_url", serverUrl)
+                .putBoolean("dark_mode", darkMode)
+                .apply()
             Toast.makeText(this, getString(R.string.success_settings), Toast.LENGTH_SHORT).show()
             finish()
         }
