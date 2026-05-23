@@ -50,6 +50,29 @@ class MainActivity : AppCompatActivity() {
         loadTicketHistory()
     }
 
+    private fun createHttpClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
+    private fun buildFormBody(ticket: Ticket): FormBody {
+        return FormBody.Builder()
+            .add("nachname", ticket.nachname)
+            .add("vorname", ticket.vorname)
+            .add("geburtsdatum", ticket.geburtsdatum)
+            .add("klasse", ticket.klasse)
+            .add("passagier_typ", ticket.passagierTyp)
+            .add("gueltig_von", ticket.gueltigVon)
+            .add("gueltig_bis", ticket.gueltigBis)
+            .add("product", ticket.product)
+            .add("tage", "15")
+            .add("ticket_id", ticket.ticketId)
+            .add("order_number", ticket.auftragsnummer)
+            .build()
+    }
+
     private fun loadTicketByAuftragsnummer(auftragsnummer: String) {
         val existing = TicketStore.getTicketByAuftragsnummer(this, auftragsnummer)
         if (existing != null) {
@@ -63,10 +86,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnLoadTicket.text = "Wird geladen..."
 
         val serverUrl = TicketStore.getServerUrl(this)
-        val client = OkHttpClient.Builder()
-            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
+        val client = createHttpClient()
 
         val request = Request.Builder()
             .url("$serverUrl/api/ticket/$auftragsnummer")
@@ -85,49 +105,52 @@ class MainActivity : AppCompatActivity() {
 
             override fun onResponse(call: Call, response: Response) {
                 val body = response.body?.string() ?: ""
-                runOnUiThread {
-                    binding.btnLoadTicket.isEnabled = true
-                    binding.btnLoadTicket.text = "Ticket laden"
 
-                    if (!response.isSuccessful) {
+                if (!response.isSuccessful) {
+                    runOnUiThread {
+                        binding.btnLoadTicket.isEnabled = true
+                        binding.btnLoadTicket.text = "Ticket laden"
                         binding.tvError.text = "Ticket nicht gefunden"
                         binding.tvError.visibility = View.VISIBLE
-                        return@runOnUiThread
+                    }
+                    return
+                }
+
+                try {
+                    val json = JSONObject(body)
+                    val uniqueId = UUID.randomUUID().toString()
+                    val product = json.optString("product", "grp_consecutive")
+
+                    val ticket = Ticket(
+                        id = uniqueId,
+                        auftragsnummer = json.optString("auftragsnummer"),
+                        ticketId = json.optString("ticket_id"),
+                        ticketType = product,
+                        ticketTypeLabel = json.optString("ticket_type_label", TicketStore.getProductLabel(product)),
+                        nachname = json.optString("nachname"),
+                        vorname = json.optString("vorname"),
+                        geburtsdatum = json.optString("geburtsdatum"),
+                        klasse = json.optString("klasse", "2"),
+                        passagierTyp = json.optString("passagier_typ", "ERWACHSENER"),
+                        gueltigVon = json.optString("gueltig_von"),
+                        gueltigBis = json.optString("gueltig_bis"),
+                        preis = json.optString("preis"),
+                        createdAt = json.optString("created_at", TicketStore.nowFormatted()),
+                        product = product,
+                    )
+
+                    TicketStore.saveTicket(this@MainActivity, ticket)
+
+                    runOnUiThread {
+                        binding.btnLoadTicket.text = "Barcode wird geladen..."
                     }
 
-                    try {
-                        val json = JSONObject(body)
-                        val uniqueId = UUID.randomUUID().toString()
-                        val product = json.optString("product", "grp_consecutive")
+                    downloadBarcodeSyncThenNavigate(ticket, uniqueId)
 
-                        val ticket = Ticket(
-                            id = uniqueId,
-                            auftragsnummer = json.optString("auftragsnummer"),
-                            ticketId = json.optString("ticket_id"),
-                            ticketType = product,
-                            ticketTypeLabel = json.optString("ticket_type_label", TicketStore.getProductLabel(product)),
-                            nachname = json.optString("nachname"),
-                            vorname = json.optString("vorname"),
-                            geburtsdatum = json.optString("geburtsdatum"),
-                            klasse = json.optString("klasse", "2"),
-                            passagierTyp = json.optString("passagier_typ", "ERWACHSENER"),
-                            gueltigVon = json.optString("gueltig_von"),
-                            gueltigBis = json.optString("gueltig_bis"),
-                            preis = json.optString("preis"),
-                            createdAt = json.optString("created_at", TicketStore.nowFormatted()),
-                            product = product,
-                        )
-
-                        TicketStore.saveTicket(this@MainActivity, ticket)
-
-                        downloadBarcodeForTicket(ticket)
-                        downloadWatermarkForTicket(ticket)
-                        downloadPdfForTicket(ticket)
-
-                        val intent = Intent(this@MainActivity, TicketResultActivity::class.java)
-                        intent.putExtra("ticket_store_id", uniqueId)
-                        startActivity(intent)
-                    } catch (e: Exception) {
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        binding.btnLoadTicket.isEnabled = true
+                        binding.btnLoadTicket.text = "Ticket laden"
                         binding.tvError.text = "Fehler beim Laden des Tickets"
                         binding.tvError.visibility = View.VISIBLE
                     }
@@ -136,94 +159,71 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun downloadBarcodeForTicket(ticket: Ticket) {
+    private fun downloadBarcodeSyncThenNavigate(ticket: Ticket, uniqueId: String) {
         val serverUrl = TicketStore.getServerUrl(this)
-        val client = OkHttpClient.Builder()
-            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
-
-        val formBody = FormBody.Builder()
-            .add("nachname", ticket.nachname)
-            .add("vorname", ticket.vorname)
-            .add("geburtsdatum", ticket.geburtsdatum)
-            .add("klasse", ticket.klasse)
-            .add("passagier_typ", ticket.passagierTyp)
-            .add("gueltig_von", ticket.gueltigVon)
-            .add("gueltig_bis", ticket.gueltigBis)
-            .add("product", ticket.product)
-            .add("tage", "15")
-            .add("ticket_id", ticket.ticketId)
-            .add("order_number", ticket.auftragsnummer)
-            .build()
+        val client = createHttpClient()
+        val formBody = buildFormBody(ticket)
 
         val request = Request.Builder()
             .url("$serverUrl/api/barcode")
             .post(formBody)
             .build()
 
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {}
-            override fun onResponse(call: Call, response: Response) {
-                if (response.isSuccessful) {
-                    val imgBytes = response.body?.bytes() ?: return
+        try {
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val imgBytes = response.body?.bytes()
+                if (imgBytes != null) {
                     val dir = File(filesDir, "barcodes")
                     dir.mkdirs()
                     val imgFile = File(dir, "barcode_${ticket.ticketId}.png")
                     FileOutputStream(imgFile).use { it.write(imgBytes) }
-                    TicketStore.updateTicketBarcodePath(this@MainActivity, ticket.id, imgFile.absolutePath)
+                    TicketStore.updateTicketBarcodePath(this, ticket.id, imgFile.absolutePath)
                 }
             }
-        })
+        } catch (_: Exception) { }
+
+        downloadWatermarkSync(ticket)
+        downloadPdfAsync(ticket)
+
+        runOnUiThread {
+            binding.btnLoadTicket.isEnabled = true
+            binding.btnLoadTicket.text = "Ticket laden"
+
+            val intent = Intent(this@MainActivity, TicketResultActivity::class.java)
+            intent.putExtra("ticket_store_id", uniqueId)
+            startActivity(intent)
+        }
     }
 
-    private fun downloadWatermarkForTicket(ticket: Ticket) {
+    private fun downloadWatermarkSync(ticket: Ticket) {
         val serverUrl = TicketStore.getServerUrl(this)
-        val client = OkHttpClient.Builder()
-            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
-
-        val formBody = FormBody.Builder()
-            .add("nachname", ticket.nachname)
-            .add("vorname", ticket.vorname)
-            .add("geburtsdatum", ticket.geburtsdatum)
-            .add("klasse", ticket.klasse)
-            .add("passagier_typ", ticket.passagierTyp)
-            .add("gueltig_von", ticket.gueltigVon)
-            .add("gueltig_bis", ticket.gueltigBis)
-            .add("product", ticket.product)
-            .add("tage", "15")
-            .add("ticket_id", ticket.ticketId)
-            .add("order_number", ticket.auftragsnummer)
-            .build()
+        val client = createHttpClient()
+        val formBody = buildFormBody(ticket)
 
         val request = Request.Builder()
             .url("$serverUrl/api/watermark")
             .post(formBody)
             .build()
 
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {}
-            override fun onResponse(call: Call, response: Response) {
-                if (response.isSuccessful) {
-                    val imgBytes = response.body?.bytes() ?: return
+        try {
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val imgBytes = response.body?.bytes()
+                if (imgBytes != null) {
                     val dir = File(filesDir, "watermarks")
                     dir.mkdirs()
                     val imgFile = File(dir, "watermark_${ticket.ticketId}.jpg")
                     FileOutputStream(imgFile).use { it.write(imgBytes) }
-                    TicketStore.updateTicketWatermarkPath(this@MainActivity, ticket.id, imgFile.absolutePath)
+                    TicketStore.updateTicketWatermarkPath(this, ticket.id, imgFile.absolutePath)
                 }
             }
-        })
+        } catch (_: Exception) { }
     }
 
-    private fun downloadPdfForTicket(ticket: Ticket) {
+    private fun downloadPdfAsync(ticket: Ticket) {
         val serverUrl = TicketStore.getServerUrl(this)
-        val client = OkHttpClient.Builder()
-            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
+        val client = createHttpClient()
 
         val formBody = FormBody.Builder()
             .add("name", "${ticket.nachname}/${ticket.vorname}")
