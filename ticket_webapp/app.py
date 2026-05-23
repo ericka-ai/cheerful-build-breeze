@@ -929,6 +929,34 @@ def generate_barcode_base64(cfg) -> str:
     return base64.b64encode(barcode_bytes).decode("ascii")
 
 
+def generate_watermark_base64(cfg) -> str:
+    """Generate combined watermark (ticket number + bottom) and return as base64-encoded JPEG."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ticket_num_path = os.path.join(tmpdir, "ticket_num.jpeg")
+        wm_bottom_path = os.path.join(tmpdir, "wm_bottom.jpeg")
+        combined_path = os.path.join(tmpdir, "watermark_combined.jpeg")
+
+        generate_ticket_number_image(cfg['ticket_id'], ticket_num_path)
+        generate_watermark_bottom(cfg, wm_bottom_path)
+
+        num_img = cv2.imread(ticket_num_path)
+        bottom_img = cv2.imread(wm_bottom_path)
+
+        target_w = 1024
+        if num_img.shape[1] != target_w:
+            num_img = cv2.resize(num_img, (target_w, int(num_img.shape[0] * target_w / num_img.shape[1])))
+        if bottom_img.shape[1] != target_w:
+            bottom_img = cv2.resize(bottom_img, (target_w, int(bottom_img.shape[0] * target_w / bottom_img.shape[1])))
+
+        combined = np.vstack([num_img, bottom_img])
+        cv2.imwrite(combined_path, combined, [cv2.IMWRITE_JPEG_QUALITY, 92])
+
+        with open(combined_path, "rb") as f:
+            img_bytes = f.read()
+
+    return base64.b64encode(img_bytes).decode("ascii")
+
+
 # ─── PDF BUILDING ────────────────────────────────────────────────────────────
 
 def register_fonts(page):
@@ -1827,6 +1855,7 @@ async def generate(
     vorname_part = parts[1] if len(parts) > 1 else ""
 
     barcode_b64 = generate_barcode_base64(cfg)
+    watermark_b64 = generate_watermark_base64(cfg)
 
     TICKET_STORE[cfg["order_number"]] = {
         "auftragsnummer": cfg["order_number"],
@@ -1845,6 +1874,7 @@ async def generate(
         "created_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
         "pdf_url": f"/download/{cfg['ticket_id']}",
         "barcode_base64": barcode_b64,
+        "watermark_base64": watermark_b64,
     }
 
     return StreamingResponse(
@@ -1913,6 +1943,7 @@ async def api_generate(
 
     generate_pdf(cfg)
     barcode_b64 = generate_barcode_base64(cfg)
+    watermark_b64 = generate_watermark_base64(cfg)
 
     ticket_data = {
         "auftragsnummer": cfg["order_number"],
@@ -1931,6 +1962,7 @@ async def api_generate(
         "created_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
         "pdf_url": f"/download/{cfg['ticket_id']}",
         "barcode_base64": barcode_b64,
+        "watermark_base64": watermark_b64,
     }
 
     TICKET_STORE[cfg["order_number"]] = ticket_data
