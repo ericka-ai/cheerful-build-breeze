@@ -693,7 +693,7 @@ def _build_sparpreis_flex(cfg):
     }
 
     fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
-    flex_len = len(fcb_bytes)
+    flex_len = 12 + len(fcb_bytes)
     return (b"U_FLEX13" +
             f"{flex_len:04d}".encode('ascii') +
             fcb_bytes)
