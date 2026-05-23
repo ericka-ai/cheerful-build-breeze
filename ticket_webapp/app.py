@@ -1879,6 +1879,79 @@ async def download_ticket(ticket_id: str):
     return JSONResponse({"error": "Direct download not available. Use /generate endpoint."}, status_code=404)
 
 
+@app.post("/api/barcode")
+async def api_barcode(
+    nachname: str = Form(...),
+    vorname: str = Form(...),
+    geburtsdatum: str = Form(...),
+    klasse: str = Form("2"),
+    passagier_typ: str = Form("ERWACHSENER"),
+    gueltig_von: str = Form(""),
+    gueltig_bis: str = Form(""),
+    product: str = Form("grp_consecutive"),
+    tage: str = Form("15"),
+    von: str = Form(""),
+    nach: str = Form(""),
+    zug_typ: str = Form("ICE"),
+    zug_nummer: str = Form("919"),
+    ticket_id: str = Form(""),
+    order_number: str = Form(""),
+):
+    """Returns the Aztec barcode PNG for the given ticket data (same as in PDF)."""
+    name = f"{nachname}/{vorname}"
+    days_int = int(tage) if tage.isdigit() else 15
+
+    if not gueltig_von:
+        gueltig_von = datetime.now().strftime("%d.%m.%Y")
+    if not gueltig_bis:
+        gueltig_bis = _calc_validity_end(gueltig_von, days_int, product)
+
+    price_table = ALL_PRICES.get(product, {})
+    price = ""
+    if price_table:
+        day_prices = price_table.get(days_int, {})
+        if not day_prices:
+            first_key = next(iter(price_table), None)
+            day_prices = price_table.get(first_key, {})
+        price = day_prices.get((klasse, passagier_typ), "")
+
+    cfg = _build_cfg(
+        name=name,
+        birth_date=geburtsdatum,
+        validity_start=gueltig_von,
+        validity_end=gueltig_bis,
+        ticket_id=ticket_id,
+        order_number=order_number,
+        klasse=klasse,
+        days=str(days_int),
+        passenger_type=passagier_typ,
+        price=price,
+        payment_method="SEPA",
+        payment_date="",
+        booking_date="",
+        product=product,
+        station_from=von,
+        station_to=nach,
+        zugtyp=zug_typ,
+        train_number=zug_nummer,
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        barcode_path = tmp.name
+
+    generate_aztec_barcode(cfg, barcode_path)
+
+    with open(barcode_path, "rb") as f:
+        barcode_bytes = f.read()
+    os.unlink(barcode_path)
+
+    return StreamingResponse(
+        io.BytesIO(barcode_bytes),
+        media_type="image/png",
+        headers={"Content-Disposition": "inline; filename=barcode.png"},
+    )
+
+
 def _calc_validity_end(start_str, days_int, product):
     """Calculate validity end date from start + days."""
     try:

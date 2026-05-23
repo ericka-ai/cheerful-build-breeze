@@ -6,19 +6,19 @@
     android:orientation="vertical"
     android:background="#282828">
 
-    <!-- Top Bar like DB Navigator -->
+    <!-- Top Bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:background="#282828"
         android:gravity="center_vertical"
-        android:paddingStart="8dp"
+        android:paddingStart="4dp"
         android:paddingEnd="16dp">
 
         <ImageButton
             android:id="@+id/btnBackTicket"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
             android:tint="@color/db_white"
@@ -28,354 +28,293 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Reisedetails"
+            android:text="Ticket"
             android:textColor="@color/db_white"
             android:textSize="18sp"
             android:textStyle="bold"
             android:gravity="center" />
 
         <View
-            android:layout_width="40dp"
-            android:layout_height="40dp" />
+            android:layout_width="44dp"
+            android:layout_height="44dp" />
     </LinearLayout>
 
-    <!-- Tab Bar -->
-    <LinearLayout
+    <!-- Red accent line -->
+    <View
         android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:background="#282828"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Reiseplan"
-            android:textColor="#888888"
-            android:textSize="14sp"
-            android:gravity="center" />
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:text="Ticket"
-                android:textColor="@color/db_white"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:gravity="center" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:background="@color/db_red" />
-        </LinearLayout>
-    </LinearLayout>
+        android:layout_height="3dp"
+        android:background="@color/db_red" />
 
     <!-- Ticket Content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#282828">
+        android:background="@color/db_white">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:orientation="vertical">
 
-            <!-- Barcode Card -->
-            <androidx.cardview.widget.CardView
+            <!-- Barcode Section -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/db_white"
-                android:layout_marginBottom="2dp">
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="20dp"
+                android:background="@color/db_white">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <ImageView
+                    android:id="@+id/ivBarcode"
+                    android:layout_width="260dp"
+                    android:layout_height="260dp"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="Aztec Barcode" />
+
+                <TextView
+                    android:id="@+id/tvBarcodeLoading"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="24dp">
+                    android:text="Barcode wird geladen..."
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginTop="6dp"
+                    android:visibility="gone" />
+            </LinearLayout>
 
-                    <ImageView
-                        android:id="@+id/ivBarcode"
-                        android:layout_width="280dp"
-                        android:layout_height="280dp"
-                        android:scaleType="fitCenter"
-                        android:contentDescription="Aztec Barcode" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp" />
 
-            <!-- Ticket Details Card -->
-            <androidx.cardview.widget.CardView
+            <!-- Ticket Details -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="0dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/db_white"
-                android:layout_marginBottom="2dp">
+                android:orientation="vertical"
+                android:padding="20dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <!-- Name -->
+                <TextView
+                    android:id="@+id/tvResultName"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
+                    android:textSize="17sp"
+                    android:textColor="@color/text_primary" />
 
-                    <!-- Divider line -->
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="#E0E0E0"
-                        android:layout_marginBottom="16dp" />
+                <!-- CIV -->
+                <TextView
+                    android:id="@+id/tvCiv"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="2dp" />
 
-                    <!-- Name -->
-                    <TextView
-                        android:id="@+id/tvResultName"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="17sp"
-                        android:textColor="@color/text_primary" />
+                <!-- Gueltigkeit -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="G\u00fcltigkeit"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="16dp" />
 
-                    <!-- CIV -->
-                    <TextView
-                        android:id="@+id/tvCiv"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="2dp" />
+                <TextView
+                    android:id="@+id/tvResultTicketType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="4dp" />
 
-                    <!-- Gueltigkeit Section -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="G\u00fcltigkeit"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="16dp" />
+                <TextView
+                    android:id="@+id/tvResultKlasse"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="2dp" />
 
-                    <!-- Ticket Type Label -->
-                    <TextView
-                        android:id="@+id/tvResultTicketType"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="4dp" />
+                <TextView
+                    android:id="@+id/tvResultPassagierTyp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="2dp" />
 
-                    <!-- Klasse -->
-                    <TextView
-                        android:id="@+id/tvResultKlasse"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="2dp" />
+                <TextView
+                    android:id="@+id/tvResultGeburtsdatum"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="2dp" />
 
-                    <!-- Passagier Typ -->
-                    <TextView
-                        android:id="@+id/tvResultPassagierTyp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="2dp" />
+                <TextView
+                    android:id="@+id/tvResultGueltigkeit"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
 
-                    <!-- Geburtsdatum -->
-                    <TextView
-                        android:id="@+id/tvResultGeburtsdatum"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="2dp" />
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp" />
 
-                    <!-- Von / Bis dates -->
-                    <TextView
-                        android:id="@+id/tvResultGueltigkeit"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="2dp" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- Buchungsdetails Card -->
-            <androidx.cardview.widget.CardView
+            <!-- Buchungsdetails -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="0dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/db_white"
-                android:layout_marginBottom="2dp">
+                android:orientation="vertical"
+                android:padding="20dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
+                    android:text="Buchungsdetails"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Buchungsdetails"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
+                <TextView
+                    android:id="@+id/tvResultCreatedAt"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="4dp" />
 
-                    <!-- Gebucht am -->
-                    <TextView
-                        android:id="@+id/tvResultCreatedAt"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="4dp" />
+                <TextView
+                    android:id="@+id/tvAuftragsnummer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="2dp" />
 
-                    <!-- Auftrags-Nr -->
-                    <TextView
-                        android:id="@+id/tvAuftragsnummer"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="2dp" />
+                <TextView
+                    android:id="@+id/tvResultPreis"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="2dp" />
+            </LinearLayout>
 
-                    <!-- Gesamtpreis -->
-                    <TextView
-                        android:id="@+id/tvResultPreis"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="2dp" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp" />
 
-            <!-- Konditionen Card -->
-            <androidx.cardview.widget.CardView
+            <!-- Konditionen -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="0dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/db_white"
-                android:layout_marginBottom="2dp">
+                android:orientation="vertical"
+                android:padding="20dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
+                    android:text="Konditionen"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Konditionen"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
+                <TextView
+                    android:id="@+id/tvKonditionen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingExtra="3dp" />
 
-                    <TextView
-                        android:id="@+id/tvKonditionen"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="4dp"
-                        android:lineSpacingExtra="3dp" />
+                <TextView
+                    android:id="@+id/tvTicketCode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="10dp" />
+            </LinearLayout>
 
-                    <!-- Ticketcode -->
-                    <TextView
-                        android:id="@+id/tvTicketCode"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="13sp"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="10dp" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp" />
 
-            <!-- Watermark footer with auftragsnummer -->
-            <androidx.cardview.widget.CardView
+            <!-- Footer with big number -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="0dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@color/db_white"
-                android:layout_marginBottom="16dp">
+                android:orientation="vertical"
+                android:padding="20dp"
+                android:paddingBottom="32dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:id="@+id/tvAuftragBig"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:textColor="#555555"
+                    android:letterSpacing="0.05" />
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="#E0E0E0"
-                        android:layout_marginBottom="12dp" />
+                <TextView
+                    android:id="@+id/tvNameFooter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginTop="4dp" />
 
-                    <!-- Large Auftragsnummer -->
-                    <TextView
-                        android:id="@+id/tvAuftragBig"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="28sp"
-                        android:textStyle="bold"
-                        android:textColor="#555555"
-                        android:letterSpacing="0.05" />
+                <TextView
+                    android:id="@+id/tvDateFooter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="30sp"
+                    android:textStyle="bold"
+                    android:textColor="#555555"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
 
-                    <!-- Name footer -->
-                    <TextView
-                        android:id="@+id/tvNameFooter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginTop="4dp" />
-
-                    <!-- Date footer -->
-                    <TextView
-                        android:id="@+id/tvDateFooter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textSize="32sp"
-                        android:textStyle="bold"
-                        android:textColor="#555555"
-                        android:layout_marginTop="4dp" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- Hidden fields for data binding compatibility -->
+            <!-- Hidden fields for data binding -->
             <TextView android:id="@+id/tvTicketId" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
             <TextView android:id="@+id/tvPdfStatus" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
 
         </LinearLayout>
     </ScrollView>
 
-    <!-- Bottom Navigation -->
+    <!-- Bottom Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:background="#1E1E1E"
+        android:background="@color/db_white"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:elevation="8dp">
 
         <LinearLayout
             android:id="@+id/btnNewTicket"
@@ -391,26 +330,16 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Buchen"
-                android:textColor="#888888"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Reisen"
+                android:text="Neues Ticket"
                 android:textColor="@color/db_red"
-                android:textSize="12sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="#E0E0E0" />
 
         <LinearLayout
             android:id="@+id/btnDownloadPdf"
@@ -426,9 +355,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="PDF"
-                android:textColor="#888888"
-                android:textSize="12sp" />
+                android:text="PDF anzeigen"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
 
