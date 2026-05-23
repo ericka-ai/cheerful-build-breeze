@@ -27,10 +27,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.btnSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
         binding.btnLoadTicket.setOnClickListener {
             val auftragsnummer = binding.etAuftragsnummer.text.toString().trim()
             if (auftragsnummer.isEmpty()) {
