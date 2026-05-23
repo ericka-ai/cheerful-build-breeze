@@ -1655,14 +1655,14 @@ PRODUCT_LABELS = {
 
 
 RESIDENCE_CODES = {
-    "Germany": 80, "Austria": 65, "Belgium": 71, "Bulgaria": 73,
-    "Croatia": 74, "Czech Republic": 10, "Denmark": 75, "Estonia": 76,
-    "Finland": 78, "France": 79, "Great Britain": 81, "Greece": 82,
-    "Hungary": 83, "Ireland": 84, "Italy": 85, "Latvia": 86,
-    "Lithuania": 87, "Luxembourg": 88, "Netherlands": 25,
-    "Norway": 94, "Poland": 44, "Portugal": 51, "Romania": 52,
-    "Serbia": 53, "Slovakia": 54, "Slovenia": 55, "Spain": 56,
-    "Sweden": 60, "Switzerland": 62, "Turkey": 70,
+    "Germany": 276, "Austria": 40, "Belgium": 56, "Bulgaria": 100,
+    "Croatia": 191, "Czech Republic": 203, "Denmark": 208, "Estonia": 233,
+    "Finland": 246, "France": 250, "Great Britain": 826, "Greece": 300,
+    "Hungary": 348, "Ireland": 372, "Italy": 380, "Latvia": 428,
+    "Lithuania": 440, "Luxembourg": 442, "Netherlands": 528,
+    "Norway": 578, "Poland": 616, "Portugal": 620, "Romania": 642,
+    "Serbia": 688, "Slovakia": 703, "Slovenia": 705, "Spain": 724,
+    "Sweden": 752, "Switzerland": 756, "Turkey": 792,
     "United Kingdom": 826, "United States": 840,
 }
 
@@ -1730,7 +1730,7 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
         "product": product,
         "product_label": PRODUCT_LABELS.get(product, "German Rail Pass"),
         "residence": residence,
-        "residence_code": RESIDENCE_CODES.get(residence, 80),
+        "residence_code": RESIDENCE_CODES.get(residence, 276),
     }
 
     if product == 'db_sparpreis':
