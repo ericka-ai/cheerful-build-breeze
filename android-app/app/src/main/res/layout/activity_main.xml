@@ -295,6 +295,37 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Recent Tickets -->
+            <TextView
+                android:id="@+id/tvRecentTickets"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Letzte Tickets"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/tvNoTickets"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Noch keine Tickets erstellt"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:gravity="center"
+                android:layout_marginTop="16dp"
+                android:visibility="gone" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTickets"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:visibility="gone" />
+
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

@@ -9,8 +9,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.dbtickets.app.databinding.ActivityTicketFormBinding
 import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
@@ -22,9 +22,9 @@ class TicketFormActivity : AppCompatActivity() {
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
 
     private val stations = arrayOf(
-        "Berlin Hbf", "Hamburg Hbf", "Muenchen Hbf", "Koeln Hbf",
-        "Frankfurt(Main)Hbf", "Stuttgart Hbf", "Duesseldorf Hbf",
-        "Hannover Hbf", "Leipzig Hbf", "Dresden Hbf", "Nuernberg Hbf",
+        "Berlin Hbf", "Hamburg Hbf", "M\u00fcnchen Hbf", "K\u00f6ln Hbf",
+        "Frankfurt(Main)Hbf", "Stuttgart Hbf", "D\u00fcsseldorf Hbf",
+        "Hannover Hbf", "Leipzig Hbf", "Dresden Hbf", "N\u00fcrnberg Hbf",
         "Bremen Hbf", "Dortmund Hbf", "Essen Hbf", "Mannheim Hbf",
         "Karlsruhe Hbf", "Augsburg Hbf", "Freiburg(Brsg)Hbf",
         "Erfurt Hbf", "Rostock Hbf"
@@ -87,7 +87,6 @@ class TicketFormActivity : AppCompatActivity() {
             }
         }
 
-        // Set default dates
         val cal = Calendar.getInstance()
         binding.etGueltigVon.setText(dateFormat.format(cal.time))
         cal.add(Calendar.DAY_OF_MONTH, 7)
@@ -135,105 +134,120 @@ class TicketFormActivity : AppCompatActivity() {
             binding.btnSubmit.isEnabled = false
             binding.btnSubmit.text = getString(R.string.bitte_warten)
 
-            submitTicket(nachname, vorname, geburtsdatum)
+            createTicket(nachname, vorname, geburtsdatum)
         }
     }
 
-    private fun submitTicket(nachname: String, vorname: String, geburtsdatum: String) {
-        val prefs = getSharedPreferences("db_tickets", MODE_PRIVATE)
-        val serverUrl = prefs.getString("server_url", "") ?: ""
-
-        if (serverUrl.isEmpty()) {
-            runOnUiThread {
-                Toast.makeText(this, "Bitte zuerst Server-URL in Einstellungen setzen", Toast.LENGTH_LONG).show()
-                binding.btnSubmit.isEnabled = true
-                binding.btnSubmit.text = getString(R.string.ticket_erstellen)
-            }
-            return
-        }
-
+    private fun createTicket(nachname: String, vorname: String, geburtsdatum: String) {
         val klasse = if (binding.rbKlasse1.isChecked) "1" else "2"
         val passagierTyp = if (binding.rbErwachsener.isChecked) "ERWACHSENER" else "JUGENDLICHER"
+        val gueltigVon = binding.etGueltigVon.text.toString()
+        val gueltigBis = binding.etGueltigBis.text.toString()
 
-        val formBody = FormBody.Builder()
-            .add("nachname", nachname)
-            .add("vorname", vorname)
-            .add("geburtsdatum", geburtsdatum)
-            .add("klasse", klasse)
-            .add("passagier_typ", passagierTyp)
-            .add("gueltig_von", binding.etGueltigVon.text.toString())
-
-        when (ticketType) {
+        val product = when (ticketType) {
             "grp_consecutive", "grp_flexi" -> {
-                val passTyp = if (binding.rbConsecutive.isChecked) "consecutive" else "flexi"
-                val selectedDays = binding.spinnerReisetage.selectedItem.toString().split(" ")[0]
-                formBody.add("product", "grp_$passTyp")
-                formBody.add("tage", selectedDays)
-                formBody.add("gueltig_bis", binding.etGueltigBis.text.toString())
+                if (binding.rbConsecutive.isChecked) "grp_consecutive" else "grp_flexi"
             }
-            "eurail_global" -> {
-                val selectedDays = binding.spinnerReisetage.selectedItem.toString().split(" ")[0]
-                formBody.add("product", "eurail_global")
-                formBody.add("tage", selectedDays)
-                formBody.add("gueltig_bis", binding.etGueltigBis.text.toString())
-            }
-            "deutschlandticket" -> {
-                formBody.add("product", "deutschlandticket")
-            }
-            "sparpreis" -> {
-                formBody.add("product", "sparpreis")
-                formBody.add("von", binding.spinnerVon.selectedItem.toString())
-                formBody.add("nach", binding.spinnerNach.selectedItem.toString())
-                formBody.add("zug_typ", binding.etZugTyp.text.toString())
-                formBody.add("zug_nummer", binding.etZugNummer.text.toString())
-                formBody.add("gueltig_bis", binding.etGueltigBis.text.toString())
-            }
+            else -> ticketType
         }
 
-        val client = OkHttpClient()
+        val days = when (ticketType) {
+            "grp_consecutive", "grp_flexi", "eurail_global" -> {
+                binding.spinnerReisetage.selectedItem.toString().split(" ")[0].toIntOrNull() ?: 15
+            }
+            else -> 1
+        }
+
+        val auftragsnummer = TicketStore.generateAuftragsnummer()
+        val ticketId = TicketStore.generateTicketId()
+        val preis = TicketStore.getPriceForProduct(product, days, klasse, passagierTyp)
+        val uniqueId = UUID.randomUUID().toString()
+
+        val ticket = Ticket(
+            id = uniqueId,
+            auftragsnummer = auftragsnummer,
+            ticketId = ticketId,
+            ticketType = ticketType,
+            ticketTypeLabel = TicketStore.getProductLabel(product),
+            nachname = nachname,
+            vorname = vorname,
+            geburtsdatum = geburtsdatum,
+            klasse = klasse,
+            passagierTyp = passagierTyp,
+            gueltigVon = gueltigVon,
+            gueltigBis = gueltigBis,
+            preis = preis,
+            createdAt = TicketStore.nowFormatted(),
+            product = product,
+        )
+
+        TicketStore.saveTicket(this, ticket)
+
+        downloadPdf(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
+
+        val intent = Intent(this, TicketResultActivity::class.java)
+        intent.putExtra("ticket_store_id", uniqueId)
+        startActivity(intent)
+        finish()
+    }
+
+    private fun downloadPdf(
+        ticket: Ticket,
+        nachname: String,
+        vorname: String,
+        geburtsdatum: String,
+        klasse: String,
+        passagierTyp: String,
+        gueltigVon: String,
+        gueltigBis: String,
+        product: String,
+        days: String,
+    ) {
+        val serverUrl = TicketStore.getServerUrl(this)
+
+        val formBody = FormBody.Builder()
+            .add("name", "$nachname/$vorname")
+            .add("birth_date", geburtsdatum)
+            .add("validity_start", gueltigVon)
+            .add("validity_end", gueltigBis)
+            .add("ticket_id", ticket.ticketId)
+            .add("order_number", ticket.auftragsnummer)
+            .add("klasse", klasse)
+            .add("days", days)
+            .add("passenger_type", passagierTyp)
+            .add("price", ticket.preis)
+            .add("product", product)
+
+        if (product == "sparpreis" || product == "db_sparpreis") {
+            formBody.add("station_from", binding.spinnerVon.selectedItem?.toString() ?: "Berlin Hbf")
+            formBody.add("station_to", binding.spinnerNach.selectedItem?.toString() ?: "Hamburg Hbf")
+            formBody.add("zugtyp", binding.etZugTyp.text?.toString() ?: "ICE")
+            formBody.add("train_number", binding.etZugNummer.text?.toString() ?: "919")
+        }
+
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+
         val request = Request.Builder()
-            .url("$serverUrl/api/generate")
+            .url("$serverUrl/generate")
             .post(formBody.build())
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    Toast.makeText(
-                        this@TicketFormActivity,
-                        getString(R.string.error_connection) + ": " + e.message,
-                        Toast.LENGTH_LONG
-                    ).show()
-                    binding.btnSubmit.isEnabled = true
-                    binding.btnSubmit.text = getString(R.string.ticket_erstellen)
-                }
+                // PDF download failed silently - ticket is still saved locally
             }
 
             override fun onResponse(call: Call, response: Response) {
-                val body = response.body?.string() ?: "{}"
-                runOnUiThread {
-                    try {
-                        val json = JSONObject(body)
-                        val intent = Intent(this@TicketFormActivity, TicketResultActivity::class.java)
-                        intent.putExtra("auftragsnummer", json.optString("auftragsnummer", "N/A"))
-                        intent.putExtra("ticket_id", json.optString("ticket_id", "N/A"))
-                        intent.putExtra("ticket_type", ticketType)
-                        intent.putExtra("name", "$vorname $nachname")
-                        intent.putExtra("geburtsdatum", geburtsdatum)
-                        intent.putExtra("gueltigkeit", "${binding.etGueltigVon.text} - ${binding.etGueltigBis.text}")
-                        intent.putExtra("preis", json.optString("preis", ""))
-                        intent.putExtra("pdf_url", json.optString("pdf_url", ""))
-                        startActivity(intent)
-                        finish()
-                    } catch (e: Exception) {
-                        Toast.makeText(
-                            this@TicketFormActivity,
-                            "Fehler: ${e.message}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                    binding.btnSubmit.isEnabled = true
-                    binding.btnSubmit.text = getString(R.string.ticket_erstellen)
+                if (response.isSuccessful) {
+                    val pdfBytes = response.body?.bytes() ?: return
+                    val pdfDir = File(filesDir, "tickets")
+                    pdfDir.mkdirs()
+                    val pdfFile = File(pdfDir, "ticket_${ticket.ticketId}.pdf")
+                    FileOutputStream(pdfFile).use { it.write(pdfBytes) }
+                    TicketStore.updateTicketPdfPath(this@TicketFormActivity, ticket.id, pdfFile.absolutePath)
                 }
             }
         })

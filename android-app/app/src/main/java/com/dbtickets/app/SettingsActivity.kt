@@ -15,7 +15,8 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         val prefs = getSharedPreferences("db_tickets", MODE_PRIVATE)
-        binding.etServerUrl.setText(prefs.getString("server_url", ""))
+        val savedUrl = prefs.getString("server_url", "") ?: ""
+        binding.etServerUrl.setText(savedUrl.ifEmpty { TicketStore.getDefaultServerUrl() })
 
         binding.btnBack.setOnClickListener { finish() }
 
