@@ -51,17 +51,6 @@ class TicketResultActivity : AppCompatActivity() {
 
         binding.btnBackTicket.setOnClickListener { finish() }
 
-        binding.btnNewTicket.setOnClickListener {
-            val intent = Intent(this, MainActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-            startActivity(intent)
-            finish()
-        }
-
-        binding.btnDownloadPdf.setOnClickListener {
-            openPdf()
-        }
-
         binding.btnWeitereAktionen.setOnClickListener {
             showWeitereAktionen()
         }
@@ -71,11 +60,11 @@ class TicketResultActivity : AppCompatActivity() {
         if (isDark) {
             binding.rootLayout.setBackgroundColor(Color.parseColor("#282828"))
             binding.scrollContent.setBackgroundColor(Color.parseColor("#282828"))
-            setTextColors(Color.WHITE, Color.parseColor("#CCCCCC"))
+            setTextColors(Color.WHITE)
         }
     }
 
-    private fun setTextColors(primary: Int, secondary: Int) {
+    private fun setTextColors(primary: Int) {
         binding.tvResultName.setTextColor(primary)
         binding.tvCiv.setTextColor(primary)
         binding.tvResultTicketType.setTextColor(primary)
@@ -88,9 +77,6 @@ class TicketResultActivity : AppCompatActivity() {
         binding.tvKonditionen.setTextColor(primary)
         binding.tvStornierung.setTextColor(primary)
         binding.tvTicketCode.setTextColor(primary)
-        binding.tvNameFooter.setTextColor(primary)
-        binding.tvAuftragBig.setTextColor(secondary)
-        binding.tvDateFooter.setTextColor(secondary)
     }
 
     private fun showWeitereAktionen() {
@@ -209,30 +195,13 @@ class TicketResultActivity : AppCompatActivity() {
         val ticketCode = generateTicketCode()
         binding.tvTicketCode.text = "Ticketcode: $ticketCode"
 
-        binding.tvAuftragBig.text = t.auftragsnummer
-        binding.tvNameFooter.text = "${t.vorname} ${t.nachname}"
-
-        try {
-            val parts = von.split(".")
-            if (parts.size >= 2) {
-                binding.tvDateFooter.text = "${parts[0]}  ${parts[1]}"
-            }
-        } catch (e: Exception) {
-            binding.tvDateFooter.text = von
-        }
-
-        val wmText = buildString {
-            val items = listOf(
-                t.auftragsnummer, "${t.klasse}. Kl.", productName,
-                "${t.vorname} ${t.nachname}", "Fahrkarte",
-                t.gueltigVon, t.auftragsnummer
-            )
-            for (i in 0..5) {
-                append(items.joinToString(" "))
-                append(" ")
-            }
-        }
-        binding.tvWatermarkText.text = wmText
+        binding.watermarkView.setTicketData(
+            auftragsnummer = t.auftragsnummer,
+            name = "${t.vorname} ${t.nachname}",
+            klasse = t.klasse,
+            productLabel = productName,
+            gueltigVon = von,
+        )
     }
 
     private fun loadBarcode(t: Ticket) {
