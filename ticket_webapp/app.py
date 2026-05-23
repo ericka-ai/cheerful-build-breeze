@@ -125,6 +125,84 @@ DB_STATIONS = {
     'Rostock Hbf': 8027089,
 }
 
+# DS100 Betriebsstellenkürzel for via route generation
+DB_VIA_ROUTES = {
+    ('Köln Messe/Deutz', 'Stuttgart Hbf'): 'TROI*SIGB*LM*(FH*F*DA*MA/MZ*KA)*VAI',
+    ('Köln Hbf', 'Stuttgart Hbf'): 'TROI*SIGB*LM*(FH*F*DA*MA/MZ*KA)*VAI',
+    ('Köln Messe/Deutz', 'München Hbf'): 'TROI*SIGB*LM*(FH*F*DA*MA/MZ*KA)*TS*ULM',
+    ('Köln Hbf', 'München Hbf'): 'TROI*SIGB*LM*(FH*F*DA*MA/MZ*KA)*TS*ULM',
+    ('Köln Messe/Deutz', 'Frankfurt(Main)Hbf'): 'TROI*SIGB*LM*FH',
+    ('Köln Hbf', 'Frankfurt(Main)Hbf'): 'TROI*SIGB*LM*FH',
+    ('Köln Messe/Deutz', 'Berlin Hbf'): 'EDG*EE*EDO*HM*H*BS*WOB*BSPD',
+    ('Köln Hbf', 'Berlin Hbf'): 'EDG*EE*EDO*HM*H*BS*WOB*BSPD',
+    ('Frankfurt(Main)Hbf', 'Berlin Hbf'): 'FD*KS*G*H*BS*WOB*BSPD',
+    ('Frankfurt(Main)Hbf', 'München Hbf'): 'DA*MA*TS*(ULM/AA)',
+    ('Frankfurt(Main)Hbf', 'Stuttgart Hbf'): 'DA*MA*KA*VAI',
+    ('Frankfurt(Main)Hbf', 'Hamburg Hbf'): 'FD*KS*G*H*UEZ',
+    ('Frankfurt(Main)Hbf', 'Köln Hbf'): 'FH*LM*SIGB*TROI',
+    ('Frankfurt(Main)Hbf', 'Köln Messe/Deutz'): 'FH*LM*SIGB*TROI',
+    ('Berlin Hbf', 'Hamburg Hbf'): 'BSPD*WOB*UEZ',
+    ('Berlin Hbf', 'München Hbf'): 'LH*ERF*NBG',
+    ('Berlin Hbf', 'Frankfurt(Main)Hbf'): 'BSPD*WOB*BS*H*G*KS*FD',
+    ('Berlin Hbf', 'Köln Hbf'): 'BSPD*WOB*BS*H*HM*EDO*EE*EDG',
+    ('Berlin Hbf', 'Köln Messe/Deutz'): 'BSPD*WOB*BS*H*HM*EDO*EE*EDG',
+    ('Berlin Hbf', 'Stuttgart Hbf'): 'LH*ERF*NBG*TS',
+    ('Berlin Hbf', 'Leipzig Hbf'): 'JW*BT',
+    ('Berlin Hbf', 'Dresden Hbf'): 'JW*BT*RIE',
+    ('Hamburg Hbf', 'Berlin Hbf'): 'UEZ*WOB*BSPD',
+    ('Hamburg Hbf', 'München Hbf'): 'H*G*FD*FF*MA*TS*ULM',
+    ('Hamburg Hbf', 'Frankfurt(Main)Hbf'): 'UEZ*H*G*KS*FD',
+    ('Hamburg Hbf', 'Köln Hbf'): 'BHB*OS*EDO*EE*EDG',
+    ('Hamburg Hbf', 'Stuttgart Hbf'): 'H*G*KS*FD*FF*MA*KA*VAI',
+    ('München Hbf', 'Berlin Hbf'): 'NBG*ERF*LH',
+    ('München Hbf', 'Hamburg Hbf'): 'ULM*TS*MA*FF*FD*G*H*UEZ',
+    ('München Hbf', 'Frankfurt(Main)Hbf'): '(AA/ULM)*TS*MA*DA',
+    ('München Hbf', 'Stuttgart Hbf'): 'ULM',
+    ('München Hbf', 'Köln Hbf'): 'ULM*TS*(KA*MZ/MA)*DA*F*FH*LM*SIGB*TROI',
+    ('München Hbf', 'Nürnberg Hbf'): 'ING',
+    ('Stuttgart Hbf', 'München Hbf'): 'ULM',
+    ('Stuttgart Hbf', 'Frankfurt(Main)Hbf'): 'VAI*KA*MA*DA',
+    ('Stuttgart Hbf', 'Berlin Hbf'): 'TS*NBG*ERF*LH',
+    ('Stuttgart Hbf', 'Köln Hbf'): 'VAI*(KA*MA/MZ*DA*F*FH)*LM*SIGB*TROI',
+    ('Stuttgart Hbf', 'Köln Messe/Deutz'): 'VAI*(KA*MA/MZ*DA*F*FH)*LM*SIGB*TROI',
+    ('Stuttgart Hbf', 'Hamburg Hbf'): 'VAI*KA*MA*FF*FD*KS*G*H*UEZ',
+    ('Mannheim Hbf', 'Stuttgart Hbf'): 'KA*VAI',
+    ('Mannheim Hbf', 'Frankfurt(Main)Hbf'): 'DA',
+    ('Mannheim Hbf', 'Berlin Hbf'): 'DA*F*FD*KS*G*H*BS*WOB*BSPD',
+    ('Hannover Hbf', 'Berlin Hbf'): 'BS*WOB*BSPD',
+    ('Hannover Hbf', 'Hamburg Hbf'): 'UEZ',
+    ('Hannover Hbf', 'München Hbf'): 'G*FD*FF*MA*TS*ULM',
+    ('Hannover Hbf', 'Frankfurt(Main)Hbf'): 'G*KS*FD',
+    ('Dortmund Hbf', 'Berlin Hbf'): 'HM*H*BS*WOB*BSPD',
+    ('Dortmund Hbf', 'München Hbf'): 'HM*H*G*FD*FF*MA*TS*ULM',
+    ('Nürnberg Hbf', 'München Hbf'): 'ING',
+    ('Nürnberg Hbf', 'Berlin Hbf'): 'ERF*LH',
+    ('Leipzig Hbf', 'Berlin Hbf'): 'BT*JW',
+    ('Dresden Hbf', 'Berlin Hbf'): 'RIE*BT*JW',
+    ('Düsseldorf Hbf', 'Berlin Hbf'): 'EDG*EE*EDO*HM*H*BS*WOB*BSPD',
+    ('Düsseldorf Hbf', 'München Hbf'): 'KD*TROI*SIGB*LM*FH*F*DA*MA*TS*ULM',
+    ('Essen Hbf', 'Berlin Hbf'): 'EDO*HM*H*BS*WOB*BSPD',
+    ('Karlsruhe Hbf', 'Stuttgart Hbf'): 'VAI',
+    ('Karlsruhe Hbf', 'Frankfurt(Main)Hbf'): 'MA*DA',
+    ('Augsburg Hbf', 'München Hbf'): '',
+    ('Erfurt Hbf', 'Berlin Hbf'): 'LH',
+    ('Erfurt Hbf', 'München Hbf'): 'NBG',
+    ('Bremen Hbf', 'Hamburg Hbf'): '',
+    ('Freiburg(Brsg)Hbf', 'Stuttgart Hbf'): 'KA*VAI',
+    ('Freiburg(Brsg)Hbf', 'Frankfurt(Main)Hbf'): 'KA*MA*DA',
+}
+
+
+def _get_via_route(von, nach):
+    """Generate automatic via route text for DB Sparpreis tickets."""
+    key = (von, nach)
+    if key in DB_VIA_ROUTES:
+        route = DB_VIA_ROUTES[key]
+        if route:
+            return f"Via: <1080>{route}"
+    return ""
+
+
 # ─── FONTS ───────────────────────────────────────────────────────────────────
 FONT_REGULAR = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
 FONT_BOLD = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
@@ -530,6 +608,8 @@ def _build_sparpreis_flex(cfg):
     travel_day = valid_from_day
 
     via_text = cfg.get('via_text', '')
+    if not via_text:
+        via_text = _get_via_route(von, nach)
 
     ticketcode = cfg.get('sparpreis_ref', cfg['order_number'][:8].upper())
 
@@ -882,9 +962,18 @@ def _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode
     txt(page, (45.6, 177.6), "Einfache Fahrt", font="F0", size=10.0)
     txt(page, (116.5, 177.7), von, font="F1", size=10.0)
     von_w = fitz.get_text_length(von, fontname="helv", fontsize=10.0)
-    txt(page, (116.5 + von_w + 10, 177.7), nach, font="F1", size=10.0)
+    arrow_x = 116.5 + von_w + 3
+    shape = page.new_shape()
+    shape.draw_line(fitz.Point(arrow_x, 172.0), fitz.Point(arrow_x + 8, 172.0))
+    shape.draw_line(fitz.Point(arrow_x + 5, 169.5), fitz.Point(arrow_x + 8, 172.0))
+    shape.draw_line(fitz.Point(arrow_x + 5, 174.5), fitz.Point(arrow_x + 8, 172.0))
+    shape.finish(color=(0, 0, 0), width=0.5)
+    shape.commit()
+    txt(page, (arrow_x + 11, 177.7), nach, font="F1", size=10.0)
 
     via_text = cfg.get('via_text', '')
+    if not via_text:
+        via_text = _get_via_route(von, nach)
     if via_text:
         lines = []
         cur = via_text
