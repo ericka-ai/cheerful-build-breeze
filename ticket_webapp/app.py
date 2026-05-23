@@ -6,13 +6,16 @@ FastAPI backend with HTML frontend form.
 
 import fitz  # PyMuPDF
 import csv
+import json
 import math
 import os
 import random
 import tempfile
 import io
+import time
 import zipfile
 import zlib
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 import base64
@@ -222,7 +225,16 @@ WM_TEXT_GREY = 188
 W = 595.28
 H = 841.89
 
-API_SECRET_KEY = "9f098376d138c85c13cb64fb2d006ebe34a91ca6b868cd38c62d0ab9e4abb28e"
+API_SECRET_KEY = os.environ.get(
+    "API_SECRET_KEY",
+    "9f098376d138c85c13cb64fb2d006ebe34a91ca6b868cd38c62d0ab9e4abb28e"
+)
+
+TICKET_STORE_FILE = os.path.join(APP_DIR, "ticket_store.json")
+
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX = 30
+_rate_limit_store: dict[str, list[float]] = defaultdict(list)
 
 app = FastAPI()
 
@@ -245,8 +257,45 @@ async def check_api_key(request, call_next):
     return await call_next(request)
 
 
-# In-memory ticket storage keyed by auftragsnummer
+@app.middleware("http")
+async def rate_limit(request, call_next):
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    _rate_limit_store[client_ip] = [
+        t for t in _rate_limit_store[client_ip] if now - t < RATE_LIMIT_WINDOW
+    ]
+    if len(_rate_limit_store[client_ip]) >= RATE_LIMIT_MAX:
+        return JSONResponse(
+            {"error": "Too many requests"},
+            status_code=429,
+        )
+    _rate_limit_store[client_ip].append(now)
+    return await call_next(request)
+
+
+# Persistent ticket storage keyed by auftragsnummer
 TICKET_STORE: dict[str, dict] = {}
+
+
+def _load_ticket_store():
+    global TICKET_STORE
+    if os.path.exists(TICKET_STORE_FILE):
+        try:
+            with open(TICKET_STORE_FILE, "r") as f:
+                TICKET_STORE = json.load(f)
+        except Exception:
+            TICKET_STORE = {}
+
+
+def _save_ticket_store():
+    try:
+        with open(TICKET_STORE_FILE, "w") as f:
+            json.dump(TICKET_STORE, f)
+    except Exception:
+        pass
+
+
+_load_ticket_store()
 
 
 def asset(name):
@@ -1876,6 +1925,7 @@ async def generate(
         "barcode_base64": barcode_b64,
         "watermark_base64": watermark_b64,
     }
+    _save_ticket_store()
 
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
@@ -1966,6 +2016,7 @@ async def api_generate(
     }
 
     TICKET_STORE[cfg["order_number"]] = ticket_data
+    _save_ticket_store()
 
     return JSONResponse(ticket_data)
 
@@ -1977,6 +2028,69 @@ async def api_ticket_lookup(auftragsnummer: str):
     if ticket is None:
         return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
     return JSONResponse(ticket)
+
+
+@app.get("/api/tickets")
+async def api_tickets_list():
+    """List all stored tickets (without barcode/watermark data for efficiency)."""
+    tickets = []
+    for nr, t in TICKET_STORE.items():
+        tickets.append({
+            "auftragsnummer": t.get("auftragsnummer", nr),
+            "ticket_id": t.get("ticket_id", ""),
+            "name": t.get("name", ""),
+            "product": t.get("product", ""),
+            "ticket_type_label": t.get("ticket_type_label", ""),
+            "preis": t.get("preis", ""),
+            "gueltig_von": t.get("gueltig_von", ""),
+            "gueltig_bis": t.get("gueltig_bis", ""),
+            "created_at": t.get("created_at", ""),
+        })
+    return JSONResponse({"tickets": tickets, "total": len(tickets)})
+
+
+@app.delete("/api/ticket/{auftragsnummer}")
+async def api_ticket_delete(auftragsnummer: str):
+    """Delete a ticket by Auftragsnummer."""
+    if auftragsnummer in TICKET_STORE:
+        del TICKET_STORE[auftragsnummer]
+        _save_ticket_store()
+        return JSONResponse({"status": "deleted"})
+    return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
+
+
+@app.get("/api/backup")
+async def api_backup():
+    """Export all tickets as JSON backup."""
+    backup_data = {
+        "exported_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
+        "total_tickets": len(TICKET_STORE),
+        "tickets": {}
+    }
+    for nr, t in TICKET_STORE.items():
+        backup_data["tickets"][nr] = {
+            k: v for k, v in t.items()
+            if k not in ("barcode_base64", "watermark_base64")
+        }
+    return JSONResponse(backup_data)
+
+
+@app.post("/api/restore")
+async def api_restore(file: UploadFile = File(...)):
+    """Restore tickets from a JSON backup."""
+    content = await file.read()
+    try:
+        data = json.loads(content.decode("utf-8"))
+        tickets = data.get("tickets", {})
+        restored = 0
+        for nr, t in tickets.items():
+            if nr not in TICKET_STORE:
+                TICKET_STORE[nr] = t
+                restored += 1
+        _save_ticket_store()
+        return JSONResponse({"status": "ok", "restored": restored})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
 
 
 @app.get("/download/{ticket_id}")

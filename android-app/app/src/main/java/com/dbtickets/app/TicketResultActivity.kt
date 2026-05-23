@@ -85,7 +85,8 @@ class TicketResultActivity : AppCompatActivity() {
             "Entsch\u00e4digung beantragen",
             "Rechnung \u00f6ffnen",
             "Feedback zur Reise",
-            "Zur Stornierung"
+            "Zur Stornierung",
+            "Ticket l\u00f6schen"
         )
 
         val builder = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog)
@@ -95,6 +96,7 @@ class TicketResultActivity : AppCompatActivity() {
                 1 -> openPdf()
                 2 -> Toast.makeText(this, "Vielen Dank f\u00fcr Ihr Feedback!", Toast.LENGTH_SHORT).show()
                 3 -> showStornierungDialog(t)
+                4 -> showDeleteDialog(t)
             }
             dialog.dismiss()
         }
@@ -122,6 +124,20 @@ class TicketResultActivity : AppCompatActivity() {
             .setPositiveButton("Stornieren") { dialog, _ ->
                 Toast.makeText(this, "Stornierung wurde simuliert. Ticket-Nr: ${t.auftragsnummer}", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
+            }
+            .setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
+            .show()
+    }
+
+    private fun showDeleteDialog(t: Ticket) {
+        AlertDialog.Builder(this)
+            .setTitle("Ticket l\u00f6schen")
+            .setMessage("M\u00f6chtest du das Ticket ${t.auftragsnummer} wirklich l\u00f6schen?")
+            .setPositiveButton("L\u00f6schen") { dialog, _ ->
+                TicketStore.deleteTicket(this, t.id)
+                Toast.makeText(this, "Ticket gel\u00f6scht", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+                finish()
             }
             .setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
             .show()

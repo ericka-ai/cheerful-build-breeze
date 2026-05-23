@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.DBTickets" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.DBTickets" parent="Theme.MaterialComponents.NoActionBar">
         <item name="colorPrimary">@color/db_red</item>
         <item name="colorPrimaryDark">@color/db_red_dark</item>
         <item name="colorAccent">@color/db_red</item>

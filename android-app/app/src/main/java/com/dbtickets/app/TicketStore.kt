@@ -116,6 +116,20 @@ object TicketStore {
         return getTickets(context).find { it.auftragsnummer == auftragsnummer }
     }
 
+    fun deleteTicket(context: Context, ticketId: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val ticketsJson = prefs.getString(KEY_TICKETS, "[]") ?: "[]"
+        val array = JSONArray(ticketsJson)
+        val newArray = JSONArray()
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            if (obj.optString("id") != ticketId) {
+                newArray.put(obj)
+            }
+        }
+        prefs.edit().putString(KEY_TICKETS, newArray.toString()).apply()
+    }
+
     fun updateTicketPdfPath(context: Context, ticketId: String, pdfPath: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val ticketsJson = prefs.getString(KEY_TICKETS, "[]") ?: "[]"
