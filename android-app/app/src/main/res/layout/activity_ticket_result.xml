@@ -340,12 +340,15 @@
                 android:layout_marginEnd="16dp"
                 android:layout_marginTop="16dp" />
 
-            <!-- Watermark Footer - uses custom Canvas view -->
-            <com.dbtickets.app.WatermarkView
-                android:id="@+id/watermarkView"
+            <!-- Watermark Footer - loaded from server (same as PDF) -->
+            <ImageView
+                android:id="@+id/ivWatermark"
                 android:layout_width="match_parent"
-                android:layout_height="300dp"
-                android:layout_marginTop="0dp" />
+                android:layout_height="wrap_content"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:layout_marginTop="0dp"
+                android:contentDescription="Watermark" />
 
             <!-- Weitere Aktionen Button -->
             <LinearLayout

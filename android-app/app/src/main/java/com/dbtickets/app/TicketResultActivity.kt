@@ -195,13 +195,7 @@ class TicketResultActivity : AppCompatActivity() {
         val ticketCode = generateTicketCode()
         binding.tvTicketCode.text = "Ticketcode: $ticketCode"
 
-        binding.watermarkView.setTicketData(
-            auftragsnummer = t.auftragsnummer,
-            name = "${t.vorname} ${t.nachname}",
-            klasse = t.klasse,
-            productLabel = productName,
-            gueltigVon = von,
-        )
+        loadWatermark(t)
     }
 
     private fun loadBarcode(t: Ticket) {
@@ -286,6 +280,42 @@ class TicketResultActivity : AppCompatActivity() {
         } catch (e: Exception) {
             binding.ivBarcode.visibility = View.GONE
         }
+    }
+
+    private fun loadWatermark(t: Ticket) {
+        val updatedTicket = TicketStore.getTicketById(this, t.id)
+        val wmPath = updatedTicket?.watermarkPath ?: ""
+
+        if (wmPath.isNotEmpty()) {
+            val file = File(wmPath)
+            if (file.exists()) {
+                val bitmap = BitmapFactory.decodeFile(wmPath)
+                if (bitmap != null) {
+                    binding.ivWatermark.setImageBitmap(bitmap)
+                    return
+                }
+            }
+        }
+
+        startWatermarkPolling(t)
+    }
+
+    private fun startWatermarkPolling(t: Ticket) {
+        val wmRunnable = object : Runnable {
+            override fun run() {
+                val updated = TicketStore.getTicketById(this@TicketResultActivity, t.id)
+                val path = updated?.watermarkPath ?: ""
+                if (path.isNotEmpty() && File(path).exists()) {
+                    val bitmap = BitmapFactory.decodeFile(path)
+                    if (bitmap != null) {
+                        binding.ivWatermark.setImageBitmap(bitmap)
+                        return
+                    }
+                }
+                handler.postDelayed(this, 2000)
+            }
+        }
+        handler.postDelayed(wmRunnable, 2000)
     }
 
     private fun generateTicketCode(): String {
