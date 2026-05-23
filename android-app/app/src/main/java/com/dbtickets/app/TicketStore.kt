@@ -23,6 +23,7 @@ data class Ticket(
     val createdAt: String,
     val product: String,
     val pdfPath: String = "",
+    val barcodePath: String = "",
 ) {
     fun toJson(): JSONObject {
         val json = JSONObject()
@@ -42,6 +43,7 @@ data class Ticket(
         json.put("created_at", createdAt)
         json.put("product", product)
         json.put("pdf_path", pdfPath)
+        json.put("barcode_path", barcodePath)
         return json
     }
 
@@ -64,6 +66,7 @@ data class Ticket(
                 createdAt = json.optString("created_at"),
                 product = json.optString("product"),
                 pdfPath = json.optString("pdf_path"),
+                barcodePath = json.optString("barcode_path"),
             )
         }
     }
@@ -115,6 +118,21 @@ object TicketStore {
             val obj = array.getJSONObject(i)
             if (obj.optString("id") == ticketId) {
                 obj.put("pdf_path", pdfPath)
+            }
+            newArray.put(obj)
+        }
+        prefs.edit().putString(KEY_TICKETS, newArray.toString()).apply()
+    }
+
+    fun updateTicketBarcodePath(context: Context, ticketId: String, barcodePath: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val ticketsJson = prefs.getString(KEY_TICKETS, "[]") ?: "[]"
+        val array = JSONArray(ticketsJson)
+        val newArray = JSONArray()
+        for (i in 0 until array.length()) {
+            val obj = array.getJSONObject(i)
+            if (obj.optString("id") == ticketId) {
+                obj.put("barcode_path", barcodePath)
             }
             newArray.put(obj)
         }

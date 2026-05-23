@@ -2,8 +2,11 @@ package com.dbtickets.app
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -13,13 +16,14 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.aztec.AztecWriter
 import com.google.zxing.common.BitMatrix
 import java.io.File
-import java.text.SimpleDateFormat
 import java.util.*
 
 class TicketResultActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTicketResultBinding
     private var ticket: Ticket? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var barcodeCheckRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,7 +57,7 @@ class TicketResultActivity : AppCompatActivity() {
     }
 
     private fun displayTicket(t: Ticket) {
-        generateBarcode(t)
+        loadBarcode(t)
 
         binding.tvResultName.text = "${t.vorname} ${t.nachname}"
         binding.tvCiv.text = "CIV ${t.ticketId}"
@@ -109,10 +113,51 @@ class TicketResultActivity : AppCompatActivity() {
         }
     }
 
-    private fun generateBarcode(t: Ticket) {
+    private fun loadBarcode(t: Ticket) {
+        val updatedTicket = TicketStore.getTicketById(this, t.id)
+        val barcodePath = updatedTicket?.barcodePath ?: ""
+
+        if (barcodePath.isNotEmpty()) {
+            val file = File(barcodePath)
+            if (file.exists()) {
+                val bitmap = BitmapFactory.decodeFile(barcodePath)
+                if (bitmap != null) {
+                    binding.ivBarcode.setImageBitmap(bitmap)
+                    binding.tvBarcodeLoading.visibility = View.GONE
+                    return
+                }
+            }
+        }
+
+        binding.tvBarcodeLoading.visibility = View.VISIBLE
+        binding.tvBarcodeLoading.text = "Barcode wird geladen..."
+        generateFallbackBarcode(t)
+        startBarcodePolling(t)
+    }
+
+    private fun startBarcodePolling(t: Ticket) {
+        barcodeCheckRunnable = object : Runnable {
+            override fun run() {
+                val updated = TicketStore.getTicketById(this@TicketResultActivity, t.id)
+                val path = updated?.barcodePath ?: ""
+                if (path.isNotEmpty() && File(path).exists()) {
+                    val bitmap = BitmapFactory.decodeFile(path)
+                    if (bitmap != null) {
+                        binding.ivBarcode.setImageBitmap(bitmap)
+                        binding.tvBarcodeLoading.visibility = View.GONE
+                        return
+                    }
+                }
+                handler.postDelayed(this, 2000)
+            }
+        }
+        handler.postDelayed(barcodeCheckRunnable!!, 2000)
+    }
+
+    private fun generateFallbackBarcode(t: Ticket) {
         try {
             val barcodeData = buildString {
-                append("OTI:")
+                append("#UT01;OTI:")
                 append(t.auftragsnummer)
                 append(";TI:")
                 append(t.ticketId)
@@ -161,10 +206,12 @@ class TicketResultActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         val t = ticket ?: return
-        val updatedTicket = TicketStore.getTicketById(this, t.id)
-        if (updatedTicket != null && updatedTicket.pdfPath.isNotEmpty()) {
-            binding.tvPdfStatus.visibility = View.GONE
-        }
+        loadBarcode(t)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        barcodeCheckRunnable?.let { handler.removeCallbacks(it) }
     }
 
     private fun openPdf() {

@@ -183,6 +183,7 @@ class TicketFormActivity : AppCompatActivity() {
 
         TicketStore.saveTicket(this, ticket)
 
+        downloadBarcode(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
         downloadPdf(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
 
         val intent = Intent(this, TicketResultActivity::class.java)
@@ -191,17 +192,79 @@ class TicketFormActivity : AppCompatActivity() {
         finish()
     }
 
+    private fun buildFormBody(
+        nachname: String, vorname: String, geburtsdatum: String,
+        klasse: String, passagierTyp: String,
+        gueltigVon: String, gueltigBis: String,
+        product: String, days: String, ticket: Ticket,
+    ): FormBody.Builder {
+        val formBody = FormBody.Builder()
+            .add("nachname", nachname)
+            .add("vorname", vorname)
+            .add("geburtsdatum", geburtsdatum)
+            .add("klasse", klasse)
+            .add("passagier_typ", passagierTyp)
+            .add("gueltig_von", gueltigVon)
+            .add("gueltig_bis", gueltigBis)
+            .add("product", product)
+            .add("tage", days)
+            .add("ticket_id", ticket.ticketId)
+            .add("order_number", ticket.auftragsnummer)
+
+        if (product == "sparpreis" || product == "db_sparpreis") {
+            formBody.add("von", binding.spinnerVon.selectedItem?.toString() ?: "Berlin Hbf")
+            formBody.add("nach", binding.spinnerNach.selectedItem?.toString() ?: "Hamburg Hbf")
+            formBody.add("zug_typ", binding.etZugTyp.text?.toString() ?: "ICE")
+            formBody.add("zug_nummer", binding.etZugNummer.text?.toString() ?: "919")
+        }
+
+        return formBody
+    }
+
+    private fun createHttpClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
+    private fun downloadBarcode(
+        ticket: Ticket,
+        nachname: String, vorname: String, geburtsdatum: String,
+        klasse: String, passagierTyp: String,
+        gueltigVon: String, gueltigBis: String,
+        product: String, days: String,
+    ) {
+        val serverUrl = TicketStore.getServerUrl(this)
+        val formBody = buildFormBody(nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days, ticket)
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/barcode")
+            .post(formBody.build())
+            .build()
+
+        createHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val imgBytes = response.body?.bytes() ?: return
+                    val dir = File(filesDir, "barcodes")
+                    dir.mkdirs()
+                    val imgFile = File(dir, "barcode_${ticket.ticketId}.png")
+                    FileOutputStream(imgFile).use { it.write(imgBytes) }
+                    TicketStore.updateTicketBarcodePath(this@TicketFormActivity, ticket.id, imgFile.absolutePath)
+                }
+            }
+        })
+    }
+
     private fun downloadPdf(
         ticket: Ticket,
-        nachname: String,
-        vorname: String,
-        geburtsdatum: String,
-        klasse: String,
-        passagierTyp: String,
-        gueltigVon: String,
-        gueltigBis: String,
-        product: String,
-        days: String,
+        nachname: String, vorname: String, geburtsdatum: String,
+        klasse: String, passagierTyp: String,
+        gueltigVon: String, gueltigBis: String,
+        product: String, days: String,
     ) {
         val serverUrl = TicketStore.getServerUrl(this)
 
@@ -225,20 +288,13 @@ class TicketFormActivity : AppCompatActivity() {
             formBody.add("train_number", binding.etZugNummer.text?.toString() ?: "919")
         }
 
-        val client = OkHttpClient.Builder()
-            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-            .build()
-
         val request = Request.Builder()
             .url("$serverUrl/generate")
             .post(formBody.build())
             .build()
 
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                // PDF download failed silently - ticket is still saved locally
-            }
+        createHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { }
 
             override fun onResponse(call: Call, response: Response) {
                 if (response.isSuccessful) {
