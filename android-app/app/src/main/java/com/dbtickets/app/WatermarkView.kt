@@ -8,13 +8,14 @@ import android.graphics.Path
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.view.View
+import kotlin.math.sin
 
 class WatermarkView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
     private var auftragsnummer: String = ""
-    private var name: String = ""
+    private var fullName: String = ""
     private var day: String = ""
     private var month: String = ""
     private var klasse: String = "2"
@@ -26,42 +27,6 @@ class WatermarkView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
-    private val bigNumPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#C8C8C8")
-        textSize = 52f
-        typeface = Typeface.DEFAULT_BOLD
-    }
-
-    private val namePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#333333")
-        textSize = 38f
-        typeface = Typeface.DEFAULT_BOLD
-    }
-
-    private val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#BBBBBB")
-        textSize = 56f
-        typeface = Typeface.DEFAULT_BOLD
-    }
-
-    private val watermarkTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E0E0E0")
-        textSize = 16f
-        typeface = Typeface.DEFAULT
-    }
-
-    private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#D8D8D8")
-        strokeWidth = 1.5f
-        style = Paint.Style.STROKE
-    }
-
-    private val mirrorNumPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E8E8E8")
-        textSize = 36f
-        typeface = Typeface.DEFAULT_BOLD
-    }
-
     fun setTicketData(
         auftragsnummer: String,
         name: String,
@@ -70,7 +35,7 @@ class WatermarkView @JvmOverloads constructor(
         gueltigVon: String,
     ) {
         this.auftragsnummer = auftragsnummer
-        this.name = name
+        this.fullName = name
         this.klasse = klasse
         this.productLabel = productLabel
         this.gueltigVon = gueltigVon
@@ -81,7 +46,7 @@ class WatermarkView @JvmOverloads constructor(
                 day = parts[0]
                 month = parts[1]
             }
-        } catch (e: Exception) { }
+        } catch (_: Exception) { }
 
         invalidate()
     }
@@ -90,140 +55,197 @@ class WatermarkView @JvmOverloads constructor(
         super.onDraw(canvas)
         val w = width.toFloat()
         val h = height.toFloat()
+        val density = resources.displayMetrics.density
 
         canvas.drawRect(0f, 0f, w, h, bgPaint)
 
-        drawWaveLines(canvas, w, h)
-        drawBackgroundText(canvas, w, h)
-        drawBigNumber(canvas, w)
-        drawName(canvas, w, h)
-        drawDate(canvas, h)
-        drawCrossHatch(canvas, h)
-        drawMirrorNumber(canvas, w, h)
+        drawWaveLines(canvas, w, h, density)
+        drawBackgroundText(canvas, w, h, density)
+        drawBigNumber(canvas, w, h, density)
+        drawName(canvas, w, h, density)
+        drawDate(canvas, h, density)
+        drawCrossHatch(canvas, h, density)
+        drawMirrorNumber(canvas, w, h, density)
     }
 
-    private fun drawWaveLines(canvas: Canvas, w: Float, h: Float) {
-        val path = Path()
-        var y = 30f
-        while (y < h) {
-            path.reset()
-            path.moveTo(0f, y)
-            var x = 0f
-            while (x < w) {
-                path.quadTo(x + 20f, y - 8f, x + 40f, y)
-                path.quadTo(x + 60f, y + 8f, x + 80f, y)
-                x += 80f
-            }
-            canvas.drawPath(path, linePaint)
-            y += 25f
-        }
-    }
-
-    private fun drawBackgroundText(canvas: Canvas, w: Float, h: Float) {
-        val items = listOf(
-            auftragsnummer, "${klasse}. Kl.", productLabel,
-            name, "Fahrkarte", gueltigVon
-        )
-        val text = items.joinToString(" ")
-
-        canvas.save()
-        var y = 40f
-        var angle = -5f
-        while (y < h - 20f) {
-            canvas.save()
-            canvas.rotate(angle, w / 2f, y)
-            var x = -20f
-            while (x < w + 50f) {
-                canvas.drawText(text, x, y, watermarkTextPaint)
-                x += watermarkTextPaint.measureText(text) + 20f
-            }
-            canvas.restore()
-            y += 30f
-            angle = if (angle < 0) 3f else -5f
-        }
-        canvas.restore()
-    }
-
-    private fun drawBigNumber(canvas: Canvas, w: Float) {
-        if (auftragsnummer.isEmpty()) return
-
-        val density = resources.displayMetrics.density
-        bigNumPaint.textSize = 42f * density
-
-        val totalWidth = bigNumPaint.measureText(auftragsnummer)
-        val startX = (w - totalWidth) / 2f
-        val y = 55f * density
-
-        for (i in auftragsnummer.indices) {
-            val ch = auftragsnummer[i].toString()
-            val size = when {
-                i % 4 == 0 -> 48f * density
-                i % 4 == 2 -> 38f * density
-                else -> 42f * density
-            }
-            bigNumPaint.textSize = size
-            val xOffset = bigNumPaint.measureText(auftragsnummer.substring(0, i))
-            canvas.drawText(ch, startX + xOffset, y, bigNumPaint)
-        }
-    }
-
-    private fun drawName(canvas: Canvas, w: Float, h: Float) {
-        if (name.isEmpty()) return
-
-        val density = resources.displayMetrics.density
-        namePaint.textSize = 22f * density
-
-        val textWidth = namePaint.measureText(name)
-        val x = (w - textWidth) / 2f
-        val y = h * 0.48f
-
-        canvas.drawText(name, x, y, namePaint)
-    }
-
-    private fun drawDate(canvas: Canvas, h: Float) {
-        if (day.isEmpty()) return
-
-        val density = resources.displayMetrics.density
-        datePaint.textSize = 40f * density
-
-        val x = 20f * density
-        val y = h * 0.78f
-
-        canvas.drawText("$day  $month", x, y, datePaint)
-    }
-
-    private fun drawCrossHatch(canvas: Canvas, h: Float) {
-        val density = resources.displayMetrics.density
-        val hatchPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#CCCCCC")
-            strokeWidth = 1.5f * density
+    private fun drawWaveLines(canvas: Canvas, w: Float, h: Float, density: Float) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#DCDCDC")
+            strokeWidth = 0.7f * density
             style = Paint.Style.STROKE
         }
 
-        val size = 60f * density
-        val startX = 10f * density
-        val startY = h * 0.55f
+        val path = Path()
+        val amplitude = 3.5f * density
+        val wavelength = 35f * density
+        val spacing = 10f * density
 
-        for (i in 0..5) {
-            val offset = i * 8f * density
-            canvas.drawLine(startX + offset, startY, startX + size + offset, startY + size, hatchPaint)
-            canvas.drawLine(startX + offset, startY + size, startX + size + offset, startY, hatchPaint)
+        var lineIdx = 0f
+        var y = spacing
+        while (y < h) {
+            path.reset()
+            val phaseOffset = lineIdx * 0.3f
+            path.moveTo(0f, y)
+            var x = 0f
+            while (x < w) {
+                val step = 4f
+                val nextX = x + step
+                val nextY = y + amplitude * sin((2.0 * Math.PI * nextX / wavelength + phaseOffset).toFloat())
+                path.lineTo(nextX, nextY)
+                x = nextX
+            }
+            canvas.drawPath(path, paint)
+            y += spacing
+            lineIdx++
         }
     }
 
-    private fun drawMirrorNumber(canvas: Canvas, w: Float, h: Float) {
+    private fun drawBackgroundText(canvas: Canvas, w: Float, h: Float, density: Float) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#D0D0D0")
+            textSize = 10f * density
+            typeface = Typeface.DEFAULT
+        }
+
+        val prefix = if (auftragsnummer.length >= 4) "(${auftragsnummer.substring(0, 4)})" else ""
+        val textParts = listOf(
+            productLabel, fullName, "Fahrkarte",
+            gueltigVon, auftragsnummer, "${klasse}. Kl.",
+            prefix, productLabel, fullName, "Fahrkarte",
+            "${klasse}. Kl.", gueltigVon
+        ).filter { it.isNotEmpty() }
+        val fullText = textParts.joinToString(" ")
+
+        val angles = floatArrayOf(-3f, 1.5f, -5f, 2.5f, -4f, 3f)
+
+        var y = 14f * density
+        var lineIndex = 0
+        while (y < h + 30f * density) {
+            canvas.save()
+            val angle = angles[lineIndex % angles.size]
+            canvas.rotate(angle, w / 2f, y)
+
+            var x = -60f * density
+            while (x < w + 120f * density) {
+                canvas.drawText(fullText, x, y, paint)
+                x += paint.measureText(fullText) + 12f * density
+            }
+            canvas.restore()
+            y += 14f * density
+            lineIndex++
+        }
+    }
+
+    private fun drawBigNumber(canvas: Canvas, w: Float, h: Float, density: Float) {
         if (auftragsnummer.isEmpty()) return
 
-        val density = resources.displayMetrics.density
-        mirrorNumPaint.textSize = 28f * density
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#BFBFBF")
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        val numStr = auftragsnummer
+
+        val sizePattern = floatArrayOf(58f, 85f, 48f, 50f, 90f, 42f, 42f, 42f, 52f, 40f, 50f)
+
+        val charWidths = FloatArray(numStr.length)
+        val charSizes = FloatArray(numStr.length)
+
+        for (i in numStr.indices) {
+            val patternIdx = i % sizePattern.size
+            val size = sizePattern[patternIdx] * density
+            charSizes[i] = size
+            paint.textSize = size
+            charWidths[i] = paint.measureText(numStr[i].toString())
+        }
+
+        val totalWidth = charWidths.sum()
+        val availableWidth = w * 1.0f
+        val scale = (availableWidth / totalWidth).coerceAtMost(1.15f)
+        var x = w * 0.01f
+
+        for (i in numStr.indices) {
+            val scaledSize = charSizes[i] * scale
+            paint.textSize = scaledSize
+            val baselineY = h * 0.28f
+            canvas.drawText(numStr[i].toString(), x, baselineY, paint)
+            x += paint.measureText(numStr[i].toString())
+        }
+    }
+
+    private fun drawName(canvas: Canvas, w: Float, h: Float, density: Float) {
+        if (fullName.isEmpty()) return
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#333333")
+            textSize = 22f * density
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        val x = w * 0.22f
+        val y = h * 0.42f
+
+        canvas.drawText(fullName, x.coerceAtLeast(16f * density), y, paint)
+    }
+
+    private fun drawDate(canvas: Canvas, h: Float, density: Float) {
+        if (day.isEmpty()) return
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#1B1B1B")
+            textSize = 38f * density
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        val dateText = "$day  $month"
+        val x = 16f * density
+        val y = h * 0.72f
+
+        canvas.drawText(dateText, x, y, paint)
+    }
+
+    private fun drawCrossHatch(canvas: Canvas, h: Float, density: Float) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#AAAAAA")
+            strokeWidth = 1.2f * density
+            style = Paint.Style.STROKE
+        }
+
+        val centerX = 28f * density
+        val centerY = h * 0.65f
+        val size = 32f * density
+
+        for (i in 0..7) {
+            val offset = i * 6f * density
+            canvas.drawLine(
+                centerX - size + offset, centerY - size,
+                centerX + offset, centerY + size,
+                paint
+            )
+            canvas.drawLine(
+                centerX - size + offset, centerY + size,
+                centerX + offset, centerY - size,
+                paint
+            )
+        }
+    }
+
+    private fun drawMirrorNumber(canvas: Canvas, w: Float, h: Float, density: Float) {
+        if (auftragsnummer.isEmpty()) return
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#D8D8D8")
+            textSize = 30f * density
+            typeface = Typeface.DEFAULT_BOLD
+        }
 
         canvas.save()
-        val textWidth = mirrorNumPaint.measureText(auftragsnummer)
+        val textWidth = paint.measureText(auftragsnummer)
         val x = (w - textWidth) / 2f
-        val y = h - 8f * density
+        val y = h - 6f * density
 
-        canvas.scale(1f, -1f, w / 2f, y - 14f * density)
-        canvas.drawText(auftragsnummer, x, y, mirrorNumPaint)
+        canvas.scale(1f, -1f, w / 2f, y - 16f * density)
+        canvas.drawText(auftragsnummer, x, y, paint)
         canvas.restore()
     }
 }
