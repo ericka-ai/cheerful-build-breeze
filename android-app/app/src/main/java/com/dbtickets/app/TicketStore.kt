@@ -112,6 +112,10 @@ object TicketStore {
         return getTickets(context).find { it.id == id }
     }
 
+    fun getTicketByAuftragsnummer(context: Context, auftragsnummer: String): Ticket? {
+        return getTickets(context).find { it.auftragsnummer == auftragsnummer }
+    }
+
     fun updateTicketPdfPath(context: Context, ticketId: String, pdfPath: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val ticketsJson = prefs.getString(KEY_TICKETS, "[]") ?: "[]"

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -49,7 +50,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Ticket auswaehlen"
+                android:text="Ticket abrufen"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
@@ -58,240 +59,66 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Waehle deinen Ticket-Typ:"
+                android:text="Gib deine Auftragsnummer ein, um dein Ticket zu laden."
                 android:textSize="14sp"
                 android:textColor="@color/text_secondary"
                 android:layout_marginBottom="20dp" />
 
-            <!-- German Rail Pass Card -->
+            <!-- Auftragsnummer Input Card -->
             <androidx.cardview.widget.CardView
-                android:id="@+id/cardGermanRailPass"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
+                android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                xmlns:app="http://schemas.android.com/apk/res-auto">
+                app:cardElevation="4dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
+                    android:orientation="vertical"
                     android:padding="20dp">
-
-                    <View
-                        android:layout_width="6dp"
-                        android:layout_height="match_parent"
-                        android:layout_marginEnd="16dp"
-                        android:background="@color/db_red" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/german_rail_pass"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/grp_desc"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="&#8250;"
-                        android:textSize="28sp"
-                        android:textColor="@color/db_grey"
-                        android:layout_gravity="center_vertical" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+                        android:text="Auftragsnummer"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="8dp" />
 
-            <!-- Eurail Global Pass Card -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardEurailGlobal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                xmlns:app="http://schemas.android.com/apk/res-auto">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="20dp">
-
-                    <View
-                        android:layout_width="6dp"
-                        android:layout_height="match_parent"
-                        android:layout_marginEnd="16dp"
-                        android:background="@color/eurail_blue" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/eurail_global_pass"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/eurail_desc"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
+                    <EditText
+                        android:id="@+id/etAuftragsnummer"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:hint="z.B. 2597538415754"
+                        android:inputType="number"
+                        android:background="@drawable/edit_text_bg"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="12dp" />
 
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:id="@+id/tvError"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="&#8250;"
-                        android:textSize="28sp"
-                        android:textColor="@color/db_grey"
-                        android:layout_gravity="center_vertical" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+                        android:textSize="13sp"
+                        android:textColor="@color/db_red"
+                        android:visibility="gone"
+                        android:layout_marginBottom="8dp" />
 
-            <!-- Deutschlandticket Card -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardDeutschlandticket"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                xmlns:app="http://schemas.android.com/apk/res-auto">
+                    <Button
+                        android:id="@+id/btnLoadTicket"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:text="Ticket laden"
+                        android:textColor="@color/db_white"
+                        android:textSize="16sp"
+                        android:textAllCaps="false"
+                        android:backgroundTint="@color/db_red" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="20dp">
-
-                    <View
-                        android:layout_width="6dp"
-                        android:layout_height="match_parent"
-                        android:layout_marginEnd="16dp"
-                        android:background="@color/dt_green" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/deutschland_ticket"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/dt_desc"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="&#8250;"
-                        android:textSize="28sp"
-                        android:textColor="@color/db_grey"
-                        android:layout_gravity="center_vertical" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- DB Sparpreis Card -->
-            <androidx.cardview.widget.CardView
-                android:id="@+id/cardSparpreis"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                xmlns:app="http://schemas.android.com/apk/res-auto">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="20dp">
-
-                    <View
-                        android:layout_width="6dp"
-                        android:layout_height="match_parent"
-                        android:layout_marginEnd="16dp"
-                        android:background="@color/db_blue" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/db_sparpreis"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/sparpreis_desc"
-                            android:textSize="13sp"
-                            android:textColor="@color/text_secondary"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="&#8250;"
-                        android:textSize="28sp"
-                        android:textColor="@color/db_grey"
-                        android:layout_gravity="center_vertical" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
@@ -312,7 +139,7 @@
                 android:id="@+id/tvNoTickets"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Noch keine Tickets erstellt"
+                android:text="Noch keine Tickets geladen"
                 android:textSize="14sp"
                 android:textColor="@color/text_secondary"
                 android:gravity="center"

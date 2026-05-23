@@ -4,19 +4,20 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- DB Logo: Rounded rectangle border -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M34,38h40v4h-40z" />
+        android:pathData="M28,30 L80,30 Q84,30 84,34 L84,74 Q84,78 80,78 L28,78 Q24,78 24,74 L24,34 Q24,30 28,30 Z
+                          M30,34 L78,34 Q80,34 80,36 L80,72 Q80,74 78,74 L30,74 Q28,74 28,72 L28,36 Q28,34 30,34 Z" />
+    <!-- Letter D -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M34,48h40v4h-40z" />
+        android:pathData="M34,42 L46,42 Q56,42 56,54 Q56,66 46,66 L34,66 Z
+                          M40,48 L40,60 L44,60 Q49,60 49,54 Q49,48 44,48 Z" />
+    <!-- Letter B -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M34,58h30v4h-30z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,68h25v4h-25z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,34v44h48v-44h-48zM74,74h-40v-36h40v36z" />
+        android:pathData="M60,42 L71,42 Q77,42 77,48 Q77,52 74,53 Q78,54 78,59 Q78,66 71,66 L60,66 Z
+                          M66,48 L66,52 L69,52 Q72,52 72,50 Q72,48 69,48 Z
+                          M66,56 L66,60 L70,60 Q73,60 73,58 Q73,56 70,56 Z" />
 </vector>

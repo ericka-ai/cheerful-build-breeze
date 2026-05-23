@@ -6,10 +6,17 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.dbtickets.app.databinding.ActivityMainBinding
+import okhttp3.*
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,24 +27,19 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.cardGermanRailPass.setOnClickListener {
-            openTicketForm("grp_consecutive")
-        }
-
-        binding.cardEurailGlobal.setOnClickListener {
-            openTicketForm("eurail_global")
-        }
-
-        binding.cardDeutschlandticket.setOnClickListener {
-            openTicketForm("deutschlandticket")
-        }
-
-        binding.cardSparpreis.setOnClickListener {
-            openTicketForm("sparpreis")
-        }
-
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        binding.btnLoadTicket.setOnClickListener {
+            val auftragsnummer = binding.etAuftragsnummer.text.toString().trim()
+            if (auftragsnummer.isEmpty()) {
+                binding.tvError.text = "Bitte Auftragsnummer eingeben"
+                binding.tvError.visibility = View.VISIBLE
+                return@setOnClickListener
+            }
+            binding.tvError.visibility = View.GONE
+            loadTicketByAuftragsnummer(auftragsnummer)
         }
 
         binding.rvTickets.layoutManager = LinearLayoutManager(this)
@@ -46,6 +48,213 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadTicketHistory()
+    }
+
+    private fun loadTicketByAuftragsnummer(auftragsnummer: String) {
+        val existing = TicketStore.getTicketByAuftragsnummer(this, auftragsnummer)
+        if (existing != null) {
+            val intent = Intent(this, TicketResultActivity::class.java)
+            intent.putExtra("ticket_store_id", existing.id)
+            startActivity(intent)
+            return
+        }
+
+        binding.btnLoadTicket.isEnabled = false
+        binding.btnLoadTicket.text = "Wird geladen..."
+
+        val serverUrl = TicketStore.getServerUrl(this)
+        val client = OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/ticket/$auftragsnummer")
+            .get()
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    binding.btnLoadTicket.isEnabled = true
+                    binding.btnLoadTicket.text = "Ticket laden"
+                    binding.tvError.text = "Verbindung zum Server fehlgeschlagen"
+                    binding.tvError.visibility = View.VISIBLE
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string() ?: ""
+                runOnUiThread {
+                    binding.btnLoadTicket.isEnabled = true
+                    binding.btnLoadTicket.text = "Ticket laden"
+
+                    if (!response.isSuccessful) {
+                        binding.tvError.text = "Ticket nicht gefunden"
+                        binding.tvError.visibility = View.VISIBLE
+                        return@runOnUiThread
+                    }
+
+                    try {
+                        val json = JSONObject(body)
+                        val uniqueId = UUID.randomUUID().toString()
+                        val product = json.optString("product", "grp_consecutive")
+
+                        val ticket = Ticket(
+                            id = uniqueId,
+                            auftragsnummer = json.optString("auftragsnummer"),
+                            ticketId = json.optString("ticket_id"),
+                            ticketType = product,
+                            ticketTypeLabel = json.optString("ticket_type_label", TicketStore.getProductLabel(product)),
+                            nachname = json.optString("nachname"),
+                            vorname = json.optString("vorname"),
+                            geburtsdatum = json.optString("geburtsdatum"),
+                            klasse = json.optString("klasse", "2"),
+                            passagierTyp = json.optString("passagier_typ", "ERWACHSENER"),
+                            gueltigVon = json.optString("gueltig_von"),
+                            gueltigBis = json.optString("gueltig_bis"),
+                            preis = json.optString("preis"),
+                            createdAt = json.optString("created_at", TicketStore.nowFormatted()),
+                            product = product,
+                        )
+
+                        TicketStore.saveTicket(this@MainActivity, ticket)
+
+                        downloadBarcodeForTicket(ticket)
+                        downloadWatermarkForTicket(ticket)
+                        downloadPdfForTicket(ticket)
+
+                        val intent = Intent(this@MainActivity, TicketResultActivity::class.java)
+                        intent.putExtra("ticket_store_id", uniqueId)
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        binding.tvError.text = "Fehler beim Laden des Tickets"
+                        binding.tvError.visibility = View.VISIBLE
+                    }
+                }
+            }
+        })
+    }
+
+    private fun downloadBarcodeForTicket(ticket: Ticket) {
+        val serverUrl = TicketStore.getServerUrl(this)
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+
+        val formBody = FormBody.Builder()
+            .add("nachname", ticket.nachname)
+            .add("vorname", ticket.vorname)
+            .add("geburtsdatum", ticket.geburtsdatum)
+            .add("klasse", ticket.klasse)
+            .add("passagier_typ", ticket.passagierTyp)
+            .add("gueltig_von", ticket.gueltigVon)
+            .add("gueltig_bis", ticket.gueltigBis)
+            .add("product", ticket.product)
+            .add("tage", "15")
+            .add("ticket_id", ticket.ticketId)
+            .add("order_number", ticket.auftragsnummer)
+            .build()
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/barcode")
+            .post(formBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {}
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val imgBytes = response.body?.bytes() ?: return
+                    val dir = File(filesDir, "barcodes")
+                    dir.mkdirs()
+                    val imgFile = File(dir, "barcode_${ticket.ticketId}.png")
+                    FileOutputStream(imgFile).use { it.write(imgBytes) }
+                    TicketStore.updateTicketBarcodePath(this@MainActivity, ticket.id, imgFile.absolutePath)
+                }
+            }
+        })
+    }
+
+    private fun downloadWatermarkForTicket(ticket: Ticket) {
+        val serverUrl = TicketStore.getServerUrl(this)
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+
+        val formBody = FormBody.Builder()
+            .add("nachname", ticket.nachname)
+            .add("vorname", ticket.vorname)
+            .add("geburtsdatum", ticket.geburtsdatum)
+            .add("klasse", ticket.klasse)
+            .add("passagier_typ", ticket.passagierTyp)
+            .add("gueltig_von", ticket.gueltigVon)
+            .add("gueltig_bis", ticket.gueltigBis)
+            .add("product", ticket.product)
+            .add("tage", "15")
+            .add("ticket_id", ticket.ticketId)
+            .add("order_number", ticket.auftragsnummer)
+            .build()
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/watermark")
+            .post(formBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {}
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val imgBytes = response.body?.bytes() ?: return
+                    val dir = File(filesDir, "watermarks")
+                    dir.mkdirs()
+                    val imgFile = File(dir, "watermark_${ticket.ticketId}.jpg")
+                    FileOutputStream(imgFile).use { it.write(imgBytes) }
+                    TicketStore.updateTicketWatermarkPath(this@MainActivity, ticket.id, imgFile.absolutePath)
+                }
+            }
+        })
+    }
+
+    private fun downloadPdfForTicket(ticket: Ticket) {
+        val serverUrl = TicketStore.getServerUrl(this)
+        val client = OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+
+        val formBody = FormBody.Builder()
+            .add("name", "${ticket.nachname}/${ticket.vorname}")
+            .add("birth_date", ticket.geburtsdatum)
+            .add("validity_start", ticket.gueltigVon)
+            .add("validity_end", ticket.gueltigBis)
+            .add("ticket_id", ticket.ticketId)
+            .add("order_number", ticket.auftragsnummer)
+            .add("klasse", ticket.klasse)
+            .add("price", ticket.preis)
+            .add("product", ticket.product)
+            .build()
+
+        val request = Request.Builder()
+            .url("$serverUrl/generate")
+            .post(formBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {}
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val pdfBytes = response.body?.bytes() ?: return
+                    val pdfDir = File(filesDir, "tickets")
+                    pdfDir.mkdirs()
+                    val pdfFile = File(pdfDir, "ticket_${ticket.ticketId}.pdf")
+                    FileOutputStream(pdfFile).use { it.write(pdfBytes) }
+                    TicketStore.updateTicketPdfPath(this@MainActivity, ticket.id, pdfFile.absolutePath)
+                }
+            }
+        })
     }
 
     private fun loadTicketHistory() {
@@ -64,12 +273,6 @@ class MainActivity : AppCompatActivity() {
                 startActivity(intent)
             }
         }
-    }
-
-    private fun openTicketForm(ticketType: String) {
-        val intent = Intent(this, TicketFormActivity::class.java)
-        intent.putExtra("ticket_type", ticketType)
-        startActivity(intent)
     }
 }
 
