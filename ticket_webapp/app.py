@@ -221,6 +221,8 @@ WM_TEXT_GREY = 188
 W = 595.28
 H = 841.89
 
+API_SECRET_KEY = "9f098376d138c85c13cb64fb2d006ebe34a91ca6b868cd38c62d0ab9e4abb28e"
+
 app = FastAPI()
 
 app.add_middleware(
@@ -230,6 +232,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def check_api_key(request, call_next):
+    path = request.url.path
+    if path.startswith("/api/") or path == "/batch":
+        api_key = request.headers.get("X-API-Key", "")
+        if api_key != API_SECRET_KEY:
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    return await call_next(request)
+
 
 # In-memory ticket storage keyed by auftragsnummer
 TICKET_STORE: dict[str, dict] = {}
