@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DB Tickets</string>
+    <string name="ticket_form_title">Ticket erstellen</string>
+    <string name="ticket_result_title">Auftrag</string>
+    <string name="settings_title">Einstellungen</string>
+
+    <string name="german_rail_pass">German Rail Pass</string>
+    <string name="eurail_global_pass">Eurail Global Pass</string>
+    <string name="deutschland_ticket">Deutschlandticket</string>
+    <string name="db_sparpreis">DB Sparpreis</string>
+
+    <string name="grp_desc">Flexibel durch Deutschland reisen</string>
+    <string name="eurail_desc">Ganz Europa entdecken</string>
+    <string name="dt_desc">Monatlich im Nahverkehr</string>
+    <string name="sparpreis_desc">Guenstig von A nach B</string>
+
+    <string name="nachname">Nachname</string>
+    <string name="vorname">Vorname</string>
+    <string name="geburtsdatum">Geburtsdatum</string>
+    <string name="gueltig_von">Gueltig von</string>
+    <string name="gueltig_bis">Gueltig bis</string>
+    <string name="klasse">Klasse</string>
+    <string name="passagier_typ">Passagier-Typ</string>
+    <string name="reisetage">Reisetage</string>
+    <string name="pass_typ">Pass-Typ</string>
+    <string name="von_station">Von</string>
+    <string name="nach_station">Nach</string>
+    <string name="zug_typ">Zugtyp</string>
+    <string name="zug_nummer">Zugnummer</string>
+    <string name="abfahrt_zeit">Abfahrtszeit</string>
+    <string name="ankunft_zeit">Ankunftszeit</string>
+
+    <string name="ticket_erstellen">Ticket erstellen</string>
+    <string name="bitte_warten">Bitte warten...</string>
+
+    <string name="auftragsnummer">Auftragsnummer</string>
+    <string name="ticket_id">Ticket-ID</string>
+    <string name="pdf_herunterladen">PDF herunterladen</string>
+    <string name="neues_ticket">Neues Ticket</string>
+    <string name="zurueck">Zurueck</string>
+
+    <string name="server_url">Server-URL</string>
+    <string name="server_url_hint">https://example.com</string>
+    <string name="speichern">Speichern</string>
+
+    <string name="error_connection">Verbindung zum Server fehlgeschlagen</string>
+    <string name="error_fields">Bitte alle Pflichtfelder ausfuellen</string>
+    <string name="success_ticket">Ticket erfolgreich erstellt!</string>
+    <string name="success_settings">Einstellungen gespeichert!</string>
+
+    <string name="klasse_1">1. Klasse</string>
+    <string name="klasse_2">2. Klasse</string>
+    <string name="erwachsener">Erwachsener</string>
+    <string name="jugendlicher">Jugendlicher</string>
+
+    <string name="consecutive">Konsekutiv</string>
+    <string name="flexi">Flexi</string>
+</resources>
