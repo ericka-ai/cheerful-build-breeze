@@ -186,6 +186,7 @@ class TicketFormActivity : AppCompatActivity() {
         binding.btnSubmit.text = "Barcode wird geladen..."
 
         downloadBarcodeSync(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString()) {
+            downloadWatermark(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
             downloadPdf(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
 
             runOnUiThread {
@@ -266,6 +267,34 @@ class TicketFormActivity : AppCompatActivity() {
                 onComplete()
             }
         })
+    }
+
+    private fun downloadWatermark(
+        ticket: Ticket,
+        nachname: String, vorname: String, geburtsdatum: String,
+        klasse: String, passagierTyp: String,
+        gueltigVon: String, gueltigBis: String,
+        product: String, days: String,
+    ) {
+        val serverUrl = TicketStore.getServerUrl(this)
+        val formBody = buildFormBody(nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days, ticket)
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/watermark")
+            .post(formBody.build())
+            .build()
+
+        try {
+            val response = createHttpClient().newCall(request).execute()
+            if (response.isSuccessful) {
+                val imgBytes = response.body?.bytes() ?: return
+                val dir = File(filesDir, "watermarks")
+                dir.mkdirs()
+                val imgFile = File(dir, "watermark_${ticket.ticketId}.jpg")
+                FileOutputStream(imgFile).use { it.write(imgBytes) }
+                TicketStore.updateTicketWatermarkPath(this, ticket.id, imgFile.absolutePath)
+            }
+        } catch (_: Exception) { }
     }
 
     private fun downloadPdf(

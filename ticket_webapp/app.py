@@ -1952,6 +1952,93 @@ async def api_barcode(
     )
 
 
+@app.post("/api/watermark")
+async def api_watermark(
+    nachname: str = Form(...),
+    vorname: str = Form(...),
+    geburtsdatum: str = Form(...),
+    klasse: str = Form("2"),
+    passagier_typ: str = Form("ERWACHSENER"),
+    gueltig_von: str = Form(""),
+    gueltig_bis: str = Form(""),
+    product: str = Form("grp_consecutive"),
+    tage: str = Form("15"),
+    von: str = Form(""),
+    nach: str = Form(""),
+    zug_typ: str = Form("ICE"),
+    zug_nummer: str = Form("919"),
+    ticket_id: str = Form(""),
+    order_number: str = Form(""),
+):
+    """Returns the combined watermark image (ticket number + bottom watermark) as JPEG."""
+    name = f"{nachname}/{vorname}"
+    days_int = int(tage) if tage.isdigit() else 15
+
+    if not gueltig_von:
+        gueltig_von = datetime.now().strftime("%d.%m.%Y")
+    if not gueltig_bis:
+        gueltig_bis = _calc_validity_end(gueltig_von, days_int, product)
+
+    price_table = ALL_PRICES.get(product, {})
+    price = ""
+    if price_table:
+        day_prices = price_table.get(days_int, {})
+        if not day_prices:
+            first_key = next(iter(price_table), None)
+            day_prices = price_table.get(first_key, {})
+        price = day_prices.get((klasse, passagier_typ), "")
+
+    cfg = _build_cfg(
+        name=name,
+        birth_date=geburtsdatum,
+        validity_start=gueltig_von,
+        validity_end=gueltig_bis,
+        ticket_id=ticket_id,
+        order_number=order_number,
+        klasse=klasse,
+        days=str(days_int),
+        passenger_type=passagier_typ,
+        price=price,
+        payment_method="SEPA",
+        payment_date="",
+        booking_date="",
+        product=product,
+        station_from=von,
+        station_to=nach,
+        zugtyp=zug_typ,
+        train_number=zug_nummer,
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ticket_num_path = os.path.join(tmpdir, "ticket_num.jpeg")
+        wm_bottom_path = os.path.join(tmpdir, "wm_bottom.jpeg")
+        combined_path = os.path.join(tmpdir, "watermark_combined.jpeg")
+
+        generate_ticket_number_image(cfg['ticket_id'], ticket_num_path)
+        generate_watermark_bottom(cfg, wm_bottom_path)
+
+        num_img = cv2.imread(ticket_num_path)
+        bottom_img = cv2.imread(wm_bottom_path)
+
+        target_w = 1024
+        if num_img.shape[1] != target_w:
+            num_img = cv2.resize(num_img, (target_w, int(num_img.shape[0] * target_w / num_img.shape[1])))
+        if bottom_img.shape[1] != target_w:
+            bottom_img = cv2.resize(bottom_img, (target_w, int(bottom_img.shape[0] * target_w / bottom_img.shape[1])))
+
+        combined = np.vstack([num_img, bottom_img])
+        cv2.imwrite(combined_path, combined, [cv2.IMWRITE_JPEG_QUALITY, 92])
+
+        with open(combined_path, "rb") as f:
+            img_bytes = f.read()
+
+    return StreamingResponse(
+        io.BytesIO(img_bytes),
+        media_type="image/jpeg",
+        headers={"Content-Disposition": "inline; filename=watermark.jpg"},
+    )
+
+
 def _calc_validity_end(start_str, days_int, product):
     """Calculate validity end date from start + days."""
     try:
