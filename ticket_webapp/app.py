@@ -99,7 +99,7 @@ FCB_SCHEMA = asn1tools.compile_files(
     os.path.join(ASSETS_DIR, 'uicRailTicketData_v1.3.5.asn'), 'uper')
 
 EURAIL_COUNTRIES = [
-    65, 71, 72, 73, 74, 10, 75, 76, 78, 79, 80, 81, 82, 83, 84,
+    65, 70, 71, 72, 73, 74, 10, 75, 76, 78, 79, 80, 81, 82, 83, 84,
     85, 86, 87, 88, 24, 25, 26, 94, 44, 51, 52, 53, 54, 55, 56, 60, 62,
 ]
 
@@ -319,7 +319,7 @@ def generate_watermark_bottom(cfg, output_path):
 
 # ─── UIC 918.3 AZTEC BARCODE ─────────────────────────────────────────────────
 
-# Dummy 64-byte raw signature (r[32] || s[32]) for #UT02 format
+# Dummy 64-byte raw signature (r[32] || s[32]) for #UT02 format (DB Sparpreis/DT)
 _DUMMY_SIG_64 = bytes.fromhex(
     "865bf227a095803c434e70e6b9edf960"
     "e26ceba3b0cdc6b4cc9e56fb54eac0b5"
@@ -327,11 +327,25 @@ _DUMMY_SIG_64 = bytes.fromhex(
     "1f7da9d46584af65ede881ee64234d4b"
 )
 
+# Dummy ECDSA P-160 DER signature (46 bytes) for #UT01 format (Eurail)
+_DUMMY_SIG_DER = bytes.fromhex(
+    "302c"
+    "021411fab59ab570d7f6031fb8fde266"
+    "73826cf855610214"
+    "17ba43a96b48759cb901bf04a4cbe5d7"
+    "08dfcdef"
+)
 
-def _build_918_header(rics='1080', key_id='00008'):
-    """Build UIC 918.3 outer header: #UT02 + RICS + keyID + 64-byte signature."""
-    hdr = b'#UT02' + rics.encode('ascii') + key_id.encode('ascii')
-    hdr += _DUMMY_SIG_64
+
+def _build_918_header(rics='1080', key_id='00008', fmt='UT02'):
+    """Build UIC 918.3 outer header with signature."""
+    if fmt == 'UT01':
+        hdr = b'#UT01' + rics.encode('ascii') + key_id.encode('ascii')
+        hdr += _DUMMY_SIG_DER
+        hdr += b'\x00\x00\x00\x00'
+    else:
+        hdr = b'#UT02' + rics.encode('ascii') + key_id.encode('ascii')
+        hdr += _DUMMY_SIG_64
     return hdr
 
 
@@ -383,18 +397,18 @@ def _build_uic918_payload(cfg):
 
 
 def _build_eurail_tlay(cfg):
-    """Build U_TLAY block for Eurail Global Pass (Interrail/Eurail format)."""
+    """Build U_TLAY block for Eurail Global Pass (matches real Eurail barcode format)."""
     parts = cfg['name'].split(' ', 1)
     first, last = parts[0], (parts[1] if len(parts) == 2 else "")
     vs, ve = cfg['validity_start'], cfg['validity_end']
     birth = cfg['birth']
-    birth_masked = birth[:3] + "**.**" + birth[8:]
     klasse_num = "1" if cfg['klasse'] == "1" else "2"
     ptype = "YOUTH" if cfg['passenger_type'] == "JUGENDLICHER" else "ADULT"
     ref = cfg.get('eurail_ref', cfg['ticket_id'])
+    passport_masked = "*****" + cfg.get('passport_tail', ref[-3:])
 
     fields = [
-        _uic_field(0, 19, 1, 19, 0, "INTERRAIL"),
+        _uic_field(0, 19, 1, 19, 0, "EURAIL"),
         _uic_field(0, 39, 1, 4, 0, "NAME"),
         _uic_field(0, 53, 1, 19, 0, f"{first[0]}. {last}"),
         _uic_field(1, 19, 1, 19, 0, ""),
@@ -403,11 +417,11 @@ def _build_eurail_tlay(cfg):
         _uic_field(2, 2, 1, 3, 0, "CIV"),
         _uic_field(2, 6, 1, 4, 0, "9901"),
         _uic_field(2, 39, 1, 12, 0, "PASS-/ID"),
-        _uic_field(2, 53, 1, 19, 0, "*********"),
+        _uic_field(2, 53, 1, 19, 0, passport_masked),
         _uic_field(3, 2, 1, 5, 0, "VALID"),
         _uic_field(3, 9, 1, 23, 0, f"{vs} - {ve}"),
         _uic_field(3, 39, 1, 13, 0, "DATE OF BIRTH"),
-        _uic_field(3, 53, 1, 10, 0, birth_masked),
+        _uic_field(3, 53, 1, 10, 0, birth),
         _uic_field(6, 14, 1, 26, 0, "EURAIL GLOBAL PASS"),
         _uic_field(6, 67, 1, 1, 0, klasse_num),
         _uic_field(13, 2, 1, 6, 0, ptype),
@@ -422,7 +436,11 @@ def _build_eurail_tlay(cfg):
 
 
 def _build_eurail_flex(cfg):
-    """Build U_FLEX block with UIC 918.9 FCB data for Eurail Global Pass."""
+    """Build U_FLEX block with UIC 918.9 FCB data for Eurail Global Pass.
+
+    Format matches real Eurail barcodes: passType=1, passDescription present,
+    validUntilTime=1439, specimen=True, ageCheckRequired=False.
+    """
     parts = cfg['name'].split(' ', 1)
     first, last = parts[0], (parts[1] if len(parts) == 2 else "")
 
@@ -450,7 +468,7 @@ def _build_eurail_flex(cfg):
     ptype = 'youth' if cfg['passenger_type'] == 'JUGENDLICHER' else 'adult'
 
     ref_ia5 = cfg.get('eurail_ref', f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
-    product_id = 'P30903000000112'
+    passport_masked = "*****" + cfg.get('passport_tail', ref_ia5[-3:])
 
     valid_until = days_int - 1
     activated = list(range(min(days_int, 1)))
@@ -458,10 +476,10 @@ def _build_eurail_flex(cfg):
     fcb_data = {
         'issuingDetail': {
             'securityProviderNum': 9901,
-            'issuerName': 'Eurail B.V.',
             'issuingYear': issuing_year,
             'issuingDay': issuing_day,
             'issuingTime': issuing_time,
+            'issuerName': 'Eurail B.V.',
             'specimen': False,
             'securePaperTicket': False,
             'activated': True,
@@ -472,33 +490,35 @@ def _build_eurail_flex(cfg):
             'traveler': [{
                 'firstName': first,
                 'lastName': last,
+                'passportId': passport_masked,
                 'yearOfBirth': birth_year,
                 'dayOfBirth': birth_day,
                 'ticketHolder': True,
                 'passengerType': ptype,
                 'countryOfResidence': cfg.get('residence_code', 80),
-                'passportId': '*********',
             }]
         },
         'transportDocument': [{
             'ticket': ('pass', {
-                'productOwnerNum': 9901,
-                'productIdIA5': product_id,
                 'referenceIA5': ref_ia5[:20],
-                'passType': 2,
+                'productOwnerNum': 9901,
+                'productIdIA5': '30431000000111',
+                'passType': 1,
+                'passDescription': 'Eurail Global Pass ',
                 'classCode': class_code,
                 'validFromDay': 0,
                 'validUntilDay': valid_until,
-                'countries': EURAIL_COUNTRIES,
+                'validUntilTime': 1439,
                 'activatedDay': activated,
+                'countries': EURAIL_COUNTRIES,
             })
         }],
         'controlDetail': {
-            'passportValidationRequired': True,
-            'ageCheckRequired': True,
-            'onlineValidationRequired': False,
             'identificationByIdCard': False,
             'identificationByPassportId': False,
+            'passportValidationRequired': True,
+            'onlineValidationRequired': False,
+            'ageCheckRequired': False,
             'reductionCardCheckRequired': False,
             'infoText': ('Ticket is valid on a direct night train on the next '
                          'day; the day after the ticket was valid'),
@@ -598,6 +618,8 @@ def _build_sparpreis_flex(cfg):
 
     vs_day_of_year = (vs_dt - datetime(issuing_year, 1, 1)).days
     valid_from_day = vs_day_of_year - issuing_day
+    if valid_from_day < 0:
+        valid_from_day = 0
     valid_until_day = 1
 
     dep_hour = cfg.get('departure_hour', 13)
@@ -671,7 +693,7 @@ def _build_sparpreis_flex(cfg):
     }
 
     fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
-    flex_len = len(fcb_bytes)
+    flex_len = 12 + len(fcb_bytes)
     return (b"U_FLEX13" +
             f"{flex_len:04d}".encode('ascii') +
             fcb_bytes)
@@ -747,6 +769,8 @@ def _build_dt_flex(cfg):
 
     vs_abs_day = (vs_dt - datetime(issuing_year, 1, 1)).days
     valid_from_day = vs_abs_day - issuing_day
+    if valid_from_day < 0:
+        valid_from_day = 0
     if vs_dt.month == 12:
         next_month_dt = datetime(vs_dt.year + 1, 1, 1)
     else:
@@ -853,17 +877,17 @@ def generate_aztec_barcode(cfg, output_path):
     compressed = zlib.compress(payload)
 
     if product == 'eurail_global':
-        outer_hdr = _build_918_header(rics='9901', key_id='TTEU1')
+        outer_hdr = _build_918_header(rics='9901', key_id='TTEU1', fmt='UT01')
     elif product in ('db_sparpreis', 'deutschlandticket'):
-        outer_hdr = _build_918_header(rics='1080', key_id='00008')
+        outer_hdr = _build_918_header(rics='1080', key_id='00008', fmt='UT02')
     else:
-        outer_hdr = _build_918_header(rics='9994', key_id='00001')
+        outer_hdr = _build_918_header(rics='9994', key_id='00001', fmt='UT01')
 
     barcode_data = (outer_hdr +
                     f"{len(compressed):04d}".encode('ascii') +
                     compressed)
 
-    code = aztec.AztecCode(barcode_data, ec_percent=23)
+    code = aztec.AztecCode(barcode_data, ec_percent=50)
     img = code.image(module_size=6, border=1)
     img.save(output_path, "PNG")
 
@@ -1582,7 +1606,7 @@ def generate_pdf(cfg):
         wm_main = os.path.join(tmpdir, "wm_main.jpeg")
         wm_bottom = os.path.join(tmpdir, "wm_bottom.jpeg")
         ticket_num = os.path.join(tmpdir, "ticket_num.jpeg")
-        barcode = os.path.join(tmpdir, "barcode.jpeg")
+        barcode = os.path.join(tmpdir, "barcode.png")
 
         generate_watermark_main(cfg, wm_main)
         generate_watermark_bottom(cfg, wm_bottom)
