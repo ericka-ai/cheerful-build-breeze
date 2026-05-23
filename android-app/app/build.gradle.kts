@@ -11,8 +11,8 @@ android {
         applicationId = "com.dbtickets.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
     }
 
     buildTypes {
@@ -46,4 +46,6 @@ dependencies {
     implementation("org.json:json:20231013")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation("androidx.biometric:biometric:1.1.0")
 }
