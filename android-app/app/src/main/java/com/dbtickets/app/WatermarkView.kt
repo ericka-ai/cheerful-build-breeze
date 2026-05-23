@@ -5,10 +5,10 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.Rect
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.view.View
+import kotlin.math.sin
 
 class WatermarkView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -21,7 +21,6 @@ class WatermarkView @JvmOverloads constructor(
     private var klasse: String = "2"
     private var productLabel: String = ""
     private var gueltigVon: String = ""
-    private var stations: String = ""
 
     private val bgPaint = Paint().apply {
         color = Color.parseColor("#F0F0F0")
@@ -64,76 +63,75 @@ class WatermarkView @JvmOverloads constructor(
         drawBackgroundText(canvas, w, h, density)
         drawBigNumber(canvas, w, h, density)
         drawName(canvas, w, h, density)
-        drawDate(canvas, w, h, density)
-        drawCrossHatch(canvas, w, h, density)
+        drawDate(canvas, h, density)
+        drawCrossHatch(canvas, h, density)
         drawMirrorNumber(canvas, w, h, density)
     }
 
     private fun drawWaveLines(canvas: Canvas, w: Float, h: Float, density: Float) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#DCDCDC")
-            strokeWidth = 0.8f * density
+            strokeWidth = 0.7f * density
             style = Paint.Style.STROKE
         }
 
         val path = Path()
-        val amplitude = 4f * density
-        val wavelength = 40f * density
-        val spacing = 12f * density
+        val amplitude = 3.5f * density
+        val wavelength = 35f * density
+        val spacing = 10f * density
 
+        var lineIdx = 0f
         var y = spacing
         while (y < h) {
             path.reset()
+            val phaseOffset = lineIdx * 0.3f
             path.moveTo(0f, y)
             var x = 0f
             while (x < w) {
-                path.quadTo(x + wavelength / 4f, y - amplitude, x + wavelength / 2f, y)
-                path.quadTo(x + wavelength * 3f / 4f, y + amplitude, x + wavelength, y)
-                x += wavelength
+                val step = 4f
+                val nextX = x + step
+                val nextY = y + amplitude * sin((2.0 * Math.PI * nextX / wavelength + phaseOffset).toFloat())
+                path.lineTo(nextX, nextY)
+                x = nextX
             }
             canvas.drawPath(path, paint)
             y += spacing
+            lineIdx++
         }
     }
 
     private fun drawBackgroundText(canvas: Canvas, w: Float, h: Float, density: Float) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#D5D5D5")
-            textSize = 11f * density
+            color = Color.parseColor("#D0D0D0")
+            textSize = 10f * density
             typeface = Typeface.DEFAULT
         }
 
-        val textParts = mutableListOf<String>()
-        if (auftragsnummer.isNotEmpty()) textParts.add(auftragsnummer)
-        textParts.add("${klasse}. Kl.")
-        if (productLabel.isNotEmpty()) textParts.add(productLabel)
-        if (fullName.isNotEmpty()) textParts.add(fullName)
-        textParts.add("Fahrkarte")
-        if (gueltigVon.isNotEmpty()) textParts.add(gueltigVon)
-        if (auftragsnummer.isNotEmpty()) textParts.add(auftragsnummer)
-        textParts.add("${klasse}. Kl.")
-        if (productLabel.isNotEmpty()) textParts.add(productLabel)
-
+        val prefix = if (auftragsnummer.length >= 4) "(${auftragsnummer.substring(0, 4)})" else ""
+        val textParts = listOf(
+            productLabel, fullName, "Fahrkarte",
+            gueltigVon, auftragsnummer, "${klasse}. Kl.",
+            prefix, productLabel, fullName, "Fahrkarte",
+            "${klasse}. Kl.", gueltigVon
+        ).filter { it.isNotEmpty() }
         val fullText = textParts.joinToString(" ")
 
-        var y = 18f * density
+        val angles = floatArrayOf(-3f, 1.5f, -5f, 2.5f, -4f, 3f)
+
+        var y = 14f * density
         var lineIndex = 0
         while (y < h + 30f * density) {
             canvas.save()
-            val angle = when {
-                lineIndex % 3 == 0 -> -4f
-                lineIndex % 3 == 1 -> 2f
-                else -> -6f
-            }
+            val angle = angles[lineIndex % angles.size]
             canvas.rotate(angle, w / 2f, y)
 
-            var x = -50f * density
-            while (x < w + 100f * density) {
+            var x = -60f * density
+            while (x < w + 120f * density) {
                 canvas.drawText(fullText, x, y, paint)
-                x += paint.measureText(fullText) + 15f * density
+                x += paint.measureText(fullText) + 12f * density
             }
             canvas.restore()
-            y += 16f * density
+            y += 14f * density
             lineIndex++
         }
     }
@@ -142,53 +140,36 @@ class WatermarkView @JvmOverloads constructor(
         if (auftragsnummer.isEmpty()) return
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#C0C0C0")
+            color = Color.parseColor("#BFBFBF")
             typeface = Typeface.DEFAULT_BOLD
         }
 
         val numStr = auftragsnummer
-        val charCount = numStr.length
 
-        val baseSizeLarge = 75f * density
-        val baseSizeMedium = 55f * density
-        val baseSizeSmall = 45f * density
+        val sizePattern = floatArrayOf(58f, 85f, 48f, 50f, 90f, 42f, 42f, 42f, 52f, 40f, 50f)
 
-        val charWidths = FloatArray(charCount)
-        val charSizes = FloatArray(charCount)
+        val charWidths = FloatArray(numStr.length)
+        val charSizes = FloatArray(numStr.length)
 
         for (i in numStr.indices) {
-            val size = when {
-                i == 0 -> baseSizeMedium
-                i == 1 -> baseSizeLarge
-                i == 2 || i == 3 -> baseSizeMedium
-                i == 4 -> baseSizeLarge
-                i == 5 || i == 6 || i == 7 -> baseSizeSmall
-                i == 8 -> baseSizeMedium
-                i == 9 -> baseSizeSmall
-                i == 10 -> baseSizeMedium
-                else -> baseSizeSmall
-            }
+            val patternIdx = i % sizePattern.size
+            val size = sizePattern[patternIdx] * density
             charSizes[i] = size
             paint.textSize = size
             charWidths[i] = paint.measureText(numStr[i].toString())
         }
 
         val totalWidth = charWidths.sum()
-        val availableWidth = w - 8f * density
-        val scale = availableWidth / totalWidth
-        var x = 4f * density
+        val availableWidth = w * 1.0f
+        val scale = (availableWidth / totalWidth).coerceAtMost(1.15f)
+        var x = w * 0.01f
 
         for (i in numStr.indices) {
-            val scaledSize = charSizes[i] * scale.coerceAtMost(1.2f)
+            val scaledSize = charSizes[i] * scale
             paint.textSize = scaledSize
-            val actualWidth = paint.measureText(numStr[i].toString())
-
-            val bounds = Rect()
-            paint.getTextBounds(numStr[i].toString(), 0, 1, bounds)
-            val baselineY = h * 0.30f
-
+            val baselineY = h * 0.28f
             canvas.drawText(numStr[i].toString(), x, baselineY, paint)
-            x += actualWidth
+            x += paint.measureText(numStr[i].toString())
         }
     }
 
@@ -197,23 +178,22 @@ class WatermarkView @JvmOverloads constructor(
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#333333")
-            textSize = 20f * density
+            textSize = 22f * density
             typeface = Typeface.DEFAULT_BOLD
         }
 
-        val textWidth = paint.measureText(fullName)
-        val x = (w - textWidth) / 2f
-        val y = h * 0.45f
+        val x = w * 0.22f
+        val y = h * 0.42f
 
         canvas.drawText(fullName, x.coerceAtLeast(16f * density), y, paint)
     }
 
-    private fun drawDate(canvas: Canvas, w: Float, h: Float, density: Float) {
+    private fun drawDate(canvas: Canvas, h: Float, density: Float) {
         if (day.isEmpty()) return
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#1B1B1B")
-            textSize = 36f * density
+            textSize = 38f * density
             typeface = Typeface.DEFAULT_BOLD
         }
 
@@ -224,19 +204,19 @@ class WatermarkView @JvmOverloads constructor(
         canvas.drawText(dateText, x, y, paint)
     }
 
-    private fun drawCrossHatch(canvas: Canvas, w: Float, h: Float, density: Float) {
+    private fun drawCrossHatch(canvas: Canvas, h: Float, density: Float) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#AAAAAA")
-            strokeWidth = 1.5f * density
+            strokeWidth = 1.2f * density
             style = Paint.Style.STROKE
         }
 
-        val centerX = 35f * density
-        val centerY = h * 0.68f
-        val size = 35f * density
+        val centerX = 28f * density
+        val centerY = h * 0.65f
+        val size = 32f * density
 
-        for (i in 0..6) {
-            val offset = i * 7f * density
+        for (i in 0..7) {
+            val offset = i * 6f * density
             canvas.drawLine(
                 centerX - size + offset, centerY - size,
                 centerX + offset, centerY + size,
@@ -254,8 +234,8 @@ class WatermarkView @JvmOverloads constructor(
         if (auftragsnummer.isEmpty()) return
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#DDDDDD")
-            textSize = 32f * density
+            color = Color.parseColor("#D8D8D8")
+            textSize = 30f * density
             typeface = Typeface.DEFAULT_BOLD
         }
 
