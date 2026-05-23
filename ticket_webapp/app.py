@@ -618,6 +618,8 @@ def _build_sparpreis_flex(cfg):
 
     vs_day_of_year = (vs_dt - datetime(issuing_year, 1, 1)).days
     valid_from_day = vs_day_of_year - issuing_day
+    if valid_from_day < 0:
+        valid_from_day = 0
     valid_until_day = 1
 
     dep_hour = cfg.get('departure_hour', 13)
@@ -767,6 +769,8 @@ def _build_dt_flex(cfg):
 
     vs_abs_day = (vs_dt - datetime(issuing_year, 1, 1)).days
     valid_from_day = vs_abs_day - issuing_day
+    if valid_from_day < 0:
+        valid_from_day = 0
     if vs_dt.month == 12:
         next_month_dt = datetime(vs_dt.year + 1, 1, 1)
     else:
