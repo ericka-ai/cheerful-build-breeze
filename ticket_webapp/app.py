@@ -2011,10 +2011,7 @@ button:disabled { background: #ccc; cursor: wait; }
           <input type="text" name="arrival_track" value="" placeholder="z.B. 15">
         </div>
       </div>
-      <div class="form-group">
-        <label>Via (Route)</label>
-        <input type="text" name="via_text" value="" placeholder="z.B. Mannheim Hbf, Stuttgart Hbf">
-      </div>
+      <input type="hidden" name="via_text" value="">
     </div>
 
     <div class="form-group">
