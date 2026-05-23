@@ -842,12 +842,8 @@ def generate_aztec_barcode(cfg, output_path):
         flex = _build_eurail_flex(cfg)
         payload = head + tlay + flex
     elif product == 'db_sparpreis':
-        head = (b"U_HEAD010053" + b"1080" +
-                cfg['order_number'][:20].ljust(20).encode('ascii') +
-                creation.encode('ascii') + b"0DE  ")
-        tlay = _build_sparpreis_tlay(cfg)
         flex = _build_sparpreis_flex(cfg)
-        payload = head + tlay + flex
+        payload = flex
     elif product == 'deutschlandticket':
         head = (b"U_HEAD010053" + b"1080" +
                 cfg['order_number'][:20].ljust(20).encode('ascii') +
