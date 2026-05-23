@@ -20,6 +20,13 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Android
+android-app/app/build/
+android-app/.gradle/
+android-app/build/
+android-app/local.properties
+*.apk
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

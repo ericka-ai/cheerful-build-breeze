@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DBTickets" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/db_red</item>
+        <item name="colorPrimaryDark">@color/db_red_dark</item>
+        <item name="colorAccent">@color/db_red</item>
+        <item name="android:statusBarColor">@color/db_red_dark</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+</resources>

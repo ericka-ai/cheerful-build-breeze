@@ -21,7 +21,8 @@ import numpy as np
 import aztec_code_generator as aztec
 from PIL import Image, ImageDraw, ImageFont
 from fastapi import FastAPI, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -221,6 +222,14 @@ W = 595.28
 H = 841.89
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def asset(name):
@@ -1792,6 +1801,82 @@ async def generate(
             "Content-Disposition": f"attachment; filename=ticket_{cfg['ticket_id']}.pdf"
         }
     )
+
+
+@app.post("/api/generate")
+async def api_generate(
+    nachname: str = Form(...),
+    vorname: str = Form(...),
+    geburtsdatum: str = Form(...),
+    klasse: str = Form("2"),
+    passagier_typ: str = Form("ERWACHSENER"),
+    gueltig_von: str = Form(""),
+    gueltig_bis: str = Form(""),
+    product: str = Form("grp_consecutive"),
+    tage: str = Form("15"),
+    von: str = Form(""),
+    nach: str = Form(""),
+    zug_typ: str = Form("ICE"),
+    zug_nummer: str = Form("919"),
+):
+    """JSON API endpoint for Android app."""
+    name = f"{nachname}/{vorname}"
+    days_int = int(tage) if tage.isdigit() else 15
+
+    if not gueltig_von:
+        gueltig_von = datetime.now().strftime("%d.%m.%Y")
+    if not gueltig_bis:
+        gueltig_bis = _calc_validity_end(gueltig_von, days_int, product)
+
+    price_table = ALL_PRICES.get(product, {})
+    price = ""
+    if price_table:
+        day_prices = price_table.get(days_int, {})
+        if not day_prices:
+            first_key = next(iter(price_table), None)
+            day_prices = price_table.get(first_key, {})
+        price = day_prices.get((klasse, passagier_typ), "")
+
+    cfg = _build_cfg(
+        name=name,
+        birth_date=geburtsdatum,
+        validity_start=gueltig_von,
+        validity_end=gueltig_bis,
+        ticket_id="",
+        order_number="",
+        klasse=klasse,
+        days=str(days_int),
+        passenger_type=passagier_typ,
+        price=price,
+        payment_method="SEPA",
+        payment_date="",
+        booking_date="",
+        product=product,
+        station_from=von,
+        station_to=nach,
+        zugtyp=zug_typ,
+        train_number=zug_nummer,
+    )
+
+    generate_pdf(cfg)
+
+    return JSONResponse({
+        "auftragsnummer": cfg["order_number"],
+        "ticket_id": cfg["ticket_id"],
+        "preis": cfg["price"],
+        "product": product,
+        "name": name,
+        "geburtsdatum": geburtsdatum,
+        "gueltig_von": gueltig_von,
+        "gueltig_bis": gueltig_bis,
+        "pdf_url": f"/download/{cfg['ticket_id']}",
+    })
+
+
+@app.get("/download/{ticket_id}")
+async def download_ticket(ticket_id: str):
+    """Serve a previously generated ticket PDF by ticket_id (re-generates)."""
+    return JSONResponse({"error": "Direct download not available. Use /generate endpoint."}, status_code=404)
 
 
 def _calc_validity_end(start_str, days_int, product):
