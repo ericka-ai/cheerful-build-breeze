@@ -2059,6 +2059,119 @@ async def api_ticket_delete(auftragsnummer: str):
     return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
 
 
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard():
+    """Visual dashboard showing all stored tickets."""
+    rows = ""
+    for nr, t in TICKET_STORE.items():
+        name = t.get("name", "")
+        product = t.get("ticket_type_label", t.get("product", ""))
+        preis = t.get("preis", "")
+        gueltig_von = t.get("gueltig_von", "")
+        gueltig_bis = t.get("gueltig_bis", "")
+        created = t.get("created_at", "")
+        auftrag = t.get("auftragsnummer", nr)
+        rows += f"""<tr>
+            <td>{auftrag}</td>
+            <td>{name}</td>
+            <td>{product}</td>
+            <td>{preis}</td>
+            <td>{gueltig_von}</td>
+            <td>{gueltig_bis}</td>
+            <td>{created}</td>
+            <td><button class="btn-del" onclick="deleteTicket('{auftrag}')">L\u00f6schen</button></td>
+        </tr>"""
+
+    total = len(TICKET_STORE)
+    return f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB Tickets Dashboard</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #1b1b1b; }}
+.header {{ background: #EC0016; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }}
+.header h1 {{ font-size: 22px; }}
+.header .badge {{ background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 12px; font-size: 14px; }}
+.container {{ max-width: 1200px; margin: 24px auto; padding: 0 16px; }}
+.stats {{ display: flex; gap: 16px; margin-bottom: 24px; }}
+.stat-card {{ background: white; border-radius: 12px; padding: 20px; flex: 1; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }}
+.stat-card .number {{ font-size: 32px; font-weight: bold; color: #EC0016; }}
+.stat-card .label {{ font-size: 14px; color: #6b6b6b; margin-top: 4px; }}
+.card {{ background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }}
+.card-header {{ padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }}
+.card-header h2 {{ font-size: 18px; }}
+table {{ width: 100%; border-collapse: collapse; }}
+th {{ background: #f8f8f8; padding: 12px 16px; text-align: left; font-size: 13px; color: #6b6b6b; font-weight: 600; text-transform: uppercase; }}
+td {{ padding: 12px 16px; border-top: 1px solid #f0f0f0; font-size: 14px; }}
+tr:hover {{ background: #fafafa; }}
+.btn-del {{ background: #EC0016; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }}
+.btn-del:hover {{ background: #c40014; }}
+.btn-backup {{ background: #1455C0; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }}
+.btn-backup:hover {{ background: #0d3d8e; }}
+.empty {{ text-align: center; padding: 40px; color: #6b6b6b; }}
+.nav {{ display: flex; gap: 12px; }}
+.nav a {{ color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px; font-size: 14px; }}
+.nav a:hover {{ background: rgba(255,255,255,0.3); }}
+@media (max-width: 768px) {{
+  .stats {{ flex-direction: column; }}
+  table {{ font-size: 12px; }}
+  th, td {{ padding: 8px; }}
+}}
+</style>
+</head>
+<body>
+<div class="header">
+    <h1>DB Tickets Dashboard</h1>
+    <div class="nav">
+        <a href="/">Ticket erstellen</a>
+        <a href="/dashboard">Dashboard</a>
+    </div>
+</div>
+<div class="container">
+    <div class="stats">
+        <div class="stat-card">
+            <div class="number">{total}</div>
+            <div class="label">Gespeicherte Tickets</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">
+            <h2>Alle Tickets</h2>
+            <button class="btn-backup" onclick="downloadBackup()">Backup herunterladen</button>
+        </div>
+        {'<table><thead><tr><th>Auftragsnr.</th><th>Name</th><th>Produkt</th><th>Preis</th><th>Von</th><th>Bis</th><th>Erstellt</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' if rows else '<div class="empty">Noch keine Tickets vorhanden</div>'}
+    </div>
+</div>
+<script>
+const API_KEY = '{API_SECRET_KEY}';
+async function deleteTicket(nr) {{
+    if (!confirm('Ticket ' + nr + ' wirklich l\\u00f6schen?')) return;
+    const res = await fetch('/api/ticket/' + nr, {{
+        method: 'DELETE',
+        headers: {{ 'X-API-Key': API_KEY }}
+    }});
+    if (res.ok) location.reload();
+    else alert('Fehler beim L\\u00f6schen');
+}}
+async function downloadBackup() {{
+    const res = await fetch('/api/backup', {{
+        headers: {{ 'X-API-Key': API_KEY }}
+    }});
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], {{ type: 'application/json' }});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'tickets_backup_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+}}
+</script>
+</body>
+</html>"""
+
+
 @app.get("/api/backup")
 async def api_backup():
     """Export all tickets as JSON backup."""
