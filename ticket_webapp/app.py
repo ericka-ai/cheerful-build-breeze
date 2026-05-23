@@ -15,6 +15,7 @@ import zipfile
 import zlib
 from datetime import datetime, timedelta
 
+import base64
 import asn1tools
 import cv2
 import numpy as np
@@ -917,6 +918,17 @@ def generate_aztec_barcode(cfg, output_path):
     img.save(output_path, "PNG")
 
 
+def generate_barcode_base64(cfg) -> str:
+    """Generate barcode and return as base64-encoded PNG string."""
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        barcode_path = tmp.name
+    generate_aztec_barcode(cfg, barcode_path)
+    with open(barcode_path, "rb") as f:
+        barcode_bytes = f.read()
+    os.unlink(barcode_path)
+    return base64.b64encode(barcode_bytes).decode("ascii")
+
+
 # ─── PDF BUILDING ────────────────────────────────────────────────────────────
 
 def register_fonts(page):
@@ -1814,6 +1826,8 @@ async def generate(
     nachname_part = parts[0] if parts else name
     vorname_part = parts[1] if len(parts) > 1 else ""
 
+    barcode_b64 = generate_barcode_base64(cfg)
+
     TICKET_STORE[cfg["order_number"]] = {
         "auftragsnummer": cfg["order_number"],
         "ticket_id": cfg["ticket_id"],
@@ -1830,6 +1844,7 @@ async def generate(
         "gueltig_bis": cfg["validity_end"],
         "created_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
         "pdf_url": f"/download/{cfg['ticket_id']}",
+        "barcode_base64": barcode_b64,
     }
 
     return StreamingResponse(
@@ -1897,6 +1912,7 @@ async def api_generate(
     )
 
     generate_pdf(cfg)
+    barcode_b64 = generate_barcode_base64(cfg)
 
     ticket_data = {
         "auftragsnummer": cfg["order_number"],
@@ -1914,6 +1930,7 @@ async def api_generate(
         "gueltig_bis": gueltig_bis,
         "created_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
         "pdf_url": f"/download/{cfg['ticket_id']}",
+        "barcode_base64": barcode_b64,
     }
 
     TICKET_STORE[cfg["order_number"]] = ticket_data

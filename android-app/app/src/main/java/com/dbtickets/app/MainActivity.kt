@@ -134,11 +134,27 @@ class MainActivity : AppCompatActivity() {
 
                     TicketStore.saveTicket(this@MainActivity, ticket)
 
-                    runOnUiThread {
-                        binding.btnLoadTicket.text = "Barcode wird geladen..."
+                    val barcodeBase64 = json.optString("barcode_base64", "")
+                    if (barcodeBase64.isNotEmpty()) {
+                        val barcodeBytes = android.util.Base64.decode(barcodeBase64, android.util.Base64.DEFAULT)
+                        val dir = File(filesDir, "barcodes")
+                        dir.mkdirs()
+                        val imgFile = File(dir, "barcode_${ticket.ticketId}.png")
+                        FileOutputStream(imgFile).use { it.write(barcodeBytes) }
+                        TicketStore.updateTicketBarcodePath(this@MainActivity, ticket.id, imgFile.absolutePath)
                     }
 
-                    downloadBarcodeSyncThenNavigate(ticket, uniqueId)
+                    downloadWatermarkSync(ticket)
+                    downloadPdfAsync(ticket)
+
+                    runOnUiThread {
+                        binding.btnLoadTicket.isEnabled = true
+                        binding.btnLoadTicket.text = "Ticket laden"
+
+                        val intent = Intent(this@MainActivity, TicketResultActivity::class.java)
+                        intent.putExtra("ticket_store_id", uniqueId)
+                        startActivity(intent)
+                    }
 
                 } catch (e: Exception) {
                     runOnUiThread {
@@ -150,43 +166,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-    }
-
-    private fun downloadBarcodeSyncThenNavigate(ticket: Ticket, uniqueId: String) {
-        val serverUrl = TicketStore.getServerUrl(this)
-        val client = createHttpClient()
-        val formBody = buildFormBody(ticket)
-
-        val request = Request.Builder()
-            .url("$serverUrl/api/barcode")
-            .post(formBody)
-            .build()
-
-        try {
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val imgBytes = response.body?.bytes()
-                if (imgBytes != null) {
-                    val dir = File(filesDir, "barcodes")
-                    dir.mkdirs()
-                    val imgFile = File(dir, "barcode_${ticket.ticketId}.png")
-                    FileOutputStream(imgFile).use { it.write(imgBytes) }
-                    TicketStore.updateTicketBarcodePath(this, ticket.id, imgFile.absolutePath)
-                }
-            }
-        } catch (_: Exception) { }
-
-        downloadWatermarkSync(ticket)
-        downloadPdfAsync(ticket)
-
-        runOnUiThread {
-            binding.btnLoadTicket.isEnabled = true
-            binding.btnLoadTicket.text = "Ticket laden"
-
-            val intent = Intent(this@MainActivity, TicketResultActivity::class.java)
-            intent.putExtra("ticket_store_id", uniqueId)
-            startActivity(intent)
-        }
     }
 
     private fun downloadWatermarkSync(ticket: Ticket) {
