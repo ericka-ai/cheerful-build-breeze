@@ -2,9 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:allowBackup="true"
@@ -23,39 +20,10 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".TicketFormActivity"
+            android:name=".LayoutViewerActivity"
             android:exported="false"
-            android:label="@string/ticket_form_title"
+            android:label="Layout Viewer"
             android:parentActivityName=".MainActivity" />
-        <activity
-            android:name=".TicketResultActivity"
-            android:exported="false"
-            android:label="@string/ticket_result_title"
-            android:parentActivityName=".TicketFormActivity" />
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:label="@string/settings_title"
-            android:parentActivityName=".MainActivity" />
-        <activity
-            android:name=".PdfViewerActivity"
-            android:exported="false"
-            android:label="PDF"
-            android:parentActivityName=".TicketResultActivity" />
-        <receiver
-            android:name=".TicketExpiryReceiver"
-            android:exported="false" />
-        <receiver
-            android:name=".TicketWidgetProvider"
-            android:exported="true"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/ticket_widget_info" />
-        </receiver>
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

@@ -6,7 +6,6 @@
     android:orientation="vertical"
     android:background="@color/greyBackground">
 
-    <!-- Top Bar (DB Navigator style) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
@@ -20,192 +19,44 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/app_name"
+            android:text="DB Navigator Layouts"
             android:textColor="@color/dbWhite"
             android:textSize="20sp"
             android:fontFamily="@font/dbsans_bold" />
-
-        <ImageButton
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_more"
-            android:contentDescription="Menu"
-            android:tint="@color/dbWhite"
-            android:clickable="true"
-            android:focusable="true"
-            android:onClick="onMenuClick"
-            android:scaleType="center" />
     </LinearLayout>
 
-    <!-- Red underline accent (DB Navigator pattern) -->
     <View
         android:layout_width="match_parent"
         android:layout_height="4dp"
         android:background="@color/dbRed" />
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipeRefresh"
+    <EditText
+        android:id="@+id/etSearch"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="44dp"
+        android:hint="Layout suchen..."
+        android:inputType="text"
+        android:background="@color/dbWhite"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textSize="14sp"
+        android:layout_margin="12dp" />
 
-        <androidx.core.widget.NestedScrollView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fillViewport="true">
+    <TextView
+        android:id="@+id/tvCount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="8dp"
+        android:textSize="14sp"
+        android:textColor="@color/defaultTextColorGrey"
+        android:fontFamily="@font/dbsans_regular" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <!-- Ticket Abrufen section (white card area) -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:background="@drawable/background_rounded_corner_bottom"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:paddingTop="24dp"
-                    android:paddingBottom="28dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/ticket_abrufen"
-                        android:textSize="22sp"
-                        android:textColor="@color/defaultTextColor"
-                        android:fontFamily="@font/dbsans_bold" />
-
-                    <!-- Red underline like DB Navigator section headers -->
-                    <View
-                        android:layout_width="50dp"
-                        android:layout_height="4dp"
-                        android:background="@color/dbRed"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/ticket_abrufen_beschreibung"
-                        android:textSize="14sp"
-                        android:textColor="@color/defaultTextColorGrey"
-                        android:fontFamily="@font/dbsans_regular"
-                        android:lineSpacingExtra="3sp"
-                        android:layout_marginBottom="18dp" />
-
-                    <EditText
-                        android:id="@+id/etAuftragsnummer"
-                        android:layout_width="match_parent"
-                        android:layout_height="50dp"
-                        android:hint="z.B. 2597538415754"
-                        android:inputType="number"
-                        android:background="@drawable/edit_text_bg"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:textSize="16sp"
-                        android:textColor="@color/defaultTextColor"
-                        android:textColorHint="@color/dbCoolGray400"
-                        android:fontFamily="@font/dbsans_regular"
-                        android:layout_marginBottom="12dp" />
-
-                    <TextView
-                        android:id="@+id/tvError"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textSize="13sp"
-                        android:textColor="@color/errorTextColor"
-                        android:fontFamily="@font/dbsans_regular"
-                        android:visibility="gone"
-                        android:layout_marginBottom="8dp" />
-
-                    <Button
-                        android:id="@+id/btnLoadTicket"
-                        android:layout_width="match_parent"
-                        android:layout_height="50dp"
-                        android:text="@string/ticket_laden"
-                        style="@style/DBPrimaryButton" />
-
-                    <ProgressBar
-                        android:id="@+id/progressBar"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:layout_gravity="center"
-                        android:visibility="gone"
-                        android:layout_marginTop="12dp"
-                        android:indeterminateTint="@color/dbRed" />
-                </LinearLayout>
-
-                <!-- Drop shadow (DB Navigator pattern) -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="4dp"
-                    android:background="@drawable/drop_shadow_down" />
-
-                <!-- Tickets Section -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:paddingTop="24dp"
-                    android:paddingBottom="16dp">
-
-                    <EditText
-                        android:id="@+id/etSearch"
-                        android:layout_width="match_parent"
-                        android:layout_height="44dp"
-                        android:hint="@string/tickets_durchsuchen"
-                        android:inputType="text"
-                        android:background="@drawable/search_bg"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:textSize="14sp"
-                        android:textColor="@color/defaultTextColor"
-                        android:textColorHint="@color/dbCoolGray400"
-                        android:fontFamily="@font/dbsans_regular"
-                        android:drawableStart="@drawable/ic_search_black_24"
-                        android:drawableTint="@color/iconColor"
-                        android:drawablePadding="10dp"
-                        android:visibility="gone"
-                        android:layout_marginBottom="16dp" />
-
-                    <TextView
-                        android:id="@+id/tvRecentTickets"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/letzte_tickets"
-                        android:textSize="18sp"
-                        android:textColor="@color/defaultTextColor"
-                        android:fontFamily="@font/dbsans_bold"
-                        android:layout_marginBottom="16dp"
-                        android:visibility="gone" />
-
-                    <TextView
-                        android:id="@+id/tvNoTickets"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/noch_keine_tickets"
-                        android:textSize="15sp"
-                        android:textColor="@color/defaultTextColorGrey"
-                        android:fontFamily="@font/dbsans_regular"
-                        android:gravity="center"
-                        android:layout_marginTop="48dp"
-                        android:layout_marginBottom="48dp"
-                        android:visibility="gone" />
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rvTickets"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false"
-                        android:clipToPadding="false"
-                        android:visibility="gone" />
-                </LinearLayout>
-            </LinearLayout>
-        </androidx.core.widget.NestedScrollView>
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvLayouts"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingBottom="16dp" />
 </LinearLayout>
