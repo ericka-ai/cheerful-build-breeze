@@ -1,7 +1,52 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <item type="id" name="DiscountPreisContainer" />
     <item type="id" name="aboRootContainer" />
+    <item type="id" name="accessibility_action_clickable_span" />
+    <item type="id" name="accessibility_actions" />
+    <item type="id" name="accessibility_collection" />
+    <item type="id" name="accessibility_collection_item" />
+    <item type="id" name="accessibility_custom_action_0" />
+    <item type="id" name="accessibility_custom_action_1" />
+    <item type="id" name="accessibility_custom_action_10" />
+    <item type="id" name="accessibility_custom_action_11" />
+    <item type="id" name="accessibility_custom_action_12" />
+    <item type="id" name="accessibility_custom_action_13" />
+    <item type="id" name="accessibility_custom_action_14" />
+    <item type="id" name="accessibility_custom_action_15" />
+    <item type="id" name="accessibility_custom_action_16" />
+    <item type="id" name="accessibility_custom_action_17" />
+    <item type="id" name="accessibility_custom_action_18" />
+    <item type="id" name="accessibility_custom_action_19" />
+    <item type="id" name="accessibility_custom_action_2" />
+    <item type="id" name="accessibility_custom_action_20" />
+    <item type="id" name="accessibility_custom_action_21" />
+    <item type="id" name="accessibility_custom_action_22" />
+    <item type="id" name="accessibility_custom_action_23" />
+    <item type="id" name="accessibility_custom_action_24" />
+    <item type="id" name="accessibility_custom_action_25" />
+    <item type="id" name="accessibility_custom_action_26" />
+    <item type="id" name="accessibility_custom_action_27" />
+    <item type="id" name="accessibility_custom_action_28" />
+    <item type="id" name="accessibility_custom_action_29" />
+    <item type="id" name="accessibility_custom_action_3" />
+    <item type="id" name="accessibility_custom_action_30" />
+    <item type="id" name="accessibility_custom_action_31" />
+    <item type="id" name="accessibility_custom_action_4" />
+    <item type="id" name="accessibility_custom_action_5" />
+    <item type="id" name="accessibility_custom_action_6" />
+    <item type="id" name="accessibility_custom_action_7" />
+    <item type="id" name="accessibility_custom_action_8" />
+    <item type="id" name="accessibility_custom_action_9" />
+    <item type="id" name="accessibility_hint" />
+    <item type="id" name="accessibility_label" />
+    <item type="id" name="accessibility_links" />
+    <item type="id" name="accessibility_order" />
+    <item type="id" name="accessibility_order_parent" />
+    <item type="id" name="accessibility_role" />
+    <item type="id" name="accessibility_state" />
+    <item type="id" name="accessibility_state_expanded" />
+    <item type="id" name="accessibility_value" />
     <item type="id" name="accountAddAddressCard" />
     <item type="id" name="accountAddressCardAddBtn" />
     <item type="id" name="accountAddressCardAddBtnDesc" />
@@ -58,20 +103,39 @@
     <item type="id" name="accountPhoneNumbersEdit" />
     <item type="id" name="accountPhoneNumbersHeader" />
     <item type="id" name="accountPhoneNumbersHeaderToCardSpacer" />
+    <item type="id" name="action_addressSelection_to_address" />
+    <item type="id" name="action_address_to_addressValidation" />
+    <item type="id" name="action_address_to_countrySelection" />
+    <item type="id" name="action_bahnBonusInfoFragment_to_bahnBonusSubscribeFragment" />
+    <item type="id" name="action_bahnBonusInfoFragment_to_bahnBonusUnsubscribeFragment" />
+    <item type="id" name="action_bahnBonusSubscribeFragment_to_bahnBonusInfoFragment" />
     <item type="id" name="action_bar" />
     <item type="id" name="action_bar_activity_content" />
     <item type="id" name="action_bar_container" />
     <item type="id" name="action_bar_root" />
+    <item type="id" name="action_bar_spinner" />
     <item type="id" name="action_bar_subtitle" />
     <item type="id" name="action_bar_title" />
+    <item type="id" name="action_consentLevel1Fragment_to_consentLevel2Fragment" />
+    <item type="id" name="action_consentLevel1Fragment_to_imprintFragment" />
+    <item type="id" name="action_consentLevel2Fragment_to_consentLevel3Fragment" />
     <item type="id" name="action_container" />
     <item type="id" name="action_context_bar" />
     <item type="id" name="action_divider" />
     <item type="id" name="action_image" />
+    <item type="id" name="action_katalogAuswahlFragment_to_katalogDetailsFragment" />
+    <item type="id" name="action_katalogAuswahlFragment_to_katalogFilterFragment" />
+    <item type="id" name="action_katalogDetailsFragment_to_katalogKonfigurationFragment" />
+    <item type="id" name="action_menu_divider" />
+    <item type="id" name="action_menu_presenter" />
     <item type="id" name="action_mode_bar" />
     <item type="id" name="action_mode_bar_stub" />
     <item type="id" name="action_mode_close_button" />
+    <item type="id" name="action_personalData_to_addressValidation" />
+    <item type="id" name="action_personalData_to_countrySelection" />
     <item type="id" name="action_text" />
+    <item type="id" name="action_verbundListFragment_to_verbundStartseiteFragment" />
+    <item type="id" name="action_verbundStartseiteFragment_to_verbundShopFragment" />
     <item type="id" name="actions" />
     <item type="id" name="activity_chooser_view_content" />
     <item type="id" name="addCreditCardConfirm" />
@@ -86,11 +150,15 @@
     <item type="id" name="addCreditCardToolbar" />
     <item type="id" name="addCreditCardWebView" />
     <item type="id" name="addCreditCardWebViewContainer" />
+    <item type="id" name="addFavorite" />
     <item type="id" name="addFavoriteButton" />
     <item type="id" name="addFavoriteButtonEmpty" />
     <item type="id" name="addRueckFahrtButton" />
+    <item type="id" name="address" />
     <item type="id" name="addressDropShadow" />
     <item type="id" name="addressFooter" />
+    <item type="id" name="addressSelection" />
+    <item type="id" name="addressValidation" />
     <item type="id" name="addressValidationDivider" />
     <item type="id" name="addressValidationEnteredContainer" />
     <item type="id" name="addressValidationEnteredSelectedIndicator" />
@@ -125,6 +193,8 @@
     <item type="id" name="alternativenSuchenStartLocationText" />
     <item type="id" name="alternativenSuchenTitle" />
     <item type="id" name="amu_text" />
+    <item type="id" name="androidx_compose_ui_view_composition_context" />
+    <item type="id" name="androidx_window_activity_scope" />
     <item type="id" name="angeboteRecyclerview" />
     <item type="id" name="angebotsAuswahlHeaderContainer" />
     <item type="id" name="angebotsDetailFrame" />
@@ -161,6 +231,7 @@
     <item type="id" name="angebotsDetailsKonditionenList" />
     <item type="id" name="angebotsDetailsNichtBuchbarInfobox" />
     <item type="id" name="angebotsDetailsPreis" />
+    <item type="id" name="angebotsDetailsPreisBarrier" />
     <item type="id" name="angebotsDetailsPreisContainer" />
     <item type="id" name="angebotsDetailsPreisInterval" />
     <item type="id" name="angebotsDetailsReisestreckeContent" />
@@ -203,6 +274,7 @@
     <item type="id" name="auswahlBahnCardItem" />
     <item type="id" name="auswahlBahnCardNumber" />
     <item type="id" name="auswahlBahnCardProductName" />
+    <item type="id" name="auto_clear_focus_behavior_tag" />
     <item type="id" name="autofill_inline_suggestion_end_icon" />
     <item type="id" name="autofill_inline_suggestion_start_icon" />
     <item type="id" name="autofill_inline_suggestion_subtitle" />
@@ -220,6 +292,7 @@
     <item type="id" name="bahnBonusInfoContainer" />
     <item type="id" name="bahnBonusInfoContent" />
     <item type="id" name="bahnBonusInfoExplain" />
+    <item type="id" name="bahnBonusInfoFragment" />
     <item type="id" name="bahnBonusInfoLink" />
     <item type="id" name="bahnBonusInfoProgress" />
     <item type="id" name="bahnBonusInfoScrollViewContent" />
@@ -230,18 +303,21 @@
     <item type="id" name="bahnBonusInfoUnsubscribeButton" />
     <item type="id" name="bahnBonusInfoUnsubscribeShadow" />
     <item type="id" name="bahnBonusItemRootView" />
+    <item type="id" name="bahnBonusLinkingFragment" />
     <item type="id" name="bahnBonusLockedInfo" />
     <item type="id" name="bahnBonusNewsletterKachel" />
     <item type="id" name="bahnBonusNumber" />
     <item type="id" name="bahnBonusSammelwunschSwitch" />
     <item type="id" name="bahnBonusStatusPoints" />
     <item type="id" name="bahnBonusSubscribeButton" />
+    <item type="id" name="bahnBonusSubscribeFragment" />
     <item type="id" name="bahnBonusSubscribeInfoText" />
     <item type="id" name="bahnBonusSubscribeLayout" />
     <item type="id" name="bahnBonusSubscribedCard" />
     <item type="id" name="bahnBonusSubscribedIcon" />
     <item type="id" name="bahnBonusSubscribedText" />
     <item type="id" name="bahnBonusUnsubscribeButton" />
+    <item type="id" name="bahnBonusUnsubscribeFragment" />
     <item type="id" name="bahnBonusUnsubscribeLayout" />
     <item type="id" name="bahnBonusUnsubscribeText" />
     <item type="id" name="bahnCardAuswahlList" />
@@ -280,6 +356,7 @@
     <item type="id" name="bahnbonusItemTitle" />
     <item type="id" name="bahnbonusItemType" />
     <item type="id" name="bahnbonusNumberGroup" />
+    <item type="id" name="bahnbonus_nav_graph" />
     <item type="id" name="bahncardContainer" />
     <item type="id" name="bahnhofstafelRequestContainer" />
     <item type="id" name="bahnhofstafelRequestRootView" />
@@ -380,9 +457,17 @@
     <item type="id" name="circle_center" />
     <item type="id" name="cityInfoName" />
     <item type="id" name="close_button" />
+    <item type="id" name="coil_request_manager" />
+    <item type="id" name="compose_prefetch_scheduler" />
+    <item type="id" name="compose_view_saveable_id_tag" />
     <item type="id" name="confirm_button" />
     <item type="id" name="consentFragmentContainer" />
+    <item type="id" name="consentLevel1Fragment" />
+    <item type="id" name="consentLevel2Fragment" />
+    <item type="id" name="consentLevel3Fragment" />
+    <item type="id" name="consent_layer_nav_graph" />
     <item type="id" name="constraintLayout" />
+    <item type="id" name="consume_window_insets_tag" />
     <item type="id" name="container" />
     <item type="id" name="content" />
     <item type="id" name="contentPanel" />
@@ -397,6 +482,7 @@
     <item type="id" name="contextualBackIcon" />
     <item type="id" name="contextualBahnCardAnsicht" />
     <item type="id" name="contextualBahnCardIcon" />
+    <item type="id" name="contextualBottomSheet" />
     <item type="id" name="contextualButtonFrame" />
     <item type="id" name="contextualButtonScrollShadowLeft" />
     <item type="id" name="contextualButtonScrollShadowRight" />
@@ -481,10 +567,10 @@
     <item type="id" name="countryListItem" />
     <item type="id" name="countryListItemIndexCharacter" />
     <item type="id" name="countryListItemText" />
+    <item type="id" name="countrySelection" />
     <item type="id" name="crossSellPager" />
     <item type="id" name="crossSellTitle" />
     <item type="id" name="currentSegmentFrame" />
-    <item type="id" name="custom" />
     <item type="id" name="customPanel" />
     <item type="id" name="custom_title_text" />
     <item type="id" name="dateTimeDatePicker" />
@@ -526,6 +612,7 @@
     <item type="id" name="dialogActivity_dialog_message" />
     <item type="id" name="dialogActivity_dialog_progressBar" />
     <item type="id" name="dialogActivity_dialog_title" />
+    <item type="id" name="dialogCloseButton" />
     <item type="id" name="dialogErrorAdditionalText" />
     <item type="id" name="dialogErrorCorrelationId" />
     <item type="id" name="dialogErrorMessage" />
@@ -553,6 +640,8 @@
     <item type="id" name="expandIconBarrierStart" />
     <item type="id" name="expand_activities_button" />
     <item type="id" name="expanded_menu" />
+    <item type="id" name="extremely_helpful" />
+    <item type="id" name="extremely_unhelpful" />
     <item type="id" name="fahrtInformationButton" />
     <item type="id" name="fahrtinformationenTabs" />
     <item type="id" name="fastestConnectionContainer" />
@@ -584,6 +673,7 @@
     <item type="id" name="feedbackHeader" />
     <item type="id" name="fillInProfileDataContainer" />
     <item type="id" name="fillInProfileDataToggle" />
+    <item type="id" name="filter" />
     <item type="id" name="followup_question_text" />
     <item type="id" name="fps_text" />
     <item type="id" name="fragmentAngebotsDetailsRootView" />
@@ -597,6 +687,7 @@
     <item type="id" name="fragmentProgressDialogRootView" />
     <item type="id" name="fragmentReservationRootView" />
     <item type="id" name="fragmentVerbindungsDetailsRootView" />
+    <item type="id" name="fragment_container_view_tag" />
     <item type="id" name="fullscreen_header" />
     <item type="id" name="genericErrorBtn" />
     <item type="id" name="genericErrorContainer" />
@@ -604,6 +695,8 @@
     <item type="id" name="genericErrorMsg" />
     <item type="id" name="genericErrorTitle" />
     <item type="id" name="gewaehltesAngebotTopShadow" />
+    <item type="id" name="ghost_view" />
+    <item type="id" name="ghost_view_holder" />
     <item type="id" name="group_divider" />
     <item type="id" name="gutscheinRueckerstattung" />
     <item type="id" name="gutscheinRueckerstattungContainer" />
@@ -618,8 +711,11 @@
     <item type="id" name="gutschein_rueckerstattung_shadow" />
     <item type="id" name="hauptadressePersonalDataInput" />
     <item type="id" name="header_title" />
+    <item type="id" name="hide_graphics_layer_in_inspector_tag" />
     <item type="id" name="hide_ime_id" />
+    <item type="id" name="hide_in_inspector_tag" />
     <item type="id" name="hintIndicatorBarrier" />
+    <item type="id" name="home" />
     <item type="id" name="homeCards" />
     <item type="id" name="homeFavoriteDestName" />
     <item type="id" name="homeFavoriteIcon" />
@@ -655,26 +751,39 @@
     <item type="id" name="image_view_state_aspect_ratio" />
     <item type="id" name="image_view_state_rotate" />
     <item type="id" name="image_view_state_scale" />
+    <item type="id" name="imprintFragment" />
     <item type="id" name="info" />
     <item type="id" name="infoMessageIcon" />
     <item type="id" name="infoMessageSpacer" />
     <item type="id" name="infoMessageText" />
+    <item type="id" name="inspection_slot_table_set" />
+    <item type="id" name="invalidate_transform" />
     <item type="id" name="invisibleFirstTextLine" />
+    <item type="id" name="is_pooling_container_tag" />
     <item type="id" name="itemDivider" />
+    <item type="id" name="item_touch_helper_previous_elevation" />
+    <item type="id" name="katalogAuswahlFragment" />
+    <item type="id" name="katalogDetailsFragment" />
+    <item type="id" name="katalogFilterFragment" />
     <item type="id" name="katalogFragmentContainer" />
     <item type="id" name="katalogHeader" />
+    <item type="id" name="katalogKonfigurationFragment" />
+    <item type="id" name="katalog_nav_graph" />
     <item type="id" name="kciCheckedInIcon" />
     <item type="id" name="kciCheckedinText" />
     <item type="id" name="kciCheckedinView" />
     <item type="id" name="kciStatusAktuellerCheckInButton" />
     <item type="id" name="kciStatusButton" />
     <item type="id" name="konditionenFragmentContainer" />
+    <item type="id" name="labelled_by" />
     <item type="id" name="lascheTeilpreisInfoHin" />
     <item type="id" name="lascheTeilpreisInfoRueck" />
     <item type="id" name="layout_aspect_ratio" />
     <item type="id" name="layout_rotate_wheel" />
     <item type="id" name="layout_scale_wheel" />
     <item type="id" name="lightBackground" />
+    <item type="id" name="line1" />
+    <item type="id" name="line3" />
     <item type="id" name="lineBetweenZwischenhalten" />
     <item type="id" name="linearLayout" />
     <item type="id" name="linearLayoutCompat" />
@@ -684,17 +793,22 @@
     <item type="id" name="locationFavoritenListEmptyText" />
     <item type="id" name="locationFavoritenListHeader" />
     <item type="id" name="locationSearchRootFrame" />
+    <item type="id" name="lottie_layer_name" />
     <item type="id" name="m3_side_sheet" />
+    <item type="id" name="mainContainer" />
+    <item type="id" name="mainNavigationBar" />
     <item type="id" name="main_layout" />
     <item type="id" name="manageFavoritesContainer" />
     <item type="id" name="manageFavoritesEmptyContainer" />
     <item type="id" name="manageFavoritesNonEditableGroup" />
     <item type="id" name="mapsComposeView" />
     <item type="id" name="mapsLocationProgress" />
+    <item type="id" name="masked" />
     <item type="id" name="material_clock_display" />
     <item type="id" name="material_clock_display_and_toggle" />
     <item type="id" name="material_clock_face" />
     <item type="id" name="material_clock_hand" />
+    <item type="id" name="material_clock_level" />
     <item type="id" name="material_clock_period_am_button" />
     <item type="id" name="material_clock_period_pm_button" />
     <item type="id" name="material_clock_period_toggle" />
@@ -709,7 +823,10 @@
     <item type="id" name="material_timepicker_mode_button" />
     <item type="id" name="material_timepicker_ok_button" />
     <item type="id" name="material_timepicker_view" />
+    <item type="id" name="material_value_index" />
     <item type="id" name="mehrwertsteuerLabel" />
+    <item type="id" name="menu_crop" />
+    <item type="id" name="menu_loader" />
     <item type="id" name="message" />
     <item type="id" name="mfkAbgelaufeneGuthabenContainer" />
     <item type="id" name="mfkDetailsDropShadow" />
@@ -752,6 +869,7 @@
     <item type="id" name="mfkResultList" />
     <item type="id" name="mfkVergangenesGuthabenHeader" />
     <item type="id" name="mfkVergangenesGuthabenText" />
+    <item type="id" name="mix_blend_mode" />
     <item type="id" name="moditiInfoMessage" />
     <item type="id" name="moditiInfoMessageIcon" />
     <item type="id" name="moditiInfoMoreIcon" />
@@ -762,6 +880,7 @@
     <item type="id" name="month_navigation_next" />
     <item type="id" name="month_navigation_previous" />
     <item type="id" name="month_title" />
+    <item type="id" name="motion_base" />
     <item type="id" name="mspTabs" />
     <item type="id" name="mspVehicleContentContainer" />
     <item type="id" name="mspVehicleInfo" />
@@ -773,6 +892,10 @@
     <item type="id" name="mtrl_calendar_selection_frame" />
     <item type="id" name="mtrl_calendar_text_input_frame" />
     <item type="id" name="mtrl_calendar_year_selector_frame" />
+    <item type="id" name="mtrl_card_checked_layer_id" />
+    <item type="id" name="mtrl_child_content_container" />
+    <item type="id" name="mtrl_internal_children_alpha_tag" />
+    <item type="id" name="mtrl_motion_snapshot_view" />
     <item type="id" name="mtrl_picker_fullscreen" />
     <item type="id" name="mtrl_picker_header" />
     <item type="id" name="mtrl_picker_header_selection_text" />
@@ -782,9 +905,23 @@
     <item type="id" name="mtrl_picker_text_input_range_end" />
     <item type="id" name="mtrl_picker_text_input_range_start" />
     <item type="id" name="mtrl_picker_title_text" />
+    <item type="id" name="mtrl_view_tag_bottom_padding" />
+    <item type="id" name="multiple_choice_1" />
+    <item type="id" name="multiple_choice_10" />
+    <item type="id" name="multiple_choice_11" />
+    <item type="id" name="multiple_choice_2" />
+    <item type="id" name="multiple_choice_3" />
+    <item type="id" name="multiple_choice_4" />
+    <item type="id" name="multiple_choice_5" />
+    <item type="id" name="multiple_choice_6" />
+    <item type="id" name="multiple_choice_7" />
+    <item type="id" name="multiple_choice_8" />
+    <item type="id" name="multiple_choice_9" />
     <item type="id" name="multiple_choice_question_text" />
     <item type="id" name="multiple_choice_radio_group" />
     <item type="id" name="nameDropShadow" />
+    <item type="id" name="nav_controller_view_tag" />
+    <item type="id" name="nav_host_fragment_container" />
     <item type="id" name="navigationFragmentContainer" />
     <item type="id" name="navigation_bar_item_active_indicator_view" />
     <item type="id" name="navigation_bar_item_content_container" />
@@ -796,6 +933,7 @@
     <item type="id" name="navigation_bar_item_small_label_view" />
     <item type="id" name="navigation_header_container" />
     <item type="id" name="navigation_menu_subheader_label" />
+    <item type="id" name="neither_helpful_nor_unhelpful" />
     <item type="id" name="newsletterAdditionalText" />
     <item type="id" name="newsletterDivider" />
     <item type="id" name="newsletterDividerBottomSpacer" />
@@ -804,6 +942,7 @@
     <item type="id" name="newsletterSwitch" />
     <item type="id" name="newsletterTitle" />
     <item type="id" name="newsletterTooltip" />
+    <item type="id" name="no_button" />
     <item type="id" name="notification_background" />
     <item type="id" name="notification_main_column" />
     <item type="id" name="notification_main_column_container" />
@@ -812,6 +951,8 @@
     <item type="id" name="numberPickerHour" />
     <item type="id" name="numberPickerMinute" />
     <item type="id" name="nutzungungsbedingungenFragmentContainer" />
+    <item type="id" name="off" />
+    <item type="id" name="on" />
     <item type="id" name="oneOrMoreBahnCardsSelectHint" />
     <item type="id" name="open_search_bar_placeholder_text_view" />
     <item type="id" name="open_search_bar_text_view" />
@@ -833,6 +974,8 @@
     <item type="id" name="open_text_input" />
     <item type="id" name="optionsBottomSheetRoot" />
     <item type="id" name="optionsFragmentContainer" />
+    <item type="id" name="original_focusability" />
+    <item type="id" name="other_option_edit_text" />
     <item type="id" name="overlayLoadingIcon" />
     <item type="id" name="overlayLoadingText" />
     <item type="id" name="parallaxAbschnittDuration" />
@@ -854,6 +997,7 @@
     <item type="id" name="parallaxWalkDistance" />
     <item type="id" name="parallaxWalkDuration" />
     <item type="id" name="parentPanel" />
+    <item type="id" name="parent_matrix" />
     <item type="id" name="pendlerWidgetAbschnitt1" />
     <item type="id" name="pendlerWidgetAbschnitt2" />
     <item type="id" name="pendlerWidgetAbschnitt3" />
@@ -887,6 +1031,7 @@
     <item type="id" name="perlschnurSolidEnd" />
     <item type="id" name="perlschnurSolidStart" />
     <item type="id" name="permission_group" />
+    <item type="id" name="personalData" />
     <item type="id" name="personalDataBirthday" />
     <item type="id" name="personalDataBirthdayCollapsed" />
     <item type="id" name="personalDataBirthdayContainer" />
@@ -907,8 +1052,16 @@
     <item type="id" name="personalDataScrollViewSpace" />
     <item type="id" name="personalDataSecondaryButton" />
     <item type="id" name="personalDataTelefon" />
+    <item type="id" name="personaldata_nav_graph" />
     <item type="id" name="phoneDropShadow" />
     <item type="id" name="pickerAnkunftAbfahrt" />
+    <item type="id" name="pointer_events" />
+    <item type="id" name="pooling_container_listener_holder_tag" />
+    <item type="id" name="popOverBody" />
+    <item type="id" name="popOverButtonOne" />
+    <item type="id" name="popOverButtonTwo" />
+    <item type="id" name="popOverDescription" />
+    <item type="id" name="popOverTitle" />
     <item type="id" name="preferences_and_more_group" />
     <item type="id" name="preisBarrier" />
     <item type="id" name="preislascheContainer" />
@@ -919,6 +1072,7 @@
     <item type="id" name="preislascheOpenIcon" />
     <item type="id" name="preislaschePreis" />
     <item type="id" name="preislaschePreisLabel" />
+    <item type="id" name="pressed" />
     <item type="id" name="previousJourneyConnection" />
     <item type="id" name="previousJourneyContainer" />
     <item type="id" name="previousJourneyListContainer" />
@@ -991,6 +1145,7 @@
     <item type="id" name="profileBahnCardProductName" />
     <item type="id" name="profileBahnCardSpace" />
     <item type="id" name="profileBahnCardText" />
+    <item type="id" name="profileBahnCardTextIconBarrier" />
     <item type="id" name="profileBahnCardTitle" />
     <item type="id" name="profileBahnCardView" />
     <item type="id" name="profileBuildInfo" />
@@ -1111,13 +1266,17 @@
     <item type="id" name="profile_bahn_cards" />
     <item type="id" name="profile_bahnbonus" />
     <item type="id" name="progressOverlay" />
+    <item type="id" name="progress_circular" />
+    <item type="id" name="progress_horizontal" />
     <item type="id" name="question_text" />
     <item type="id" name="radio" />
+    <item type="id" name="react_test_id" />
     <item type="id" name="refreshDateText" />
     <item type="id" name="reiseDetailsAnonymHintContainer" />
     <item type="id" name="reiseDetailsMessages" />
     <item type="id" name="reiseDetailsReiseTag" />
     <item type="id" name="reiseDetailsScrollViewSpace" />
+    <item type="id" name="reiseDetailsShareQrOption" />
     <item type="id" name="reiseDetailsStreckenContainer" />
     <item type="id" name="reiseDetailsStreckenContent" />
     <item type="id" name="reiseDetailsStreckenHeadline" />
@@ -1127,6 +1286,7 @@
     <item type="id" name="reiseDetailsUpgradeCardPlusIcon" />
     <item type="id" name="reiseDetailsUpgradeCardText" />
     <item type="id" name="reiseDetailsUpgradeCardTitle" />
+    <item type="id" name="reiseFilterDropdown" />
     <item type="id" name="reiseFilterTypSpinner" />
     <item type="id" name="reiseMerkenButton" />
     <item type="id" name="reiseMerkenMenuButton" />
@@ -1136,6 +1296,10 @@
     <item type="id" name="reise_details_buy_seat_reservation_card" />
     <item type="id" name="reisedetailsErrorContainer" />
     <item type="id" name="reisedetailsGroup" />
+    <item type="id" name="reisedetailsMaps" />
+    <item type="id" name="reisedetailsOptionsAlarm" />
+    <item type="id" name="reisedetailsSaveToCalendarOption" />
+    <item type="id" name="reisedetailsShareOption" />
     <item type="id" name="reiseketteKundenwunschContainer" />
     <item type="id" name="reiseloesungAngebotIcon" />
     <item type="id" name="reiseloesungAngebotIconBarrier" />
@@ -1194,6 +1358,8 @@
     <item type="id" name="reiseloesungReisendeText" />
     <item type="id" name="reiseloesungRequestContainer" />
     <item type="id" name="reiseloesungRequestRootView" />
+    <item type="id" name="reiseloesungStreckenFavoriteDelete" />
+    <item type="id" name="reiseloesungStreckenFavoriteSave" />
     <item type="id" name="reiseloesungStreichPrice" />
     <item type="id" name="reiseloesungSwipeRefresh" />
     <item type="id" name="reiseloesungSwipeRefreshContent" />
@@ -1252,8 +1418,10 @@
     <item type="id" name="reisewunschOptionenLabel" />
     <item type="id" name="reisewunschOptionenMoreIcon" />
     <item type="id" name="reisewunschOptionenState" />
+    <item type="id" name="reisewunschOptionsGuideline" />
     <item type="id" name="reisewunschReisendeContainer" />
     <item type="id" name="reisewunschReisendeDivider" />
+    <item type="id" name="reisewunschReisendeGuideline" />
     <item type="id" name="reisewunschReisendeIcon" />
     <item type="id" name="reisewunschReisendeLabel" />
     <item type="id" name="reisewunschReisendeMoreIcon" />
@@ -1269,6 +1437,8 @@
     <item type="id" name="reisewunschStartDestinationSwitch" />
     <item type="id" name="reisewunschStartLocation" />
     <item type="id" name="reisewunsch_optionen" />
+    <item type="id" name="removeFavorite" />
+    <item type="id" name="report_drawn" />
     <item type="id" name="reservationBarrier" />
     <item type="id" name="reservationBikeHintContainer" />
     <item type="id" name="reservationBottomFrame" />
@@ -1323,6 +1493,7 @@
     <item type="id" name="rn_redbox_report_button" />
     <item type="id" name="rn_redbox_report_label" />
     <item type="id" name="rn_redbox_stack" />
+    <item type="id" name="role" />
     <item type="id" name="rootContainer" />
     <item type="id" name="rootContextualContainer" />
     <item type="id" name="rootProgressBar" />
@@ -1338,9 +1509,13 @@
     <item type="id" name="rootViewStornoOptionFragment" />
     <item type="id" name="rootViewSystemErrorFragment" />
     <item type="id" name="rotate_scroll_wheel" />
+    <item type="id" name="row_index_key" />
     <item type="id" name="saveAddressToProfileSwitch" />
     <item type="id" name="saveAddressToProfileSwitchText" />
+    <item type="id" name="saveToCalendarOption" />
     <item type="id" name="saveToProfile" />
+    <item type="id" name="save_non_transition_alpha" />
+    <item type="id" name="save_overlay_view" />
     <item type="id" name="scale_scroll_wheel" />
     <item type="id" name="schnellsteVerbindungenTutorial" />
     <item type="id" name="schnellsteVerbindungenTutorialContent" />
@@ -1360,7 +1535,9 @@
     <item type="id" name="search_src_text" />
     <item type="id" name="search_voice_btn" />
     <item type="id" name="select_dialog_listview" />
+    <item type="id" name="selection_type" />
     <item type="id" name="sendMessageButton" />
+    <item type="id" name="shareQrOption" />
     <item type="id" name="shortcut" />
     <item type="id" name="showZuglaufOnMapButton" />
     <item type="id" name="simpleErrorButton" />
@@ -1370,10 +1547,16 @@
     <item type="id" name="simpleErrorMessage" />
     <item type="id" name="simpleErrorMessageContainer" />
     <item type="id" name="simpleErrorPrimaryButton" />
+    <item type="id" name="sliding_pane_detail_container" />
+    <item type="id" name="sliding_pane_layout" />
     <item type="id" name="snackbar_action" />
     <item type="id" name="snackbar_text" />
+    <item type="id" name="somewhat_helpful" />
+    <item type="id" name="somewhat_unhelpful" />
     <item type="id" name="spacer" />
+    <item type="id" name="special_effects_controller_view_tag" />
     <item type="id" name="spinnerText" />
+    <item type="id" name="split_action_bar" />
     <item type="id" name="state_aspect_ratio" />
     <item type="id" name="state_rotate" />
     <item type="id" name="state_scale" />
@@ -1426,21 +1609,49 @@
     <item type="id" name="systemErrorMessageText" />
     <item type="id" name="systemErrorTimestamp" />
     <item type="id" name="systemErrorTitleText" />
+    <item type="id" name="tag_accessibility_actions" />
+    <item type="id" name="tag_accessibility_clickable_spans" />
+    <item type="id" name="tag_accessibility_heading" />
+    <item type="id" name="tag_accessibility_pane_title" />
+    <item type="id" name="tag_compat_insets_dispatch" />
+    <item type="id" name="tag_on_apply_window_listener" />
+    <item type="id" name="tag_on_receive_content_listener" />
+    <item type="id" name="tag_on_receive_content_mime_types" />
+    <item type="id" name="tag_screen_reader_focusable" />
+    <item type="id" name="tag_state_description" />
+    <item type="id" name="tag_system_bar_state_monitor" />
+    <item type="id" name="tag_transition_group" />
+    <item type="id" name="tag_unhandled_key_event_manager" />
+    <item type="id" name="tag_unhandled_key_listeners" />
+    <item type="id" name="tag_window_insets_animation_callback" />
     <item type="id" name="tagesbestpreisSwitch" />
     <item type="id" name="teilpreisInfoBottomSpace" />
     <item type="id" name="teilpreisInfoDivider" />
     <item type="id" name="teilpreisInfoIcon" />
     <item type="id" name="teilpreisInfoTitle" />
     <item type="id" name="teilpreisInfoVonBis" />
+    <item type="id" name="testTagCrosssellCard" />
+    <item type="id" name="testTagUpsellCard" />
+    <item type="id" name="text" />
+    <item type="id" name="text2" />
     <item type="id" name="textBarrier" />
     <item type="id" name="textSpacerNoButtons" />
     <item type="id" name="textSpacerNoTitle" />
     <item type="id" name="text_input_end_icon" />
+    <item type="id" name="text_input_error_icon" />
     <item type="id" name="text_input_start_icon" />
     <item type="id" name="text_view_crop" />
     <item type="id" name="text_view_rotate" />
     <item type="id" name="text_view_scale" />
+    <item type="id" name="textinput_counter" />
+    <item type="id" name="textinput_error" />
+    <item type="id" name="textinput_helper_text" />
+    <item type="id" name="textinput_placeholder" />
+    <item type="id" name="textinput_prefix_text" />
+    <item type="id" name="textinput_suffix_text" />
     <item type="id" name="thank_you_message" />
+    <item type="id" name="thumbs_down" />
+    <item type="id" name="thumbs_up" />
     <item type="id" name="ticketContainer" />
     <item type="id" name="ticketContentShadow" />
     <item type="id" name="ticketDetailsInformationenHeader" />
@@ -1497,6 +1708,16 @@
     <item type="id" name="topPanel" />
     <item type="id" name="touch_outside" />
     <item type="id" name="transfer_times_actionbar" />
+    <item type="id" name="transform" />
+    <item type="id" name="transform_origin" />
+    <item type="id" name="transition_clip" />
+    <item type="id" name="transition_current_scene" />
+    <item type="id" name="transition_image_transform" />
+    <item type="id" name="transition_layout_save" />
+    <item type="id" name="transition_pause_alpha" />
+    <item type="id" name="transition_position" />
+    <item type="id" name="transition_scene_layoutid_cache" />
+    <item type="id" name="transition_transform" />
     <item type="id" name="tutorialCloseIcon" />
     <item type="id" name="tutorialHeadline" />
     <item type="id" name="tutorialImage" />
@@ -1544,6 +1765,7 @@
     <item type="id" name="ucrop" />
     <item type="id" name="ucrop_frame" />
     <item type="id" name="ucrop_photobox" />
+    <item type="id" name="up" />
     <item type="id" name="updateBanner" />
     <item type="id" name="updateBannerCloseIcon" />
     <item type="id" name="updateBannerContainer" />
@@ -1552,6 +1774,7 @@
     <item type="id" name="updateBannerText" />
     <item type="id" name="upperLeftCornerText" />
     <item type="id" name="upperRightCornerText" />
+    <item type="id" name="use_hardware_layer" />
     <item type="id" name="verbindungsDetailsContainer" />
     <item type="id" name="verbindungsDetailsSwipeRefresh" />
     <item type="id" name="verbindungsdetailsAbschnittAttribute" />
@@ -1573,6 +1796,7 @@
     <item type="id" name="verbindungsdetailsEndGleis" />
     <item type="id" name="verbindungsdetailsEndLocation" />
     <item type="id" name="verbindungsdetailsEndNotizen" />
+    <item type="id" name="verbindungsdetailsEndNotizenSpacer" />
     <item type="id" name="verbindungsdetailsEndTime" />
     <item type="id" name="verbindungsdetailsError" />
     <item type="id" name="verbindungsdetailsErrorHeadline" />
@@ -1584,6 +1808,7 @@
     <item type="id" name="verbindungsdetailsInformationContainer" />
     <item type="id" name="verbindungsdetailsList" />
     <item type="id" name="verbindungsdetailsListItem" />
+    <item type="id" name="verbindungsdetailsMaps" />
     <item type="id" name="verbindungsdetailsMapsIcon" />
     <item type="id" name="verbindungsdetailsNestedScrollView" />
     <item type="id" name="verbindungsdetailsPerlDummy" />
@@ -1595,9 +1820,11 @@
     <item type="id" name="verbindungsdetailsPrimaryActionBtn" />
     <item type="id" name="verbindungsdetailsRealTimeEndTime" />
     <item type="id" name="verbindungsdetailsRealTimeStartTime" />
+    <item type="id" name="verbindungsdetailsReiseMerken" />
     <item type="id" name="verbindungsdetailsReservierungsContainer" />
     <item type="id" name="verbindungsdetailsReservierungsInfo" />
     <item type="id" name="verbindungsdetailsScrollViewSpace" />
+    <item type="id" name="verbindungsdetailsShare" />
     <item type="id" name="verbindungsdetailsSitzplatzIcon" />
     <item type="id" name="verbindungsdetailsSprinterIcon" />
     <item type="id" name="verbindungsdetailsSprinterText" />
@@ -1624,6 +1851,7 @@
     <item type="id" name="verbindungsdetailsWalkBarrier" />
     <item type="id" name="verbindungsdetailsWalkNotizen" />
     <item type="id" name="verbindungsdetailsWeitereAbfahrtenToggle" />
+    <item type="id" name="verbindungsdetailsWiederholendeReise" />
     <item type="id" name="verbindungsdetailsZugbindungsSpace" />
     <item type="id" name="verbindungsdetailsZwischenhalt" />
     <item type="id" name="verbindungsdetailsZwischenhaltAbfahrt" />
@@ -1648,7 +1876,11 @@
     <item type="id" name="verbundGroup" />
     <item type="id" name="verbundHeader" />
     <item type="id" name="verbundImageView" />
+    <item type="id" name="verbundListFragment" />
+    <item type="id" name="verbundShopFragment" />
+    <item type="id" name="verbundStartseiteFragment" />
     <item type="id" name="verbundTitleImageView" />
+    <item type="id" name="verbund_nav_graph" />
     <item type="id" name="verkehrsmittelIcon" />
     <item type="id" name="verkehrsmittelListItem" />
     <item type="id" name="verkehrsmittelName" />
@@ -1656,7 +1888,19 @@
     <item type="id" name="view2" />
     <item type="id" name="viewBahnCardInformation" />
     <item type="id" name="viewBahnCardKontrolle" />
+    <item type="id" name="view_clipped" />
+    <item type="id" name="view_offset_helper" />
     <item type="id" name="view_overlay" />
+    <item type="id" name="view_tag_instance_handle" />
+    <item type="id" name="view_tag_native_id" />
+    <item type="id" name="view_transition" />
+    <item type="id" name="view_tree_disjoint_parent" />
+    <item type="id" name="view_tree_lifecycle_owner" />
+    <item type="id" name="view_tree_navigation_event_dispatcher_owner" />
+    <item type="id" name="view_tree_on_back_pressed_dispatcher_owner" />
+    <item type="id" name="view_tree_saved_state_registry_owner" />
+    <item type="id" name="view_tree_view_model_store_owner" />
+    <item type="id" name="visible_removing_fragment_view_tag" />
     <item type="id" name="wagenreihung" />
     <item type="id" name="wagenreihungAmenities" />
     <item type="id" name="wagenreihungAmenitiesNestedScrollView" />
@@ -1714,10 +1958,13 @@
     <item type="id" name="weitereAbfahrtenContainer" />
     <item type="id" name="wiederholendeReiseEinstellenButton" />
     <item type="id" name="window" />
+    <item type="id" name="with_icon" />
+    <item type="id" name="wrapped_composition_tag" />
     <item type="id" name="wrapper_controls" />
     <item type="id" name="wrapper_reset_rotate" />
     <item type="id" name="wrapper_rotate_by_angle" />
     <item type="id" name="wrapper_states" />
+    <item type="id" name="yes_button" />
     <item type="id" name="zahlungsmittel_group" />
     <item type="id" name="zugattributeIcon" />
     <item type="id" name="zugattributeName" />
@@ -1734,6 +1981,7 @@
     <item type="id" name="zuglaufConnectionFrame" />
     <item type="id" name="zuglaufConnectionInfo" />
     <item type="id" name="zuglaufDate" />
+    <item type="id" name="zuglaufDummyItem" />
     <item type="id" name="zuglaufDummyPerlStart" />
     <item type="id" name="zuglaufEndAbschnittNotizen" />
     <item type="id" name="zuglaufEndGleis" />
@@ -1743,10 +1991,12 @@
     <item type="id" name="zuglaufInfoList" />
     <item type="id" name="zuglaufList" />
     <item type="id" name="zuglaufListItem" />
+    <item type="id" name="zuglaufMaps" />
     <item type="id" name="zuglaufNotizenList" />
     <item type="id" name="zuglaufPerlEnd" />
     <item type="id" name="zuglaufPerlStart" />
     <item type="id" name="zuglaufProgress" />
+    <item type="id" name="zuglaufRealTimeDummyItem" />
     <item type="id" name="zuglaufRealTimeEndTime" />
     <item type="id" name="zuglaufRealTimeStartTime" />
     <item type="id" name="zuglaufRootContainer" />
@@ -1789,5 +2039,4 @@
     <item type="id" name="zwischenhalteMaxHint" />
     <item type="id" name="zwischenhalteName" />
     <item type="id" name="zwischenhalteText" />
-    <item type="id" name="image2" />
-</resources>
+<item type="id" name="image2" /></resources>

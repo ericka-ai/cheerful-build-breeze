@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="anzahlReservierungen">
+        <item quantity="other">%d Sitzplätze reserviert</item>
+        <item quantity="one">1 Sitzplatz reserviert</item>
+    </plurals>
+    <plurals name="anzahlStellplatzReservierungen">
+        <item quantity="other">%d Stellplätze reserviert</item>
+        <item quantity="one">1 Stellplatz reserviert</item>
+    </plurals>
+    <plurals name="anzahlTage">
+        <item quantity="other">%1$s, %2$s - %3$s (+%4$d Tage)</item>
+        <item quantity="one">%1$s, %2$s - %3$s (+1 Tag)</item>
+    </plurals>
+    <plurals name="anzahlTageNewLine">
+        <item quantity="other">"%1$s
+%2$s - %3$s (+%4$d Tage)"</item>
+        <item quantity="one">"%1$s
+%2$s - %3$s (+1 Tag)"</item>
+    </plurals>
+    <plurals name="bahnBonusCountContentDesc">
+        <item quantity="other">%d Punkte</item>
+        <item quantity="one">%d Punkt</item>
+    </plurals>
+    <plurals name="bahnBonusPoints">
+        <item quantity="other">Punkte</item>
+        <item quantity="one">Punkt</item>
+    </plurals>
+    <plurals name="bicycleLabel">
+        <item quantity="other">%1$d Fahrräder</item>
+        <item quantity="one">%1$d Fahrrad</item>
+    </plurals>
+    <plurals name="bikeCountContentDesc">
+        <item quantity="other">%d Fahrräder</item>
+        <item quantity="one">%d Fahrrad</item>
+    </plurals>
+    <plurals name="bikeNumber">
+        <item quantity="other">(%1$d Plätze)</item>
+        <item quantity="one">(1 Platz)</item>
+    </plurals>
+    <plurals name="bikePlacesAvailable">
+        <item quantity="other">Stellplätze verfügbar</item>
+        <item quantity="one">Stellplatz verfügbar</item>
+    </plurals>
+    <plurals name="bikePlacesNotAvailable">
+        <item quantity="other">Stellplätze nicht verfügbar</item>
+        <item quantity="one">Stellplatz nicht verfügbar</item>
+    </plurals>
+    <plurals name="bikePlacesSelected">
+        <item quantity="other">Stellplätze ausgewählt</item>
+        <item quantity="one">Stellplatz ausgewählt</item>
+    </plurals>
+    <plurals name="bikePlacesSelectedBySystem">
+        <item quantity="other">Für Sie ausgewählte Stellplätze</item>
+        <item quantity="one">Für Sie ausgewählter Stellplatz</item>
+    </plurals>
+    <plurals name="bikePlacesTemporarilyNotAvailable">
+        <item quantity="other">Stellplätze aktuell nicht verfügbar</item>
+        <item quantity="one">Stellplatz aktuell nicht verfügbar</item>
+    </plurals>
+    <plurals name="bookingConfirmationBikePlaceQuantity">
+        <item quantity="other">Stellplätze</item>
+        <item quantity="one">Stellplatz</item>
+    </plurals>
+    <plurals name="bookingConfirmationSeatQuantity">
+        <item quantity="other">Sitzplätze</item>
+        <item quantity="one">Sitzplatz</item>
+    </plurals>
+    <plurals name="campaignOverviewFooterTextDaysRemaining">
+        <item quantity="other">Noch %d Tage</item>
+        <item quantity="one">Noch 1 Tag</item>
+    </plurals>
+    <plurals name="changeBikePlaces">
+        <item quantity="other">Stellplätze ändern</item>
+        <item quantity="one">Stellplatz ändern</item>
+    </plurals>
+    <plurals name="changeSeats">
+        <item quantity="other">Sitzplätze ändern</item>
+        <item quantity="one">Sitzplatz ändern</item>
+    </plurals>
+    <plurals name="changes_label">
+        <item quantity="other">%1$d Umst.</item>
+        <item quantity="one">%1$d Umst.</item>
+    </plurals>
+    <plurals name="chooseBikePlaces">
+        <item quantity="other">Stellplätze auswählen</item>
+        <item quantity="one">Stellplatz auswählen</item>
+    </plurals>
+    <plurals name="chooseSeatWithoutChoice">
+        <item quantity="other">Ohne Auswahl werden Ihre Sitzplätze automatisch ausgewählt</item>
+        <item quantity="one">Ohne Auswahl wird Ihr Sitzplatz automatisch ausgewählt</item>
+    </plurals>
+    <plurals name="chooseSeats">
+        <item quantity="other">Sitzplätze auswählen</item>
+        <item quantity="one">Sitzplatz auswählen</item>
+    </plurals>
+    <plurals name="contentDescriptionChanges">
+        <item quantity="other">%d Umstiege</item>
+        <item quantity="one">ein Umstieg</item>
+    </plurals>
+    <plurals name="contentDescriptionHours">
+        <item quantity="other">%d Stunden</item>
+        <item quantity="one">eine Stunde</item>
+    </plurals>
+    <plurals name="contentDescriptionHoursDative">
+        <item quantity="other">%d Stunden</item>
+        <item quantity="one">einer Stunde</item>
+    </plurals>
+    <plurals name="contentDescriptionMinutes">
+        <item quantity="other">%d Minuten</item>
+        <item quantity="one">eine Minute</item>
+    </plurals>
+    <plurals name="contentDescriptionMinutesDative">
+        <item quantity="other">%d Minuten</item>
+        <item quantity="one">einer Minute</item>
+    </plurals>
+    <plurals name="contextualAnzahlReservierungen">
+        <item quantity="other">Ihre Reservierungen</item>
+        <item quantity="one">Ihre Reservierung</item>
+    </plurals>
+    <plurals name="contextualAnzahlSitzplaetze">
+        <item quantity="other">Ihre Sitzplätze</item>
+        <item quantity="one">Ihr Sitzplatz</item>
+    </plurals>
+    <plurals name="countStops">
+        <item quantity="other">%1$d Haltestellen</item>
+        <item quantity="one">%1$d Haltestelle</item>
+    </plurals>
+    <plurals name="em_global_units_hours">
+        <item quantity="other">h</item>
+        <item quantity="zero">h</item>
+        <item quantity="one">h</item>
+    </plurals>
+    <plurals name="em_global_units_kilometres">
+        <item quantity="other">km</item>
+        <item quantity="zero">km</item>
+        <item quantity="one">km</item>
+    </plurals>
+    <plurals name="em_global_units_minutes">
+        <item quantity="other">min</item>
+        <item quantity="zero">min</item>
+        <item quantity="one">min</item>
+    </plurals>
+    <plurals name="em_publicTransit_station_list_lastUpdate">
+        <item quantity="other">Aktualisiert vor %1$d Minuten</item>
+        <item quantity="zero">Jetzt aktualisiert</item>
+        <item quantity="one">Aktualisiert vor 1 Minute</item>
+    </plurals>
+    <plurals name="ermaessigungenFullLabel">
+        <item quantity="other">%d Ermäßigungen</item>
+        <item quantity="one">1 Ermäßigung</item>
+    </plurals>
+    <plurals name="ersteKlasseAbschnittDescription">
+        <item quantity="other">Die erste Klasse befindet sich in den Abschnitten %1$s</item>
+        <item quantity="one">Die erste Klasse befindet sich im Abschnitt %1$s</item>
+    </plurals>
+    <plurals name="kciPlatzAuswahlDescriptionText">
+        <item quantity="other">Anpassen der Sitzplätze im nächsten Schritt möglich.</item>
+        <item quantity="one">Anpassen des Sitzplatzes im nächsten Schritt möglich.</item>
+    </plurals>
+    <plurals name="kciPlatzAuswahlHeaderText">
+        <item quantity="other">Bitte wählen Sie die Sitzplätze aus, auf denen Sie sitzen.</item>
+        <item quantity="one">Bitte wählen Sie den Sitzplatz aus, auf dem Sie sitzen.</item>
+    </plurals>
+    <plurals name="kciRecheckDescriptionTitle">
+        <item quantity="other">Sie können Ihre eingecheckten Sitzplätze ändern</item>
+        <item quantity="one">Sie können Ihren eingecheckten Sitzplatz ändern</item>
+    </plurals>
+    <plurals name="kciRecheckInPossibleText">
+        <item quantity="other">@string/kciMultipleRecheckinPossibleText</item>
+        <item quantity="one">@string/kciSingleRecheckinPossibleText</item>
+    </plurals>
+    <plurals name="kciRecheckInXMinutes">
+        <item quantity="other">Sie können Ihre Sitzplätze erst in %1d Minuten ändern. Bitte versuchen Sie es später noch einmal.</item>
+        <item quantity="one">Sie können Ihren Sitzplatz erst in %1d Minuten ändern. Bitte versuchen Sie es später noch einmal.</item>
+    </plurals>
+    <plurals name="kciReservationPlatzauswahlHeader">
+        <item quantity="other">Die Anzahl der reservierten Sitzplätze passt nicht zur Anzahl der Personen Ihres Tickets.&lt;br>&lt;br>Bitte &lt;b>%d Sitzplätze&lt;/b> für den Check-in wählen.</item>
+        <item quantity="one">Die Anzahl der reservierten Sitzplätze passt nicht zur Anzahl der Personen Ihres Tickets.&lt;br>&lt;br>Bitte &lt;b>%d Sitzplatz&lt;/b> für den Check-in wählen.</item>
+    </plurals>
+    <plurals name="kciTitle">
+        <item quantity="other">@string/kciMultipleTitle</item>
+        <item quantity="one">@string/kciSingleTitle</item>
+    </plurals>
+    <plurals name="kciTitleWithReservation">
+        <item quantity="other">@string/kciMultipleTitleWithReservation</item>
+        <item quantity="one">@string/kciSingleTitleWithReservation</item>
+    </plurals>
+    <plurals name="kontingenteDetailsRemaining">
+        <item quantity="other">Verbleibende Reservierungen: %d</item>
+        <item quantity="one">Verbleibende Reservierung: 1</item>
+    </plurals>
+    <plurals name="loadingAddBikePlaces">
+        <item quantity="other">Stellplätze werden reserviert…</item>
+        <item quantity="one">Stellplatz wird reserviert…</item>
+    </plurals>
+    <plurals name="loadingAddSeats">
+        <item quantity="other">Sitzplätze werden reserviert…</item>
+        <item quantity="one">Sitzplatz wird reserviert…</item>
+    </plurals>
+    <plurals name="mapsDauer">
+        <item quantity="other">in %1$d Minuten</item>
+        <item quantity="one">in %1$d Minute</item>
+    </plurals>
+    <plurals name="mspFilterAvailableProviderText">
+        <item quantity="other">Aktuell sind Fahrräder von %1$s und %2$s verfügbar.</item>
+        <item quantity="one">Aktuell sind Fahrräder von %1$s verfügbar.</item>
+    </plurals>
+    <plurals name="mtrl_badge_content_description">
+        <item quantity="other">%d neue Benachrichtigungen</item>
+        <item quantity="one">%d neue Benachrichtigung</item>
+    </plurals>
+    <plurals name="peopleNumber">
+        <item quantity="other">(%1$d Pers.)</item>
+        <item quantity="one">(1 Pers.)</item>
+    </plurals>
+    <plurals name="profileWeitereFavoriten">
+        <item quantity="other">+%d weitere Favoriten gespeichert</item>
+        <item quantity="one">+%d weiterer Favorit gespeichert</item>
+    </plurals>
+    <plurals name="profileWeitereZahlungsmittel">
+        <item quantity="other">+%d weitere Zahlungsmittel gespeichert</item>
+        <item quantity="one">+%d weiteres Zahlungsmittel gespeichert</item>
+    </plurals>
+    <plurals name="refreshedDaysAgo">
+        <item quantity="other">Vor %1$d Tagen aktualisiert</item>
+        <item quantity="one">Vor 1 Tag aktualisiert</item>
+    </plurals>
+    <plurals name="refreshedMinutesAgo">
+        <item quantity="other">Vor %1$d min aktualisiert</item>
+        <item quantity="one">Vor 1 min aktualisiert</item>
+    </plurals>
+    <plurals name="reiseCardReservationStorniert">
+        <item quantity="other">Sitzplätze storniert</item>
+        <item quantity="one">Sitzplatz storniert</item>
+    </plurals>
+    <plurals name="reiseCardSitzplatzGesperrt">
+        <item quantity="other">Sitzplätze gesperrt</item>
+        <item quantity="one">Sitzplatz gesperrt</item>
+    </plurals>
+    <plurals name="reiseCardStellplatzGesperrt">
+        <item quantity="other">Stellplätze gesperrt</item>
+        <item quantity="one">Stellplatz gesperrt</item>
+    </plurals>
+    <plurals name="reiseCardStellplatzReservationStorniert">
+        <item quantity="other">Stellplätze storniert</item>
+        <item quantity="one">Stellplatz storniert</item>
+    </plurals>
+    <plurals name="reisendeBegrenzungMax">
+        <item quantity="other">Wählen Sie maximal %1$d Reisende aus.</item>
+        <item quantity="one">Wählen Sie maximal %1$d Reisenden aus.</item>
+    </plurals>
+    <plurals name="reisendeBegrenzungMin">
+        <item quantity="other">Wählen Sie mindestens %1$d Reisende aus.</item>
+        <item quantity="one">Wählen Sie mindestens %1$d Reisenden aus.</item>
+    </plurals>
+    <plurals name="reisendeLabel">
+        <item quantity="other">%1$d Personen</item>
+        <item quantity="one">%1$d Person</item>
+    </plurals>
+    <plurals name="seatsAvailable">
+        <item quantity="other">Sitzplätze verfügbar</item>
+        <item quantity="one">Sitzplatz verfügbar</item>
+    </plurals>
+    <plurals name="seatsNotAvailable">
+        <item quantity="other">Sitzplätze nicht verfügbar</item>
+        <item quantity="one">Sitzplatz nicht verfügbar</item>
+    </plurals>
+    <plurals name="seatsSelected">
+        <item quantity="other">Sitzplätze ausgewählt</item>
+        <item quantity="one">Sitzplatz ausgewählt</item>
+    </plurals>
+    <plurals name="seatsTemporarilyNotAvailable">
+        <item quantity="other">Sitzplätze aktuell nicht verfügbar</item>
+        <item quantity="one">Sitzplatz aktuell nicht verfügbar</item>
+    </plurals>
+    <plurals name="stopsTemplate">
+        <item quantity="other">%d Zwischenhalte</item>
+        <item quantity="one">%d Zwischenhalt</item>
+    </plurals>
+    <plurals name="timeMinutesAgo">
+        <item quantity="other">vor %1$d Minuten</item>
+        <item quantity="one">vor %1$d Minute</item>
+    </plurals>
+    <plurals name="travelerDifferentContentdesc">
+        <item quantity="other">%d Personen</item>
+        <item quantity="one">%d Person</item>
+    </plurals>
+    <plurals name="travelerDiscountCount">
+        <item quantity="other">%d Ermäßigungen</item>
+        <item quantity="one">1 Ermäßigung</item>
+    </plurals>
+    <plurals name="travelerDiscountCountOther">
+        <item quantity="other">%d weitere Ermäßigungen</item>
+        <item quantity="one">1 weitere Ermäßigung</item>
+    </plurals>
+    <plurals name="travelerDiscountCountSba">
+        <item quantity="other">%d Ausweise</item>
+        <item quantity="one">1 Ausweis</item>
+    </plurals>
+    <plurals name="updateRequiredMessage">
+        <item quantity="other">Diese App-Version wird in %d Tagen abgeschaltet. Aktualisieren Sie den DB Navigator, um ihn weiterhin nutzen zu können.</item>
+        <item quantity="one">Diese App-Version wird in %d Tag abgeschaltet. Aktualisieren Sie den DB Navigator, um ihn weiterhin nutzen zu können.</item>
+    </plurals>
+    <plurals name="useBahnBonusInfo">
+        <item quantity="other">%1$d Punkte</item>
+        <item quantity="one">%1$d Punkt</item>
+    </plurals>
+    <plurals name="useKontingentInfo">
+        <item quantity="other">Ihr Kontingent beträgt %1$d Plätze.</item>
+        <item quantity="one">Ihr Kontingent beträgt %1$d Platz.</item>
+    </plurals>
+    <plurals name="verbindungToEventSummaryBikeSpaceQuantity">
+        <item quantity="other">%s Stellplätze</item>
+        <item quantity="one">%s Stellplatz</item>
+    </plurals>
+    <plurals name="verbindungToEventSummarySeatQuantity">
+        <item quantity="other">%s Sitzplätze</item>
+        <item quantity="one">%s Sitzplatz</item>
+    </plurals>
+</resources>

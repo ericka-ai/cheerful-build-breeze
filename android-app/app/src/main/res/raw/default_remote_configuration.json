@@ -1,0 +1,18 @@
+{
+    "aroundMe": {
+        "modalities": [
+            {
+                "type": "PublicTransport"
+            },
+            {
+                "type": "BikeSharing",
+                "category": "SHARING_BIKE"
+            },
+            {
+                "type": "ScooterSharing",
+                "category": "SHARING_SCOOTER"
+            }
+        ]
+    }
+}
+

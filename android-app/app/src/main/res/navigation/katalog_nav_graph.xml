@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation android:id="@id/katalog_nav_graph" app:startDestination="@id/katalogAuswahlFragment"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <fragment android:label="KatalogAuswahlFragment" android:name="db.vendo.android.vendigator.view.katalog.KatalogAuswahlFragment" android:id="@id/katalogAuswahlFragment">
+        <action android:id="@id/action_katalogAuswahlFragment_to_katalogDetailsFragment" app:destination="@id/katalogDetailsFragment" />
+        <argument android:name="cluster" app:argType="db.vendo.android.vendigator.core.commons.katalog.KatalogCluster" />
+        <action android:id="@id/action_katalogAuswahlFragment_to_katalogFilterFragment" app:destination="@id/katalogFilterFragment" />
+    </fragment>
+    <fragment android:label="KatalogDetailsFragment" android:name="db.vendo.android.vendigator.view.katalog.KatalogDetailsFragment" android:id="@id/katalogDetailsFragment">
+        <action android:id="@id/action_katalogDetailsFragment_to_katalogKonfigurationFragment" app:destination="@id/katalogKonfigurationFragment" />
+        <argument android:name="selectedAngebot" app:argType="db.vendo.android.vendigator.domain.app.model.katalog.KatalogAngebotsInfo" />
+        <argument android:name="cluster" app:argType="db.vendo.android.vendigator.core.commons.katalog.KatalogCluster" />
+    </fragment>
+    <fragment android:label="KatalogKonfigurationFragment" android:name="db.vendo.android.vendigator.view.katalog.KatalogKonfigurationFragment" android:id="@id/katalogKonfigurationFragment">
+        <argument android:name="selectedAngebot" app:argType="db.vendo.android.vendigator.domain.app.model.katalog.KatalogAngebotsInfo" />
+        <argument android:name="cluster" app:argType="db.vendo.android.vendigator.core.commons.katalog.KatalogCluster" />
+    </fragment>
+    <fragment android:label="KatalogFilterFragment" android:name="db.vendo.android.vendigator.view.katalog.KatalogFilterFragment" android:id="@id/katalogFilterFragment">
+        <argument android:name="filterSettings" app:argType="db.vendo.android.vendigator.domain.app.model.katalog.KatalogFilterSettings" />
+    </fragment>
+</navigation>

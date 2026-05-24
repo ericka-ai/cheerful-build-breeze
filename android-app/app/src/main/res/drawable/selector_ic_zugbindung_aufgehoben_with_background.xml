@@ -1,1 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?><shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#00000000"/></shape>
+<?xml version="1.0" encoding="utf-8"?>
+<selector
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true" android:drawable="@drawable/ic_zugbindung_aufgehoben_with_background_selected" />
+    <item android:drawable="@drawable/ic_zugbindung_aufgehoben_with_background" />
+</selector>

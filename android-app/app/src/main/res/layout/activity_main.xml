@@ -6,57 +6,44 @@
     android:orientation="vertical"
     android:background="@color/greyBackground">
 
-    <LinearLayout
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="?attr/actionBarSize"
         android:background="@color/dbCoolGray700"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="20dp"
-        android:paddingEnd="8dp">
+        app:titleTextColor="@color/dbWhite"
+        app:title="Reisen">
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="DB Navigator Layouts"
-            android:textColor="@color/dbWhite"
-            android:textSize="20sp"
-            android:fontFamily="@font/dbsans_bold" />
-    </LinearLayout>
+        <ImageButton
+            android:id="@+id/btnToolbarAction"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_gravity="end"
+            android:layout_marginEnd="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_add"
+            android:visibility="gone"
+            android:contentDescription="Hinzufügen"
+            app:tint="@color/dbWhite" />
+    </androidx.appcompat.widget.Toolbar>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="4dp"
         android:background="@color/dbRed" />
 
-    <EditText
-        android:id="@+id/etSearch"
+    <FrameLayout
+        android:id="@+id/fragmentContainer"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:hint="Layout suchen..."
-        android:inputType="text"
-        android:background="@color/dbWhite"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:textSize="14sp"
-        android:layout_margin="12dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
-    <TextView
-        android:id="@+id/tvCount"
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="8dp"
-        android:textSize="14sp"
-        android:textColor="@color/defaultTextColorGrey"
-        android:fontFamily="@font/dbsans_regular" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvLayouts"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:clipToPadding="false"
-        android:paddingBottom="16dp" />
+        android:background="@color/lightBackground"
+        app:itemIconTint="@color/dbCoolGray500"
+        app:itemTextColor="@color/dbCoolGray500"
+        app:menu="@menu/bottom_nav_menu" />
 </LinearLayout>

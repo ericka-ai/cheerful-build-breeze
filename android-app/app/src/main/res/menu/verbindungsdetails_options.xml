@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:icon="@drawable/ic_gemerkte_reise" android:id="@id/verbindungsdetailsReiseMerken" android:visible="false" android:title="@string/reiseMerken" android:contentDescription="@string/reiseMerken" app:actionLayout="@layout/menu_item_reise_merken" app:showAsAction="ifRoom" />
+    <item android:icon="@drawable/ic_maps_round" android:id="@id/verbindungsdetailsMaps" android:visible="false" android:title="@string/mapsShowMap" app:showAsAction="ifRoom" />
+    <item android:icon="@drawable/ic_wiederholend" android:id="@id/verbindungsdetailsWiederholendeReise" android:title="@string/wiederholendeReiseEinstellen" app:showAsAction="never" />
+    <item android:icon="@drawable/ic_share_content" android:id="@id/verbindungsdetailsShare" android:visible="false" android:title="@string/share" app:showAsAction="never" />
+    <item android:icon="@drawable/ic_qr_code_simple" android:id="@id/shareQrOption" android:visible="false" android:title="@string/verbindungteilenViaQrCode" app:showAsAction="never" />
+    <item android:icon="@drawable/ic_calendar" android:id="@id/saveToCalendarOption" android:visible="false" android:title="@string/saveToCalendar" app:showAsAction="never" />
+</menu>

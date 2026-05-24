@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="contextual_button_max_width">230.0dip</dimen>
+    <dimen name="perlDefaultDotSize">4.0dip</dimen>
+    <dimen name="perlDefaultGapSize">4.0dip</dimen>
+    <dimen name="perlDefaultLineWidth">4.0dip</dimen>
+    <dimen name="trainInformationGleisMarginStart">24.0dip</dimen>
+</resources>

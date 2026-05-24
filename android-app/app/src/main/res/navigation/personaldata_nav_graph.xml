@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation android:id="@id/personaldata_nav_graph" app:startDestination="@id/personalData"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <fragment android:label="@string/personalDataTitle" android:name="db.vendo.android.vendigator.feature.personaldata.view.PersonalDataFragment" android:id="@id/personalData">
+        <action android:id="@id/action_personalData_to_countrySelection" app:destination="@id/countrySelection" />
+        <action android:id="@id/action_personalData_to_addressValidation" app:destination="@id/addressValidation" />
+        <argument android:name="CALL_CONTEXT" app:argType="db.vendo.android.vendigator.core.commons.personaldata.PersonalDataContext" />
+    </fragment>
+    <fragment android:label="@string/country" android:name="db.vendo.android.vendigator.feature.personaldata.view.address.CountryListFragment" android:id="@id/countrySelection">
+        <argument android:name="CALL_CONTEXT" app:argType="db.vendo.android.vendigator.feature.personaldata.viewmodel.address.CountrySelectionContext" />
+    </fragment>
+    <fragment android:label="@string/addressInvalid" android:name="db.vendo.android.vendigator.feature.personaldata.view.address.AddressValidationFragment" android:id="@id/addressValidation">
+        <argument android:name="CALL_CONTEXT" app:argType="db.vendo.android.vendigator.feature.personaldata.viewmodel.address.AddressValidationContext" />
+        <argument android:name="validationType" app:argType="db.vendo.android.vendigator.feature.personaldata.viewmodel.address.AddressValidationType" />
+        <argument android:name="addressTypeExtra" app:argType="db.vendo.android.vendigator.feature.personaldata.viewmodel.address.AddressType" />
+        <argument android:name="validationResult" app:argType="db.vendo.android.vendigator.domain.app.model.addressvalidation.ValidationResult" />
+        <argument android:name="inputAddress" app:argType="db.vendo.android.vendigator.feature.personaldata.model.ProfileAddressUiModel" />
+        <argument android:name="inputName" app:argType="db.vendo.android.vendigator.feature.personaldata.model.ProfileNameUiModel" />
+    </fragment>
+    <fragment android:label="@string/accountAddress" android:name="db.vendo.android.vendigator.feature.personaldata.view.address.AddressFragment" android:id="@id/address">
+        <action android:id="@id/action_address_to_countrySelection" app:destination="@id/countrySelection" />
+        <action android:id="@id/action_address_to_addressValidation" app:destination="@id/addressValidation" />
+        <argument android:name="addressTypeExtra" app:argType="db.vendo.android.vendigator.feature.personaldata.viewmodel.address.AddressType" />
+        <argument android:name="addressEntryContextExtra" app:argType="db.vendo.android.vendigator.feature.personaldata.viewmodel.address.AddressEntryContext" />
+        <argument android:name="addressOverrideExtra" app:argType="db.vendo.android.vendigator.domain.app.model.warenkorb.AddressData" />
+    </fragment>
+    <fragment android:label="@string/addressSelection" android:name="db.vendo.android.vendigator.feature.personaldata.view.address.AddressSelectionFragment" android:id="@id/addressSelection">
+        <action android:id="@id/action_addressSelection_to_address" app:destination="@id/address" />
+        <argument android:name="addressEntryContextExtra" app:argType="db.vendo.android.vendigator.feature.personaldata.viewmodel.address.AddressEntryContext" />
+    </fragment>
+</navigation>

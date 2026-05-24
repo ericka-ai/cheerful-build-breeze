@@ -1,1 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?><shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#00000000"/></shape>
+<?xml version="1.0" encoding="utf-8"?>
+<vector android:height="120.0dip" android:width="120.0dip" android:viewportWidth="120.0" android:viewportHeight="120.0"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <path android:fillColor="#fff0f3f5" android:pathData="M0,0h120v120h-120z" android:strokeColor="#00000000" android:strokeWidth="1.0" android:strokeAlpha="0.1" android:fillAlpha="0.0" android:fillType="evenOdd" />
+    <path android:fillColor="#ffe1e6eb" android:pathData="M31,109a28,3 0,1 0,56 0a28,3 0,1 0,-56 0z" android:strokeColor="#00000000" android:strokeWidth="1.0" android:fillType="evenOdd" />
+    <path android:fillColor="#ffffffff" android:pathData="M37,21L83,21A8,8 0,0 1,91 29L91,71A8,8 0,0 1,83 79L37,79A8,8 0,0 1,29 71L29,29A8,8 0,0 1,37 21z" android:strokeColor="#ff9ba0a9" android:strokeWidth="2.0" android:fillType="evenOdd" />
+    <path android:fillColor="#ffe1e6eb" android:pathData="M40,29L64,29L64,33L40,33L40,29ZM40,37L72,37L72,41L40,41L40,37Z" android:strokeColor="#00000000" android:strokeWidth="1.0" android:fillType="evenOdd" />
+    <path android:fillColor="#ffe1e6eb" android:pathData="M30,49l60,0l0,2l-60,0z" android:strokeColor="#00000000" android:strokeWidth="1.0" android:fillType="evenOdd" />
+    <path android:fillColor="#ffe1e6eb" android:pathData="M40,59L64,59L64,63L40,63L40,59ZM40,67L72,67L72,71L40,71L40,67Z" android:strokeColor="#00000000" android:strokeWidth="1.0" android:fillType="evenOdd" />
+    <path android:fillColor="#00000000" android:pathData="M88,76L104,92" android:strokeColor="#ff9ba0a9" android:strokeWidth="2.0" android:fillType="evenOdd" />
+    <path android:fillColor="#ffffffff" android:pathData="M79,67m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0" android:strokeColor="#ff9ba0a9" android:strokeWidth="2.0" android:fillType="evenOdd" />
+    <path android:fillColor="#00000000" android:pathData="M79,67L74,62L79,67L84,62L79,67ZM79,67L84,72L79,67L74,72L79,67Z" android:strokeColor="#ffdd2b19" android:strokeWidth="2.0" android:fillType="evenOdd" />
+</vector>

@@ -20,9 +20,9 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".LayoutViewerActivity"
+            android:name=".TicketDisplayActivity"
             android:exported="false"
-            android:label="Layout Viewer"
+            android:label="Ticket"
             android:parentActivityName=".MainActivity" />
         <provider
             android:name="androidx.core.content.FileProvider"

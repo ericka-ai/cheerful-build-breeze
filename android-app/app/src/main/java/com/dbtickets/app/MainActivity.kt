@@ -1,112 +1,149 @@
 package com.dbtickets.app
 
-import android.content.Intent
+import android.app.Dialog
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.ImageButton
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.appcompat.widget.Toolbar
+import androidx.fragment.app.Fragment
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.textfield.TextInputEditText
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var rvLayouts: RecyclerView
-    private lateinit var etSearch: android.widget.EditText
-    private lateinit var tvCount: TextView
-    private var allLayouts: List<LayoutEntry> = emptyList()
+    private lateinit var toolbar: Toolbar
+    private lateinit var btnToolbarAction: ImageButton
+    private lateinit var bottomNav: BottomNavigationView
 
-    data class LayoutEntry(val name: String, val resId: Int, val type: String)
+    private val reisenFragment = ReisenFragment()
+    private val buchenFragment = BuchenFragment()
+    private val profilFragment = ProfilFragment()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        rvLayouts = findViewById(R.id.rvLayouts)
-        etSearch = findViewById(R.id.etSearch)
-        tvCount = findViewById(R.id.tvCount)
+        toolbar = findViewById(R.id.toolbar)
+        btnToolbarAction = findViewById(R.id.btnToolbarAction)
+        bottomNav = findViewById(R.id.bottomNav)
 
-        allLayouts = collectLayouts()
-        rvLayouts.layoutManager = LinearLayoutManager(this)
-        rvLayouts.adapter = LayoutAdapter(allLayouts)
-        tvCount.text = "${allLayouts.size} Layouts"
+        setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(true)
 
-        etSearch.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val query = s?.toString()?.lowercase() ?: ""
-                val filtered = if (query.isEmpty()) allLayouts
-                    else allLayouts.filter { it.name.lowercase().contains(query) }
-                rvLayouts.adapter = LayoutAdapter(filtered)
-                tvCount.text = "${filtered.size} Layouts"
+        if (savedInstanceState == null) {
+            switchFragment(reisenFragment, "Reisen", showAddButton = true)
+        }
+
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_reisen -> {
+                    switchFragment(reisenFragment, "Reisen", showAddButton = true)
+                    true
+                }
+                R.id.nav_buchen -> {
+                    switchFragment(buchenFragment, "Buchen", showAddButton = false)
+                    true
+                }
+                R.id.nav_profil -> {
+                    switchFragment(profilFragment, "Profil", showAddButton = false)
+                    true
+                }
+                else -> false
             }
-        })
+        }
+
+        btnToolbarAction.setOnClickListener {
+            showAddTicketDialog()
+        }
     }
 
-    private fun collectLayouts(): List<LayoutEntry> {
-        val layouts = mutableListOf<LayoutEntry>()
-        val fields = R.layout::class.java.fields
-        for (field in fields) {
-            val name = field.name
-            if (name == "activity_main" || name == "item_layout_entry" || name == "activity_layout_viewer") continue
-            val resId = field.getInt(null)
-            val type = when {
-                name.startsWith("activity_") -> "Activity"
-                name.startsWith("fragment_") -> "Fragment"
-                name.startsWith("item_") || name.endsWith("_item") || name.endsWith("_list_item") -> "List Item"
-                name.startsWith("dialog_") -> "Dialog"
-                name.startsWith("widget_") -> "Widget"
-                name.contains("toolbar") || name.contains("header") -> "Toolbar/Header"
-                name.contains("bottom_sheet") -> "Bottom Sheet"
-                else -> "Layout"
-            }
-            layouts.add(LayoutEntry(name, resId, type))
-        }
-        return layouts.sortedBy { it.name }
+    private fun switchFragment(fragment: Fragment, title: String, showAddButton: Boolean) {
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragmentContainer, fragment)
+            .commit()
+        supportActionBar?.title = title
+        btnToolbarAction.visibility = if (showAddButton) View.VISIBLE else View.GONE
     }
 
-    inner class LayoutAdapter(private val items: List<LayoutEntry>) :
-        RecyclerView.Adapter<LayoutAdapter.VH>() {
+    fun showAddTicketDialog() {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_add_ticket)
+        dialog.window?.setLayout(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.WRAP_CONTENT
+        )
 
-        inner class VH(view: View) : RecyclerView.ViewHolder(view) {
-            val tvName: TextView = view.findViewById(R.id.tvLayoutName)
-            val tvType: TextView = view.findViewById(R.id.tvLayoutType)
-            val colorIndicator: View = view.findViewById(R.id.colorIndicator)
-        }
+        val etAuftragsnummer = dialog.findViewById<TextInputEditText>(R.id.etAuftragsnummer)
+        val etNachname = dialog.findViewById<TextInputEditText>(R.id.etNachname)
+        val tvError = dialog.findViewById<TextView>(R.id.tvError)
+        val btnLoad = dialog.findViewById<Button>(R.id.btnLoadTicket)
+        val progressBar = dialog.findViewById<ProgressBar>(R.id.progressBar)
+        val btnClose = dialog.findViewById<ImageButton>(R.id.btnClose)
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_layout_entry, parent, false)
-            return VH(view)
-        }
+        btnClose.setOnClickListener { dialog.dismiss() }
 
-        override fun onBindViewHolder(holder: VH, position: Int) {
-            val entry = items[position]
-            holder.tvName.text = entry.name.replace("_", " ")
-            holder.tvType.text = entry.type
+        btnLoad.setOnClickListener {
+            val orderNumber = etAuftragsnummer.text?.toString()?.trim() ?: ""
+            val lastName = etNachname.text?.toString()?.trim() ?: ""
 
-            val colorRes = when (entry.type) {
-                "Activity" -> android.R.color.holo_red_dark
-                "Fragment" -> android.R.color.holo_blue_dark
-                "List Item" -> android.R.color.holo_green_dark
-                "Dialog" -> android.R.color.holo_orange_dark
-                "Bottom Sheet" -> android.R.color.holo_purple
-                else -> android.R.color.darker_gray
+            if (orderNumber.isEmpty()) {
+                tvError.text = "Bitte Auftragsnummer eingeben"
+                tvError.visibility = View.VISIBLE
+                return@setOnClickListener
             }
-            holder.colorIndicator.setBackgroundResource(colorRes)
-
-            holder.itemView.setOnClickListener {
-                val intent = Intent(this@MainActivity, LayoutViewerActivity::class.java)
-                intent.putExtra("layout_name", entry.name)
-                intent.putExtra("layout_res_id", entry.resId)
-                startActivity(intent)
+            if (lastName.isEmpty()) {
+                tvError.text = "Bitte Nachname eingeben"
+                tvError.visibility = View.VISIBLE
+                return@setOnClickListener
             }
+
+            tvError.visibility = View.GONE
+            progressBar.visibility = View.VISIBLE
+            btnLoad.isEnabled = false
+
+            val stations = listOf(
+                "Berlin Hbf", "Hamburg Hbf", "München Hbf", "Köln Hbf",
+                "Frankfurt(Main)Hbf", "Stuttgart Hbf", "Düsseldorf Hbf",
+                "Hannover Hbf", "Leipzig Hbf", "Dresden Hbf"
+            )
+            val types = listOf("Flexpreis", "Sparpreis", "Super Sparpreis", "Deutschlandticket")
+            val fromStation = stations.random()
+            var toStation = stations.random()
+            while (toStation == fromStation) toStation = stations.random()
+
+            val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
+            val ticket = Ticket(
+                orderNumber = orderNumber,
+                lastName = lastName,
+                ticketType = types.random(),
+                from = fromStation,
+                to = toStation,
+                departureTime = "%02d:%02d".format((6..22).random(), listOf(0, 15, 30, 45).random()),
+                arrivalTime = "%02d:%02d".format((8..23).random(), listOf(0, 15, 30, 45).random()),
+                travelClass = if (Math.random() > 0.5) "1. Klasse" else "2. Klasse",
+                date = dateFormat.format(Date()),
+                status = "Gültig"
+            )
+
+            btnLoad.postDelayed({
+                TicketStore.addTicket(this, ticket)
+                progressBar.visibility = View.GONE
+                dialog.dismiss()
+                reisenFragment.loadTickets()
+                bottomNav.selectedItemId = R.id.nav_reisen
+            }, 1000)
         }
 
-        override fun getItemCount() = items.size
+        dialog.show()
     }
 }

@@ -1,1 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?><shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#00000000"/></shape>
+<?xml version="1.0" encoding="utf-8"?>
+<vector android:height="120.0dip" android:width="120.0dip" android:viewportWidth="120.0" android:viewportHeight="120.0"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <path android:fillColor="#ffffffff" android:pathData="M28,32L92,32A8,8 0,0 1,100 40L100,80A8,8 0,0 1,92 88L28,88A8,8 0,0 1,20 80L20,40A8,8 0,0 1,28 32z" />
+    <path android:fillColor="#ff282d37" android:pathData="M32,48C32,47.45 32.45,47 33,47H45C45.55,47 46,47.45 46,48V72C46,72.55 45.55,73 45,73H33C32.45,73 32,72.55 32,72V48ZM34,49V71H44V49H34Z" android:fillType="evenOdd" />
+    <path android:fillColor="#ff282d37" android:pathData="M53,48C53,47.45 53.45,47 54,47L87.23,47C87.78,47 88.23,47.45 88.23,48C88.23,48.55 87.78,49 87.23,49L54,49C53.45,49 53,48.55 53,48Z" />
+    <path android:fillColor="#ff282d37" android:pathData="M54,59C53.45,59 53,59.45 53,60C53,60.55 53.45,61 54,61H86.31C86.86,61 87.31,60.55 87.31,60C87.31,59.45 86.86,59 86.31,59H54Z" />
+    <path android:fillColor="#ff282d37" android:pathData="M53,72C53,71.45 53.45,71 54,71H70.61C71.17,71 71.61,71.45 71.61,72C71.61,72.55 71.17,73 70.61,73H54C53.45,73 53,72.55 53,72Z" />
+    <path android:fillColor="#ff282d37" android:pathData="M28,31C23.03,31 19,35.03 19,40V80C19,84.97 23.03,89 28,89H92C96.97,89 101,84.97 101,80V40C101,35.03 96.97,31 92,31H28ZM21,40C21,36.13 24.13,33 28,33H92C95.87,33 99,36.13 99,40V80C99,83.87 95.87,87 92,87H28C24.13,87 21,83.87 21,80V40Z" android:fillType="evenOdd" />
+    <path android:fillColor="#ffffffff" android:pathData="M112,81C112,89.28 105.28,96 97,96C88.72,96 82,89.28 82,81C82,72.72 88.72,66 97,66C105.28,66 112,72.72 112,81Z" android:strokeColor="#ff282d37" android:strokeWidth="2.0" />
+    <group>
+        <clip-path android:pathData="M87,71h20v20h-20z" />
+        <path android:fillColor="#ffec0016" android:pathData="M103,75C104.09,75 105,75.88 105,77V85C105,86.09 104.09,87 103,87H91C89.91,87 89,86.09 89,85V77C89,75.91 89.91,75 91,75H103ZM103,79.25L97,83.75L91,79.28V85H103V79.25ZM102.66,77H91.31L97,81.25L102.66,77Z" android:fillType="evenOdd" />
+    </group>
+</vector>
