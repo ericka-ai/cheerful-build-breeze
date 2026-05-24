@@ -27,20 +27,40 @@ class TicketDisplayActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.tvOrderNumber).text = ticket.orderNumber
         findViewById<TextView>(R.id.tvTicketName).text = ticket.ticketType
-        findViewById<TextView>(R.id.tvValidity).text = "Gültig am ${ticket.date}"
+
+        if (ticket.gueltigVon.isNotEmpty() && ticket.gueltigBis.isNotEmpty()) {
+            findViewById<TextView>(R.id.tvValidity).text =
+                "Gültig ${ticket.gueltigVon} – ${ticket.gueltigBis}"
+        } else {
+            findViewById<TextView>(R.id.tvValidity).text = "Gültig am ${ticket.date}"
+        }
+
         findViewById<TextView>(R.id.tvPassengerName).text = ticket.lastName
         findViewById<TextView>(R.id.tvClass).text = ticket.travelClass
 
+        if (ticket.ticketId.isNotEmpty() || ticket.preis.isNotEmpty()) {
+            findViewById<android.view.View>(R.id.ticketDetailsSection).visibility =
+                android.view.View.VISIBLE
+            findViewById<TextView>(R.id.tvTicketId).text = ticket.ticketId
+            findViewById<TextView>(R.id.tvPreis).text = ticket.preis
+            if (ticket.gueltigVon.isNotEmpty() && ticket.gueltigBis.isNotEmpty()) {
+                findViewById<TextView>(R.id.tvGueltigkeitRange).text =
+                    "${ticket.gueltigVon} – ${ticket.gueltigBis}"
+            }
+        }
+
         if (ticket.from.isNotEmpty() && ticket.to.isNotEmpty()) {
-            findViewById<android.view.View>(R.id.routeSection).visibility = android.view.View.VISIBLE
+            findViewById<android.view.View>(R.id.routeSection).visibility =
+                android.view.View.VISIBLE
             findViewById<TextView>(R.id.tvFrom).text = ticket.from
             findViewById<TextView>(R.id.tvTo).text = ticket.to
             findViewById<TextView>(R.id.tvDepartureTime).text = ticket.departureTime
             findViewById<TextView>(R.id.tvArrivalTime).text = ticket.arrivalTime
         }
 
+        val barcodeData = if (ticket.ticketId.isNotEmpty()) ticket.ticketId else ticket.orderNumber
         val ivBarcode = findViewById<ImageView>(R.id.ivBarcode)
-        ivBarcode.setImageBitmap(generateBarcode(ticket.orderNumber))
+        ivBarcode.setImageBitmap(generateBarcode(barcodeData))
 
         findViewById<android.widget.Button>(R.id.btnDelete).setOnClickListener {
             AlertDialog.Builder(this)
@@ -69,7 +89,6 @@ class TicketDisplayActivity : AppCompatActivity() {
                 bitmap.setPixel(x, y, if (java.util.Random(seed.toLong()).nextBoolean()) Color.BLACK else Color.WHITE)
             }
         }
-        // Add finder patterns (like QR code corners)
         for (i in 0 until 28) {
             for (j in 0 until 28) {
                 val isEdge = i < 4 || j < 4 || i >= 24 || j >= 24

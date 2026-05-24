@@ -80,11 +80,17 @@ class ReisenFragment : Fragment() {
             val ticket = tickets[position]
             holder.tvTicketType.text = ticket.ticketType
             holder.tvPassenger.text = ticket.lastName
-            holder.tvRoute.text = if (ticket.from.isNotEmpty() && ticket.to.isNotEmpty()) {
-                "${ticket.from} → ${ticket.to}"
-            } else ""
+            holder.tvRoute.text = when {
+                ticket.from.isNotEmpty() && ticket.to.isNotEmpty() ->
+                    "${ticket.from} → ${ticket.to}"
+                ticket.gueltigVon.isNotEmpty() && ticket.gueltigBis.isNotEmpty() ->
+                    "${ticket.gueltigVon} – ${ticket.gueltigBis}"
+                ticket.preis.isNotEmpty() -> ticket.preis
+                else -> ""
+            }
             holder.tvOrderNumber.text = "Nr. ${ticket.orderNumber}"
-            holder.tvDate.text = ticket.date
+            holder.tvDate.text = if (ticket.date.isNotEmpty()) ticket.date
+                else ticket.gueltigVon
 
             holder.itemView.setOnClickListener {
                 val intent = Intent(requireContext(), TicketDisplayActivity::class.java)

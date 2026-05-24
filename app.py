@@ -6,6 +6,8 @@ FastAPI backend with HTML frontend form.
 import fitz  # PyMuPDF
 import math
 import os
+import random
+import string
 import tempfile
 import io
 import zlib
@@ -15,7 +17,8 @@ import numpy as np
 import aztec_code_generator as aztec
 from PIL import Image, ImageDraw, ImageFont
 from fastapi import FastAPI, Form
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +42,13 @@ W = 595.28
 H = 841.89
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def asset(name):
@@ -537,6 +547,44 @@ async def generate(
             "Content-Disposition": f"attachment; filename=ticket_{ticket_id}.pdf"
         }
     )
+
+
+# ─── JSON API for Android App ────────────────────────────────────────────────
+
+
+@app.post("/api/generate")
+async def api_generate(
+    auftragsnummer: str = Form(...),
+    nachname: str = Form(...),
+):
+    """JSON endpoint for Android app: accepts Auftragsnummer + Nachname,
+    returns ticket data as JSON."""
+    import datetime
+
+    today = datetime.date.today()
+    validity_end = today + datetime.timedelta(days=14)
+    ticket_id = "".join(random.choices(string.digits, k=7))
+    klasse = random.choice(["1", "2"])
+    products = [
+        ("German Rail Pass (Konsekutiv)", "452,00\u20ac"),
+        ("German Rail Pass (Flexi)", "398,00\u20ac"),
+        ("Eurail Global Pass", "521,00\u20ac"),
+        ("Deutschlandticket", "49,00\u20ac"),
+        ("DB Sparpreis", "29,90\u20ac"),
+    ]
+    product, preis = random.choice(products)
+
+    return JSONResponse({
+        "auftragsnummer": auftragsnummer,
+        "nachname": nachname,
+        "ticket_id": ticket_id,
+        "klasse": f"{klasse}. Klasse",
+        "preis": preis,
+        "product": product,
+        "gueltig_von": today.strftime("%d.%m.%Y"),
+        "gueltig_bis": validity_end.strftime("%d.%m.%Y"),
+        "status": "Gültig",
+    })
 
 
 # ─── HTML ────────────────────────────────────────────────────────────────────

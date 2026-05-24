@@ -14,9 +14,6 @@ import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.textfield.TextInputEditText
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -111,37 +108,38 @@ class MainActivity : AppCompatActivity() {
             progressBar.visibility = View.VISIBLE
             btnLoad.isEnabled = false
 
-            val stations = listOf(
-                "Berlin Hbf", "Hamburg Hbf", "München Hbf", "Köln Hbf",
-                "Frankfurt(Main)Hbf", "Stuttgart Hbf", "Düsseldorf Hbf",
-                "Hannover Hbf", "Leipzig Hbf", "Dresden Hbf"
-            )
-            val types = listOf("Flexpreis", "Sparpreis", "Super Sparpreis", "Deutschlandticket")
-            val fromStation = stations.random()
-            var toStation = stations.random()
-            while (toStation == fromStation) toStation = stations.random()
+            Thread {
+                try {
+                    val response = TicketApiClient.loadTicket(this, orderNumber, lastName)
+                    val ticket = Ticket(
+                        orderNumber = response.auftragsnummer,
+                        lastName = response.nachname,
+                        ticketType = response.product,
+                        travelClass = response.klasse,
+                        date = response.gueltigVon,
+                        status = response.status,
+                        ticketId = response.ticketId,
+                        preis = response.preis,
+                        gueltigVon = response.gueltigVon,
+                        gueltigBis = response.gueltigBis
+                    )
 
-            val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
-            val ticket = Ticket(
-                orderNumber = orderNumber,
-                lastName = lastName,
-                ticketType = types.random(),
-                from = fromStation,
-                to = toStation,
-                departureTime = "%02d:%02d".format((6..22).random(), listOf(0, 15, 30, 45).random()),
-                arrivalTime = "%02d:%02d".format((8..23).random(), listOf(0, 15, 30, 45).random()),
-                travelClass = if (Math.random() > 0.5) "1. Klasse" else "2. Klasse",
-                date = dateFormat.format(Date()),
-                status = "Gültig"
-            )
-
-            btnLoad.postDelayed({
-                TicketStore.addTicket(this, ticket)
-                progressBar.visibility = View.GONE
-                dialog.dismiss()
-                reisenFragment.loadTickets()
-                bottomNav.selectedItemId = R.id.nav_reisen
-            }, 1000)
+                    runOnUiThread {
+                        TicketStore.addTicket(this, ticket)
+                        progressBar.visibility = View.GONE
+                        dialog.dismiss()
+                        reisenFragment.loadTickets()
+                        bottomNav.selectedItemId = R.id.nav_reisen
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        progressBar.visibility = View.GONE
+                        btnLoad.isEnabled = true
+                        tvError.text = "Fehler: ${e.message ?: "Verbindung fehlgeschlagen"}"
+                        tvError.visibility = View.VISIBLE
+                    }
+                }
+            }.start()
         }
 
         dialog.show()

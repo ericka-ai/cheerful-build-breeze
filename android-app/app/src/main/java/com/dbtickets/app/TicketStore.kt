@@ -30,7 +30,11 @@ object TicketStore {
                     arrivalTime = obj.optString("arrivalTime"),
                     travelClass = obj.optString("travelClass", "2. Klasse"),
                     date = obj.optString("date"),
-                    status = obj.optString("status", "Gültig")
+                    status = obj.optString("status", "Gültig"),
+                    ticketId = obj.optString("ticketId"),
+                    preis = obj.optString("preis"),
+                    gueltigVon = obj.optString("gueltigVon"),
+                    gueltigBis = obj.optString("gueltigBis")
                 )
             )
         }
@@ -62,6 +66,10 @@ object TicketStore {
             obj.put("travelClass", t.travelClass)
             obj.put("date", t.date)
             obj.put("status", t.status)
+            obj.put("ticketId", t.ticketId)
+            obj.put("preis", t.preis)
+            obj.put("gueltigVon", t.gueltigVon)
+            obj.put("gueltigBis", t.gueltigBis)
             arr.put(obj)
         }
         prefs(context).edit().putString(KEY_TICKETS, arr.toString()).apply()
