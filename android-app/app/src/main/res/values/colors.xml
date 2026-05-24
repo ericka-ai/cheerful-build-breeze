@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <color name="abc_decor_view_status_guard">#ff000000</color>
     <color name="abc_decor_view_status_guard_light">#ffffffff</color>
@@ -761,4 +761,4 @@
     <color name="weekdaySelectedTextColor">@color/textColorWhite</color>
     <color name="white">#ffffffff</color>
     <color name="widgetButtonBackground">@color/dbCoolGray700</color>
-</resources>
+<color name="divider">#1F000000</color></resources>
