@@ -3,13 +3,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/db_cool_gray_100">
+    android:background="@color/background">
 
-    <!-- Top Bar -->
+    <!-- Dark Top Bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:background="@color/db_cool_gray_700"
+        android:layout_height="56dp"
+        android:background="@color/surface"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="4dp"
@@ -22,7 +22,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_revert"
             android:contentDescription="@string/zurueck"
-            android:tint="@color/db_white" />
+            android:tint="@color/text_primary" />
 
         <TextView
             android:id="@+id/tvTitle"
@@ -30,10 +30,17 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/ticket_form_title"
-            android:textColor="@color/db_white"
-            android:textSize="17sp"
-            android:textStyle="bold" />
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium" />
     </LinearLayout>
+
+    <!-- Red accent line -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="@color/db_red" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -45,54 +52,59 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="20dp">
 
             <!-- Ticket Type Badge -->
             <TextView
                 android:id="@+id/tvTicketType"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@color/db_red"
+                android:background="@drawable/bg_badge"
                 android:paddingHorizontal="12dp"
-                android:paddingVertical="4dp"
+                android:paddingVertical="5dp"
                 android:textColor="@color/db_white"
                 android:textSize="12sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="20dp" />
 
             <!-- Nachname -->
             <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.DBTickets.TextInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="12dp"
                 android:hint="@string/nachname">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etNachname"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textPersonName" />
+                    android:inputType="textPersonName"
+                    android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Vorname -->
             <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.DBTickets.TextInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="12dp"
                 android:hint="@string/vorname">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/etVorname"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textPersonName" />
+                    android:inputType="textPersonName"
+                    android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Geburtsdatum -->
             <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.DBTickets.TextInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="12dp"
                 android:hint="@string/geburtsdatum">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -101,7 +113,8 @@
                     android:layout_height="wrap_content"
                     android:inputType="date"
                     android:focusable="false"
-                    android:clickable="true" />
+                    android:clickable="true"
+                    android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Klasse -->
@@ -109,9 +122,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/klasse"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textColor="@color/text_secondary"
-                android:layout_marginBottom="4dp"
+                android:layout_marginBottom="6dp"
                 android:layout_marginTop="4dp" />
 
             <RadioGroup
@@ -119,7 +132,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="8dp">
+                android:layout_marginBottom="12dp">
 
                 <RadioButton
                     android:id="@+id/rbKlasse2"
@@ -127,6 +140,8 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/klasse_2"
+                    android:textColor="@color/text_primary"
+                    android:buttonTint="@color/db_red"
                     android:checked="true" />
 
                 <RadioButton
@@ -134,7 +149,9 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="@string/klasse_1" />
+                    android:text="@string/klasse_1"
+                    android:textColor="@color/text_primary"
+                    android:buttonTint="@color/db_red" />
             </RadioGroup>
 
             <!-- Passagier-Typ -->
@@ -142,16 +159,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/passagier_typ"
-                android:textSize="12sp"
+                android:textSize="13sp"
                 android:textColor="@color/text_secondary"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="6dp" />
 
             <RadioGroup
                 android:id="@+id/rgPassagierTyp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="8dp">
+                android:layout_marginBottom="12dp">
 
                 <RadioButton
                     android:id="@+id/rbErwachsener"
@@ -159,6 +176,8 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/erwachsener"
+                    android:textColor="@color/text_primary"
+                    android:buttonTint="@color/db_red"
                     android:checked="true" />
 
                 <RadioButton
@@ -166,7 +185,9 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="@string/jugendlicher" />
+                    android:text="@string/jugendlicher"
+                    android:textColor="@color/text_primary"
+                    android:buttonTint="@color/db_red" />
             </RadioGroup>
 
             <!-- Pass-Typ (for GRP) -->
@@ -181,16 +202,16 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/pass_typ"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="@color/text_secondary"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="6dp" />
 
                 <RadioGroup
                     android:id="@+id/rgPassTyp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
+                    android:layout_marginBottom="12dp">
 
                     <RadioButton
                         android:id="@+id/rbConsecutive"
@@ -198,6 +219,8 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="@string/consecutive"
+                        android:textColor="@color/text_primary"
+                        android:buttonTint="@color/db_red"
                         android:checked="true" />
 
                     <RadioButton
@@ -205,7 +228,9 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/flexi" />
+                        android:text="@string/flexi"
+                        android:textColor="@color/text_primary"
+                        android:buttonTint="@color/db_red" />
                 </RadioGroup>
             </LinearLayout>
 
@@ -221,19 +246,19 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/reisetage"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="@color/text_secondary"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="6dp" />
 
                 <Spinner
                     android:id="@+id/spinnerReisetage"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginBottom="8dp"
-                    android:background="@android:drawable/btn_dropdown" />
+                    android:layout_height="50dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/edit_text_bg" />
             </LinearLayout>
 
-            <!-- Sparpreis fields: Von/Nach Station -->
+            <!-- Sparpreis fields -->
             <LinearLayout
                 android:id="@+id/layoutSparpreis"
                 android:layout_width="match_parent"
@@ -245,37 +270,37 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/von_station"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="@color/text_secondary"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="6dp" />
 
                 <Spinner
                     android:id="@+id/spinnerVon"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginBottom="8dp"
-                    android:background="@android:drawable/btn_dropdown" />
+                    android:layout_height="50dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/edit_text_bg" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/nach_station"
-                    android:textSize="12sp"
+                    android:textSize="13sp"
                     android:textColor="@color/text_secondary"
-                    android:layout_marginBottom="4dp" />
+                    android:layout_marginBottom="6dp" />
 
                 <Spinner
                     android:id="@+id/spinnerNach"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginBottom="8dp"
-                    android:background="@android:drawable/btn_dropdown" />
+                    android:layout_height="50dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/edit_text_bg" />
 
-                <!-- Zugtyp -->
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.DBTickets.TextInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="12dp"
                     android:hint="@string/zug_typ">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -283,29 +308,32 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="text"
-                        android:text="ICE" />
+                        android:text="ICE"
+                        android:textColor="@color/text_primary" />
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <!-- Zugnummer -->
                 <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.DBTickets.TextInput"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="12dp"
                     android:hint="@string/zug_nummer">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etZugNummer"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="number" />
+                        android:inputType="number"
+                        android:textColor="@color/text_primary" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
             <!-- Gueltig von -->
             <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.DBTickets.TextInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
+                android:layout_marginBottom="12dp"
                 android:hint="@string/gueltig_von">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -314,15 +342,17 @@
                     android:layout_height="wrap_content"
                     android:inputType="date"
                     android:focusable="false"
-                    android:clickable="true" />
+                    android:clickable="true"
+                    android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Gueltig bis -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/layoutGueltigBis"
+                style="@style/Widget.DBTickets.TextInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="20dp"
                 android:hint="@string/gueltig_bis">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -331,7 +361,8 @@
                     android:layout_height="wrap_content"
                     android:inputType="date"
                     android:focusable="false"
-                    android:clickable="true" />
+                    android:clickable="true"
+                    android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
 
         </LinearLayout>
@@ -341,10 +372,9 @@
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSubmit"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:layout_margin="16dp"
+        android:layout_height="52dp"
+        android:layout_margin="20dp"
         android:text="@string/ticket_erstellen"
-        android:textSize="16sp"
-        android:backgroundTint="@color/db_red" />
+        style="@style/Widget.DBTickets.Button.Gray" />
 
 </LinearLayout>

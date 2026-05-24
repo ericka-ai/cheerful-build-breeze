@@ -1,25 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- DB Navigator Dark Theme Colors -->
     <color name="db_red">#EC0016</color>
     <color name="db_red_dark">#C40014</color>
-    <color name="db_red_light">#FA9090</color>
-    <color name="db_dark">#282D37</color>
+    <color name="db_red_light">#3D1519</color>
+    <color name="db_dark">#0D0D0D</color>
     <color name="db_grey">#878C96</color>
-    <color name="db_grey_light">#AFB4BB</color>
-    <color name="db_light_grey">#D7DCE1</color>
+    <color name="db_grey_light">#6C6C6C</color>
+    <color name="db_light_grey">#3A3A3A</color>
     <color name="db_white">#FFFFFF</color>
-    <color name="db_blue">#1455C0</color>
-    <color name="db_green">#408335</color>
-    <color name="db_cool_gray_100">#F0F3F5</color>
-    <color name="db_cool_gray_200">#D7DCE1</color>
-    <color name="db_cool_gray_500">#646973</color>
-    <color name="db_cool_gray_600">#3C414B</color>
-    <color name="db_cool_gray_700">#282D37</color>
-    <color name="card_bg">#FFFFFF</color>
-    <color name="text_primary">#282D37</color>
-    <color name="text_secondary">#646973</color>
-    <color name="background">#F0F3F5</color>
-    <color name="eurail_blue">#1E3A5F</color>
-    <color name="dt_green">#2D8C3C</color>
-    <color name="divider">#D7DCE1</color>
+    <color name="db_blue">#5B8DEF</color>
+    <color name="db_green">#66BB6A</color>
+    <color name="db_cool_gray_100">#0D0D0D</color>
+    <color name="db_cool_gray_200">#1A1A1A</color>
+    <color name="db_cool_gray_500">#9E9E9E</color>
+    <color name="db_cool_gray_600">#BDBDBD</color>
+    <color name="db_cool_gray_700">#141414</color>
+
+    <!-- Semantic colors -->
+    <color name="background">#0D0D0D</color>
+    <color name="surface">#141414</color>
+    <color name="card_bg">#282828</color>
+    <color name="card_bg_elevated">#2E2E2E</color>
+    <color name="input_bg">#3A3A3A</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#9E9E9E</color>
+    <color name="text_hint">#6C6C6C</color>
+    <color name="divider">#3A3A3A</color>
+    <color name="nav_bg">#141414</color>
+    <color name="nav_active">#FFFFFF</color>
+    <color name="nav_inactive">#6C6C6C</color>
+    <color name="button_gray">#6C6C6C</color>
+    <color name="status_bar">#000000</color>
+    <color name="ripple_light">#1AFFFFFF</color>
+    <color name="ripple_red">#33EC0016</color>
+
+    <!-- Legacy aliases -->
+    <color name="eurail_blue">#5B8DEF</color>
+    <color name="dt_green">#66BB6A</color>
+    <color name="surface_variant">#2A2A2A</color>
 </resources>
