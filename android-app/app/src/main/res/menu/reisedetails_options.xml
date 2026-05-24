@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item android:icon="@drawable/ic_alarm_24" android:id="@id/reisedetailsOptionsAlarm" android:visible="false" android:title="@string/reiseEinstellungenTitle" app:showAsAction="ifRoom" />
-    <item android:icon="@drawable/ic_maps_round" android:id="@id/reisedetailsMaps" android:visible="false" android:title="@string/mapsShowMap" app:showAsAction="ifRoom" />
-    <item android:icon="@drawable/ic_share_content" android:id="@id/reisedetailsShareOption" android:visible="false" android:title="@string/share" app:showAsAction="never" />
-    <item android:icon="@drawable/ic_qr_code_simple" android:id="@id/reiseDetailsShareQrOption" android:visible="false" android:title="@string/verbindungteilenViaQrCode" app:showAsAction="never" />
-    <item android:icon="@drawable/ic_calendar" android:id="@id/reisedetailsSaveToCalendarOption" android:visible="false" android:title="@string/saveToCalendar" app:showAsAction="never" />
+    <item android:icon="@drawable/ic_alarm_24" android:id="@+id/reisedetailsOptionsAlarm" android:visible="false" android:title="@string/reiseEinstellungenTitle" app:showAsAction="ifRoom" />
+    <item android:icon="@drawable/ic_maps_round" android:id="@+id/reisedetailsMaps" android:visible="false" android:title="@string/mapsShowMap" app:showAsAction="ifRoom" />
+    <item android:icon="@drawable/ic_share_content" android:id="@+id/reisedetailsShareOption" android:visible="false" android:title="@string/share" app:showAsAction="never" />
+    <item android:icon="@drawable/ic_qr_code_simple" android:id="@+id/reiseDetailsShareQrOption" android:visible="false" android:title="@string/verbindungteilenViaQrCode" app:showAsAction="never" />
+    <item android:icon="@drawable/ic_calendar" android:id="@+id/reisedetailsSaveToCalendarOption" android:visible="false" android:title="@string/saveToCalendar" app:showAsAction="never" />
 </menu>

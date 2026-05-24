@@ -35,19 +35,9 @@ class TicketDisplayActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.tvValidity).text = "Gültig am ${ticket.date}"
         }
 
+        findViewById<TextView>(R.id.tvStatus).text = "Gültig"
         findViewById<TextView>(R.id.tvPassengerName).text = ticket.lastName
         findViewById<TextView>(R.id.tvClass).text = ticket.travelClass
-
-        if (ticket.ticketId.isNotEmpty() || ticket.preis.isNotEmpty()) {
-            findViewById<android.view.View>(R.id.ticketDetailsSection).visibility =
-                android.view.View.VISIBLE
-            findViewById<TextView>(R.id.tvTicketId).text = ticket.ticketId
-            findViewById<TextView>(R.id.tvPreis).text = ticket.preis
-            if (ticket.gueltigVon.isNotEmpty() && ticket.gueltigBis.isNotEmpty()) {
-                findViewById<TextView>(R.id.tvGueltigkeitRange).text =
-                    "${ticket.gueltigVon} – ${ticket.gueltigBis}"
-            }
-        }
 
         if (ticket.from.isNotEmpty() && ticket.to.isNotEmpty()) {
             findViewById<android.view.View>(R.id.routeSection).visibility =
@@ -80,7 +70,6 @@ class TicketDisplayActivity : AppCompatActivity() {
         val size = 200
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val hash = data.hashCode()
-        val rng = java.util.Random(hash.toLong())
         for (x in 0 until size) {
             for (y in 0 until size) {
                 val blockX = x / 4

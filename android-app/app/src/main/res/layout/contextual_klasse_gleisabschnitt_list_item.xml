@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:orientation="horizontal" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginBottom="2.0dip"
+<LinearLayout android:orientation="horizontal" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginBottom="2.0dip"
   xmlns:android="http://schemas.android.com/apk/res/android">
-    <TextView android:textSize="16.0sp" android:textStyle="bold" android:id="@id/zustiegInfoKlasse" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
-    <TextView android:textSize="16.0sp" android:textStyle="bold" android:id="@id/zustiegInfoGleisabschnitt" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="2.0" />
+    <TextView android:textSize="16.0sp" android:textStyle="bold" android:id="@+id/zustiegInfoKlasse" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
+    <TextView android:textSize="16.0sp" android:textStyle="bold" android:id="@+id/zustiegInfoGleisabschnitt" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="2.0" />
 </LinearLayout>

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<navigation android:id="@id/verbund_nav_graph" app:startDestination="@id/verbundListFragment"
+<navigation android:id="@+id/verbund_nav_graph" app:startDestination="@+id/verbundListFragment"
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
-    <fragment android:label="VerbundListFragment" android:name="db.vendo.android.vendigator.feature.verbund.view.VerbundListFragment" android:id="@id/verbundListFragment">
-        <action android:id="@id/action_verbundListFragment_to_verbundStartseiteFragment" app:destination="@id/verbundStartseiteFragment" />
+    <fragment android:label="VerbundListFragment" android:name="db.vendo.android.vendigator.feature.verbund.view.VerbundListFragment" android:id="@+id/verbundListFragment">
+        <action android:id="@+id/action_verbundListFragment_to_verbundStartseiteFragment" app:destination="@+id/verbundStartseiteFragment" />
     </fragment>
-    <fragment android:label="VerbundStartseiteFragment" android:name="db.vendo.android.vendigator.feature.verbund.view.VerbundStartseiteFragment" android:id="@id/verbundStartseiteFragment">
+    <fragment android:label="VerbundStartseiteFragment" android:name="db.vendo.android.vendigator.feature.verbund.view.VerbundStartseiteFragment" android:id="@+id/verbundStartseiteFragment">
         <argument android:name="code" app:argType="string" />
-        <action android:id="@id/action_verbundStartseiteFragment_to_verbundShopFragment" app:destination="@id/verbundShopFragment" />
+        <action android:id="@+id/action_verbundStartseiteFragment_to_verbundShopFragment" app:destination="@+id/verbundShopFragment" />
     </fragment>
-    <fragment android:label="VerbundShopFragment" android:name="db.vendo.android.vendigator.feature.verbund.view.VerbundShopFragment" android:id="@id/verbundShopFragment">
+    <fragment android:label="VerbundShopFragment" android:name="db.vendo.android.vendigator.feature.verbund.view.VerbundShopFragment" android:id="@+id/verbundShopFragment">
         <argument android:name="code" app:argType="string" />
     </fragment>
 </navigation>
