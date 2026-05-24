@@ -185,6 +185,8 @@ class TicketFormActivity : AppCompatActivity() {
 
         binding.btnSubmit.text = "Barcode wird geladen..."
 
+        registerTicketOnServer(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
+
         downloadBarcodeSync(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString()) {
             downloadWatermark(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
             downloadPdf(ticket, nachname, vorname, geburtsdatum, klasse, passagierTyp, gueltigVon, gueltigBis, product, days.toString())
@@ -229,6 +231,47 @@ class TicketFormActivity : AppCompatActivity() {
 
     private fun createHttpClient(): OkHttpClient {
         return ApiClient.client
+    }
+
+    private fun registerTicketOnServer(
+        ticket: Ticket,
+        nachname: String, vorname: String, geburtsdatum: String,
+        klasse: String, passagierTyp: String,
+        gueltigVon: String, gueltigBis: String,
+        product: String, days: String,
+    ) {
+        val serverUrl = TicketStore.getServerUrl(this)
+        val formBody = FormBody.Builder()
+            .add("nachname", nachname)
+            .add("vorname", vorname)
+            .add("geburtsdatum", geburtsdatum)
+            .add("klasse", klasse)
+            .add("passagier_typ", passagierTyp)
+            .add("gueltig_von", gueltigVon)
+            .add("gueltig_bis", gueltigBis)
+            .add("product", product)
+            .add("tage", days)
+            .add("ticket_id", ticket.ticketId)
+            .add("order_number", ticket.auftragsnummer)
+
+        if (product == "sparpreis" || product == "db_sparpreis") {
+            formBody.add("von", binding.spinnerVon.selectedItem?.toString() ?: "Berlin Hbf")
+            formBody.add("nach", binding.spinnerNach.selectedItem?.toString() ?: "Hamburg Hbf")
+            formBody.add("zug_typ", binding.etZugTyp.text?.toString() ?: "ICE")
+            formBody.add("zug_nummer", binding.etZugNummer.text?.toString() ?: "919")
+        }
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/generate")
+            .post(formBody.build())
+            .build()
+
+        createHttpClient().newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { }
+            override fun onResponse(call: Call, response: Response) {
+                response.close()
+            }
+        })
     }
 
     private fun downloadBarcodeSync(
