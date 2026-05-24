@@ -178,10 +178,21 @@ def _analyze_apk(apk_path: str) -> dict:
                     except Exception:
                         continue
 
+    # Deduplicate layouts: keep only one entry per unique filename
+    # (Android stores variants in res/layout-land, res/layout-sw350dp-v13, etc.
+    #  but they represent the same logical layout)
+    seen_names: set[str] = set()
+    unique_layouts: list[str] = []
+    for lp in layouts:
+        base_name = lp.rsplit("/", 1)[-1] if "/" in lp else lp
+        if base_name not in seen_names:
+            seen_names.add(base_name)
+            unique_layouts.append(lp)
+
     # Separate app layouts from library layouts
     app_layouts = []
     lib_layouts = []
-    for lp in layouts:
+    for lp in unique_layouts:
         base_name = lp.rsplit("/", 1)[-1] if "/" in lp else lp
         if any(base_name.startswith(prefix) for prefix in LIBRARY_PREFIXES):
             lib_layouts.append(lp)
@@ -232,7 +243,7 @@ def _analyze_apk(apk_path: str) -> dict:
         "icon_data": icon_data,
         "icon_path": icon_path,
         "layouts": decoded_layouts,
-        "layout_count": len(layouts),
+        "layout_count": len(unique_layouts),
         "app_layout_count": len(app_layouts),
         "lib_layout_count": len(lib_layouts),
         "images": images[:200],
