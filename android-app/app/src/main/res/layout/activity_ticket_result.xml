@@ -5,14 +5,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background">
+    android:background="@color/greyBackground">
 
-    <!-- Dark Top Bar -->
+    <!-- Top Bar -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:background="@color/surface"
+        android:background="@color/dbCoolGray700"
         android:gravity="center_vertical"
         android:paddingStart="4dp"
         android:paddingEnd="16dp">
@@ -28,12 +28,12 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\u276E"
-                android:textColor="@color/text_primary"
-                android:textSize="20sp" />
+            <ImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_arrow_back_dark"
+                android:tint="@color/dbWhite"
+                android:contentDescription="@string/zurueck" />
         </LinearLayout>
 
         <TextView
@@ -41,17 +41,16 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Ticket"
-            android:textColor="@color/text_primary"
+            android:textColor="@color/dbWhite"
             android:textSize="18sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
+            android:fontFamily="@font/dbsans_bold" />
     </LinearLayout>
 
     <!-- Red accent line -->
     <View
         android:layout_width="match_parent"
-        android:layout_height="2dp"
-        android:background="@color/db_red" />
+        android:layout_height="4dp"
+        android:background="@color/dbRed" />
 
     <ScrollView
         android:id="@+id/scrollContent"
@@ -64,12 +63,12 @@
             android:orientation="vertical"
             android:paddingBottom="32dp">
 
-            <!-- Barcode area -->
+            <!-- Barcode area (white background like DB Navigator ticket view) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:background="@color/surface"
+                android:background="@color/lightBackground"
                 android:paddingTop="24dp"
                 android:paddingBottom="24dp">
 
@@ -79,8 +78,8 @@
                     android:layout_height="wrap_content"
                     android:adjustViewBounds="true"
                     android:scaleType="fitCenter"
-                    android:paddingStart="28dp"
-                    android:paddingEnd="28dp"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
                     android:contentDescription="Aztec Barcode" />
 
                 <TextView
@@ -89,22 +88,29 @@
                     android:layout_height="wrap_content"
                     android:text="Barcode wird geladen..."
                     android:textSize="13sp"
-                    android:textColor="@color/text_secondary"
+                    android:textColor="@color/defaultTextColorGrey"
+                    android:fontFamily="@font/dbsans_regular"
                     android:layout_gravity="center"
                     android:layout_marginTop="8dp"
                     android:visibility="gone" />
             </LinearLayout>
 
+            <!-- Drop shadow below barcode area -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:background="@drawable/drop_shadow_down" />
+
             <!-- Name + Details card -->
-            <com.google.android.material.card.MaterialCardView
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
-                android:layout_marginTop="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/card_bg">
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
+                android:layout_marginTop="12dp"
+                app:cardCornerRadius="4dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@color/lightBackground">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -117,22 +123,22 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="17sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:fontFamily="sans-serif-medium" />
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_bold" />
 
                     <TextView
                         android:id="@+id/tvCiv"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/defaultTextColorGrey"
+                        android:fontFamily="@font/dbsans_regular"
                         android:layout_marginTop="2dp" />
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="@color/divider"
+                        android:background="@color/lineDivider"
                         android:layout_marginTop="16dp"
                         android:layout_marginBottom="16dp" />
 
@@ -141,13 +147,13 @@
                         android:layout_height="wrap_content"
                         android:text="G\u00fcltigkeit"
                         android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_bold" />
 
                     <View
-                        android:layout_width="36dp"
-                        android:layout_height="2dp"
-                        android:background="@color/db_red"
+                        android:layout_width="40dp"
+                        android:layout_height="4dp"
+                        android:background="@color/dbRed"
                         android:layout_marginTop="4dp"
                         android:layout_marginBottom="10dp" />
 
@@ -156,7 +162,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:lineSpacingExtra="3sp" />
 
                     <TextView
@@ -164,7 +171,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:layout_marginTop="3dp" />
 
                     <TextView
@@ -172,7 +180,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:layout_marginTop="3dp" />
 
                     <TextView
@@ -180,7 +189,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:visibility="gone"
                         android:layout_marginTop="3dp" />
 
@@ -189,23 +199,24 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:layout_marginTop="3dp" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </androidx.cardview.widget.CardView>
 
             <!-- Verbindung card -->
-            <com.google.android.material.card.MaterialCardView
+            <androidx.cardview.widget.CardView
                 android:id="@+id/sectionVerbindung"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
                 android:layout_marginTop="12dp"
                 android:visibility="gone"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/card_bg">
+                app:cardCornerRadius="4dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@color/lightBackground">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -218,13 +229,13 @@
                         android:layout_height="wrap_content"
                         android:text="Verbindung"
                         android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_bold" />
 
                     <View
-                        android:layout_width="36dp"
-                        android:layout_height="2dp"
-                        android:background="@color/db_red"
+                        android:layout_width="40dp"
+                        android:layout_height="4dp"
+                        android:background="@color/dbRed"
                         android:layout_marginTop="4dp"
                         android:layout_marginBottom="10dp" />
 
@@ -233,21 +244,22 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:lineSpacingExtra="3sp" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </androidx.cardview.widget.CardView>
 
             <!-- Buchungsdetails card -->
-            <com.google.android.material.card.MaterialCardView
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
                 android:layout_marginTop="12dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/card_bg">
+                app:cardCornerRadius="4dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@color/lightBackground">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -260,13 +272,13 @@
                         android:layout_height="wrap_content"
                         android:text="Buchungsdetails"
                         android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_bold" />
 
                     <View
-                        android:layout_width="36dp"
-                        android:layout_height="2dp"
-                        android:background="@color/db_red"
+                        android:layout_width="40dp"
+                        android:layout_height="4dp"
+                        android:background="@color/dbRed"
                         android:layout_marginTop="4dp"
                         android:layout_marginBottom="10dp" />
 
@@ -275,7 +287,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:lineSpacingExtra="3sp" />
 
                     <TextView
@@ -283,7 +296,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:layout_marginTop="3dp" />
 
                     <TextView
@@ -291,22 +305,22 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/db_red"
+                        android:textColor="@color/dbGreen"
+                        android:fontFamily="@font/dbsans_bold"
                         android:layout_marginTop="3dp" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </androidx.cardview.widget.CardView>
 
             <!-- Konditionen card -->
-            <com.google.android.material.card.MaterialCardView
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
                 android:layout_marginTop="12dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/card_bg">
+                app:cardCornerRadius="4dp"
+                app:cardElevation="6dp"
+                app:cardBackgroundColor="@color/lightBackground">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -319,13 +333,13 @@
                         android:layout_height="wrap_content"
                         android:text="Konditionen"
                         android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary" />
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_bold" />
 
                     <View
-                        android:layout_width="36dp"
-                        android:layout_height="2dp"
-                        android:background="@color/db_red"
+                        android:layout_width="40dp"
+                        android:layout_height="4dp"
+                        android:background="@color/dbRed"
                         android:layout_marginTop="4dp"
                         android:layout_marginBottom="10dp" />
 
@@ -334,7 +348,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/defaultTextColorGrey"
+                        android:fontFamily="@font/dbsans_regular"
                         android:lineSpacingExtra="3sp" />
 
                     <TextView
@@ -342,7 +357,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="13sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:layout_marginTop="8dp" />
 
                     <TextView
@@ -350,10 +366,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textSize="13sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/defaultTextColorGrey"
+                        android:fontFamily="@font/dbsans_regular"
                         android:layout_marginTop="4dp" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </androidx.cardview.widget.CardView>
 
             <!-- Watermark -->
             <ImageView
@@ -363,20 +380,20 @@
                 android:adjustViewBounds="true"
                 android:scaleType="fitCenter"
                 android:layout_marginTop="16dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
                 android:contentDescription="Watermark" />
 
             <!-- Weitere Aktionen Button -->
-            <com.google.android.material.button.MaterialButton
+            <Button
                 android:id="@+id/btnWeitereAktionen"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
                 android:layout_marginTop="20dp"
                 android:text="Weitere Aktionen"
-                style="@style/Widget.DBTickets.Button.Outlined" />
+                style="@style/DBBorderButton" />
 
             <!-- Hidden fields -->
             <TextView android:id="@+id/tvTicketId" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />

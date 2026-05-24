@@ -4,13 +4,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background">
+    android:background="@color/greyBackground">
 
-    <!-- Dark Top Bar (like DB Navigator) -->
+    <!-- Top Bar (DB Navigator style) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:background="@color/surface"
+        android:background="@color/dbCoolGray700"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="20dp"
@@ -21,10 +21,9 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/app_name"
-            android:textColor="@color/text_primary"
+            android:textColor="@color/dbWhite"
             android:textSize="20sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
+            android:fontFamily="@font/dbsans_bold" />
 
         <ImageButton
             android:layout_width="44dp"
@@ -32,18 +31,18 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_more"
             android:contentDescription="Menu"
-            android:tint="@color/text_primary"
+            android:tint="@color/dbWhite"
             android:clickable="true"
             android:focusable="true"
             android:onClick="onMenuClick"
             android:scaleType="center" />
     </LinearLayout>
 
-    <!-- Thin red accent line under top bar -->
+    <!-- Red underline accent (DB Navigator pattern) -->
     <View
         android:layout_width="match_parent"
-        android:layout_height="2dp"
-        android:background="@color/db_red" />
+        android:layout_height="4dp"
+        android:background="@color/dbRed" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipeRefresh"
@@ -60,12 +59,12 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- Ticket Abrufen Section -->
+                <!-- Ticket Abrufen section (white card area) -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:background="@color/surface"
+                    android:background="@drawable/background_rounded_corner_bottom"
                     android:paddingStart="20dp"
                     android:paddingEnd="20dp"
                     android:paddingTop="24dp"
@@ -76,18 +75,25 @@
                         android:layout_height="wrap_content"
                         android:text="@string/ticket_abrufen"
                         android:textSize="22sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:fontFamily="sans-serif-medium" />
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_bold" />
+
+                    <!-- Red underline like DB Navigator section headers -->
+                    <View
+                        android:layout_width="50dp"
+                        android:layout_height="4dp"
+                        android:background="@color/dbRed"
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="12dp" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/ticket_abrufen_beschreibung"
                         android:textSize="14sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/defaultTextColorGrey"
+                        android:fontFamily="@font/dbsans_regular"
                         android:lineSpacingExtra="3sp"
-                        android:layout_marginTop="6dp"
                         android:layout_marginBottom="18dp" />
 
                     <EditText
@@ -100,8 +106,9 @@
                         android:paddingStart="16dp"
                         android:paddingEnd="16dp"
                         android:textSize="16sp"
-                        android:textColor="@color/text_primary"
-                        android:textColorHint="@color/text_hint"
+                        android:textColor="@color/defaultTextColor"
+                        android:textColorHint="@color/dbCoolGray400"
+                        android:fontFamily="@font/dbsans_regular"
                         android:layout_marginBottom="12dp" />
 
                     <TextView
@@ -109,16 +116,17 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textSize="13sp"
-                        android:textColor="@color/db_red"
+                        android:textColor="@color/errorTextColor"
+                        android:fontFamily="@font/dbsans_regular"
                         android:visibility="gone"
                         android:layout_marginBottom="8dp" />
 
-                    <com.google.android.material.button.MaterialButton
+                    <Button
                         android:id="@+id/btnLoadTicket"
                         android:layout_width="match_parent"
                         android:layout_height="50dp"
                         android:text="@string/ticket_laden"
-                        style="@style/Widget.DBTickets.Button.Gray" />
+                        style="@style/DBPrimaryButton" />
 
                     <ProgressBar
                         android:id="@+id/progressBar"
@@ -127,14 +135,14 @@
                         android:layout_gravity="center"
                         android:visibility="gone"
                         android:layout_marginTop="12dp"
-                        android:indeterminateTint="@color/db_red" />
+                        android:indeterminateTint="@color/dbRed" />
                 </LinearLayout>
 
-                <!-- Divider -->
+                <!-- Drop shadow (DB Navigator pattern) -->
                 <View
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/divider" />
+                    android:layout_height="4dp"
+                    android:background="@drawable/drop_shadow_down" />
 
                 <!-- Tickets Section -->
                 <LinearLayout
@@ -156,10 +164,11 @@
                         android:paddingStart="16dp"
                         android:paddingEnd="16dp"
                         android:textSize="14sp"
-                        android:textColor="@color/text_primary"
-                        android:textColorHint="@color/text_hint"
-                        android:drawableStart="@android:drawable/ic_menu_search"
-                        android:drawableTint="@color/text_hint"
+                        android:textColor="@color/defaultTextColor"
+                        android:textColorHint="@color/dbCoolGray400"
+                        android:fontFamily="@font/dbsans_regular"
+                        android:drawableStart="@drawable/ic_search_black_24"
+                        android:drawableTint="@color/iconColor"
                         android:drawablePadding="10dp"
                         android:visibility="gone"
                         android:layout_marginBottom="16dp" />
@@ -170,9 +179,8 @@
                         android:layout_height="wrap_content"
                         android:text="@string/letzte_tickets"
                         android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:fontFamily="sans-serif-medium"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_bold"
                         android:layout_marginBottom="16dp"
                         android:visibility="gone" />
 
@@ -182,7 +190,8 @@
                         android:layout_height="wrap_content"
                         android:text="@string/noch_keine_tickets"
                         android:textSize="15sp"
-                        android:textColor="@color/text_secondary"
+                        android:textColor="@color/defaultTextColorGrey"
+                        android:fontFamily="@font/dbsans_regular"
                         android:gravity="center"
                         android:layout_marginTop="48dp"
                         android:layout_marginBottom="48dp"

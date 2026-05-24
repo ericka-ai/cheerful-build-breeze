@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DB Navigator night mode overrides (exact copy) -->
+    <color name="defaultTextColor">@color/dbWhite</color>
+    <color name="defaultTextColorGrey">@color/dbCoolGray300</color>
+    <color name="defaultTextColorDisabled">@color/dbCoolGray500</color>
+    <color name="lightBackground">@color/dbCoolGray700</color>
+    <color name="greyBackground">@color/dbCoolGray800</color>
+    <color name="greyBackgroundPressed">@color/dbCoolGray600</color>
+    <color name="lineDivider">@color/dbCoolGray600</color>
+    <color name="iconColor">@color/dbCoolGray300</color>
+    <color name="errorTextColor">@color/dbRed300</color>
+    <color name="drop_shadow_grey">#20000000</color>
+
+    <color name="dbRed">@color/dbRed300</color>
+    <color name="dbGreen">@color/dbLightGreen300</color>
+
+    <color name="primaryButtonEnabled">@color/dbCoolGray500</color>
+    <color name="primaryButtonDisabled">@color/dbCoolGray600</color>
+    <color name="primaryButtonDisabledText">@color/dbCoolGray400</color>
+    <color name="borderButtonEnabled">@color/dbCoolGray500</color>
+    <color name="borderButtonDisabled">@color/dbCoolGray700</color>
+    <color name="borderButtonTextEnabled">@color/dbWhite</color>
+    <color name="borderButtonTextDisabled">@color/dbCoolGray700</color>
+    <color name="selector_color_primary_button">@color/primaryButtonEnabled</color>
+</resources>
