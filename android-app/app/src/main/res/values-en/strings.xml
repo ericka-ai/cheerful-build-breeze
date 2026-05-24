@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DB Tickets</string>
+    <string name="ticket_form_title">Create Ticket</string>
+    <string name="ticket_result_title">Order</string>
+    <string name="settings_title">Settings</string>
+
+    <string name="german_rail_pass">German Rail Pass</string>
+    <string name="eurail_global_pass">Eurail Global Pass</string>
+    <string name="deutschland_ticket">Deutschlandticket</string>
+    <string name="db_sparpreis">DB Sparpreis</string>
+
+    <string name="grp_desc">Travel flexibly across Germany</string>
+    <string name="eurail_desc">Discover all of Europe</string>
+    <string name="dt_desc">Monthly local transport</string>
+    <string name="sparpreis_desc">Travel cheaply from A to B</string>
+
+    <string name="nachname">Last name</string>
+    <string name="vorname">First name</string>
+    <string name="geburtsdatum">Date of birth</string>
+    <string name="gueltig_von">Valid from</string>
+    <string name="gueltig_bis">Valid until</string>
+    <string name="klasse">Class</string>
+    <string name="passagier_typ">Passenger type</string>
+    <string name="reisetage">Travel days</string>
+    <string name="pass_typ">Pass type</string>
+    <string name="von_station">From</string>
+    <string name="nach_station">To</string>
+    <string name="zug_typ">Train type</string>
+    <string name="zug_nummer">Train number</string>
+    <string name="abfahrt_zeit">Departure time</string>
+    <string name="ankunft_zeit">Arrival time</string>
+
+    <string name="ticket_erstellen">Create ticket</string>
+    <string name="bitte_warten">Please wait...</string>
+
+    <string name="auftragsnummer">Order number</string>
+    <string name="ticket_id">Ticket ID</string>
+    <string name="pdf_herunterladen">Download PDF</string>
+    <string name="neues_ticket">New ticket</string>
+    <string name="zurueck">Back</string>
+
+    <string name="server_url">Server URL</string>
+    <string name="server_url_hint">https://example.com</string>
+    <string name="speichern">Save</string>
+
+    <string name="error_connection">Connection to server failed</string>
+    <string name="error_fields">Please fill in all required fields</string>
+    <string name="success_ticket">Ticket created successfully!</string>
+    <string name="success_settings">Settings saved!</string>
+
+    <string name="klasse_1">1st Class</string>
+    <string name="klasse_2">2nd Class</string>
+    <string name="erwachsener">Adult</string>
+    <string name="jugendlicher">Youth</string>
+
+    <string name="consecutive">Consecutive</string>
+    <string name="flexi">Flexi</string>
+
+    <string name="ticket_abrufen">Load ticket</string>
+    <string name="ticket_abrufen_beschreibung">Enter your order number to load your ticket.</string>
+    <string name="ticket_laden">Load ticket</string>
+    <string name="wird_geladen">Loading...</string>
+    <string name="bitte_auftragsnummer_eingeben">Please enter order number</string>
+    <string name="ticket_nicht_gefunden">Ticket not found</string>
+    <string name="fehler_beim_laden">Error loading ticket</string>
+    <string name="letzte_tickets">Recent Tickets</string>
+    <string name="noch_keine_tickets">No tickets loaded yet</string>
+    <string name="tickets_durchsuchen">Search tickets...</string>
+    <string name="ticket_loeschen">Delete ticket</string>
+    <string name="ticket_loeschen_frage">Do you really want to delete ticket %s?</string>
+    <string name="loeschen">Delete</string>
+    <string name="abbrechen">Cancel</string>
+    <string name="ticket_geloescht">Ticket deleted</string>
+    <string name="authentifizierung_fehlgeschlagen">Authentication failed</string>
+    <string name="identifiziere_dich">Identify yourself to continue</string>
+    <string name="ticket_teilen">Share ticket</string>
+    <string name="ticket_teilen_text">My ticket %1$s (%2$s)\nValid: %3$s - %4$s\nOrder no: %5$s</string>
+    <string name="backup_exportieren">Export backup</string>
+    <string name="backup_importieren">Import backup</string>
+    <string name="backup_erfolgreich">Backup exported successfully</string>
+    <string name="restore_erfolgreich">%d tickets imported</string>
+    <string name="keine_tickets_zum_exportieren">No tickets to export</string>
+</resources>

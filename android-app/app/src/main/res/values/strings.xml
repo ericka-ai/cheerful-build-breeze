@@ -56,4 +56,29 @@
 
     <string name="consecutive">Konsekutiv</string>
     <string name="flexi">Flexi</string>
+
+    <string name="ticket_abrufen">Ticket abrufen</string>
+    <string name="ticket_abrufen_beschreibung">Gib deine Auftragsnummer ein, um dein Ticket zu laden.</string>
+    <string name="ticket_laden">Ticket laden</string>
+    <string name="wird_geladen">Wird geladen...</string>
+    <string name="bitte_auftragsnummer_eingeben">Bitte Auftragsnummer eingeben</string>
+    <string name="ticket_nicht_gefunden">Ticket nicht gefunden</string>
+    <string name="fehler_beim_laden">Fehler beim Laden des Tickets</string>
+    <string name="letzte_tickets">Letzte Tickets</string>
+    <string name="noch_keine_tickets">Noch keine Tickets geladen</string>
+    <string name="tickets_durchsuchen">Tickets durchsuchen...</string>
+    <string name="ticket_loeschen">Ticket loeschen</string>
+    <string name="ticket_loeschen_frage">Moechtest du das Ticket %s wirklich loeschen?</string>
+    <string name="loeschen">Loeschen</string>
+    <string name="abbrechen">Abbrechen</string>
+    <string name="ticket_geloescht">Ticket geloescht</string>
+    <string name="authentifizierung_fehlgeschlagen">Authentifizierung fehlgeschlagen</string>
+    <string name="identifiziere_dich">Identifiziere dich um fortzufahren</string>
+    <string name="ticket_teilen">Ticket teilen</string>
+    <string name="ticket_teilen_text">Mein Ticket %1$s (%2$s)\nGueltig: %3$s - %4$s\nAuftrags-Nr: %5$s</string>
+    <string name="backup_exportieren">Backup exportieren</string>
+    <string name="backup_importieren">Backup importieren</string>
+    <string name="backup_erfolgreich">Backup erfolgreich exportiert</string>
+    <string name="restore_erfolgreich">%d Tickets importiert</string>
+    <string name="keine_tickets_zum_exportieren">Keine Tickets zum Exportieren</string>
 </resources>
