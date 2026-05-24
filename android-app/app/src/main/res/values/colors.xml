@@ -1,6 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <!-- DB Navigator exact color palette -->
+    
     <color name="dbRed">#ffec0016</color>
     <color name="dbRed300">#fffa9090</color>
     <color name="dbRed400">#fff75056</color>
@@ -26,7 +26,7 @@
     <color name="dbLightGreen800">#ff2a7230</color>
     <color name="dbGreen">#ff508b1b</color>
 
-    <!-- Semantic colors (light mode - same as DB Navigator) -->
+    
     <color name="defaultTextColor">@color/dbCoolGray700</color>
     <color name="defaultTextColorGrey">@color/dbCoolGray500</color>
     <color name="defaultTextColorDisabled">@color/dbCoolGray300</color>
@@ -38,7 +38,7 @@
     <color name="errorTextColor">@color/dbRed</color>
     <color name="drop_shadow_grey">#37000000</color>
 
-    <!-- Button colors -->
+    
     <color name="primaryButtonEnabled">@color/dbCoolGray700</color>
     <color name="primaryButtonDisabled">@color/dbCoolGray300</color>
     <color name="primaryButtonDisabledText">@color/dbCoolGray400</color>
@@ -48,7 +48,7 @@
     <color name="borderButtonTextDisabled">@color/dbCoolGray200</color>
     <color name="selector_color_primary_button">@color/primaryButtonEnabled</color>
 
-    <!-- Backward compat aliases -->
+    
     <color name="db_red">#ffec0016</color>
     <color name="background">#ff131821</color>
     <color name="surface">@color/dbCoolGray700</color>
@@ -71,9 +71,9 @@
     <color name="dt_green">@color/dbGreen</color>
     <color name="surface_variant">@color/dbCoolGray600</color>
 
-    <!-- Bottom bar -->
+    
     <color name="bottomBarTextColor">@color/dbWhite</color>
 
-    <!-- Progressbar -->
+    
     <color name="progressBarColor">@color/dbRed</color>
-</resources>
+<color name="bestpreisIndicator">#000000</color><color name="bevorzugtBadgeText">#000000</color><color name="browser_actions_bg_grey">#000000</color><color name="browser_actions_divider_color">#000000</color><color name="browser_actions_text_color">#000000</color><color name="browser_actions_title_color">#000000</color><color name="contextualBottomSheetBackgroundColorExpand">#000000</color><color name="contextualItemBackground">#000000</color><color name="contextualPerlFuture">#000000</color><color name="contextualPerlPast">#000000</color><color name="db_edit_text_color_with_disabled_state">#000000</color><color name="gleisChipText">#000000</color><color name="gleisDefault">#000000</color><color name="greyDayNight">#000000</color><color name="iconColorOnWhite">#000000</color><color name="orange">#000000</color><color name="perlDefaultFuture">#000000</color><color name="perlDefaultPast">#000000</color><color name="produktICE">#000000</color><color name="progressOverlayBackground">#000000</color><color name="reiseloesungAngebotInfoBackground">#000000</color><color name="roundButtonBorderColor">#000000</color><color name="spinnerItemBackground">#000000</color><color name="stickyFooterBackgroundColor">#000000</color><color name="stickyFooterIconColor">#000000</color><color name="stickyFooterTextColor">#000000</color><color name="textColorWhite">#000000</color><color name="ticketOverlayBackground">#000000</color><color name="transparent">#000000</color><color name="tutorialOverlayBackground">#000000</color><color name="ucrop_color_crop_background">#000000</color><color name="ucrop_color_toolbar">#000000</color><color name="ucrop_color_toolbar_widget">#000000</color><color name="ucrop_color_widget_background">#000000</color><color name="ucrop_color_widget_rotate_angle">#000000</color><color name="verbindungsdetailsGreyBackground">#000000</color><color name="verbindungsdetailsGreyWalkway">#000000</color><color name="verbindungsdetails_grey">#000000</color><color name="wagenreihungAttributeListBackground">#000000</color><color name="wagenreihungBlueBoxTextColor">#000000</color><color name="wagenreihungLightBlueBackground">#000000</color><color name="wagenreihungMainBackground">#000000</color><color name="wagenreihungPagerBackground">#000000</color><color name="wagenreihungSidescrollBackground">#000000</color><color name="wagenreihungWagenTextSecondClass">#000000</color><color name="wagenreihungWagonNumberSelectedTextColor">#000000</color><color name="wagenreihungWagonNumberTextColor">#000000</color><color name="white">#000000</color></resources>

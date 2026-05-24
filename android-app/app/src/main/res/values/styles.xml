@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources><style name="AppTheme.ProgressBar" /><style name="BottomSheetItem" /><style name="DBBorderedButton" /><style name="DBBorderedButtonScalableText" /><style name="DBContextualButton" /><style name="DBDangerousButton" /><style name="DBGeneralTabs" /><style name="DBHeadTextView" /><style name="DBNumberPicker" /><style name="DBToolbar" /><style name="DeepLinkHeaderBar" /><style name="DeepLinkHeaderBarSubtitle" /><style name="DeepLinkHeaderBarText" /><style name="DialogButton" /><style name="DialogMessage" /><style name="DialogTitle" /><style name="Qualtrics.MobileEmbeddedFeedback.Theme" /><style name="RtlOverlay.Widget.AppCompat.ActionBar.TitleItem" parent="@android:style/Widget">
+        <item name="android:layout_gravity">start|center</item>
+        <item name="android:paddingEnd">8.0dip</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.PopupMenuItem" parent="@android:style/Widget">
+        <item name="android:paddingEnd">16.0dip</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.PopupMenuItem.InternalGroup" parent="@android:style/Widget">
+        <item name="android:layout_marginStart">16.0dip</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.PopupMenuItem.Shortcut" parent="@android:style/Widget">
+        <item name="android:textAlignment">viewEnd</item>
+        <item name="android:layout_marginStart">16.0dip</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.PopupMenuItem.SubmenuArrow" parent="@android:style/Widget">
+        <item name="android:layout_marginStart">8.0dip</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.PopupMenuItem.Text" parent="@android:style/Widget">
+        <item name="android:textAlignment">viewStart</item>
+        <item name="android:layout_alignParentStart">true</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.PopupMenuItem.Title" parent="@android:style/Widget">
+        <item name="android:textAlignment">viewStart</item>
+        <item name="android:layout_marginStart">16.0dip</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.Search.DropDown" parent="@android:style/Widget">
+        <item name="android:paddingStart">@dimen/abc_dropdownitem_text_padding_left</item>
+        <item name="android:paddingEnd">4.0dip</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.Search.DropDown.Icon1" parent="@android:style/Widget">
+        <item name="android:layout_alignParentStart">true</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.Search.DropDown.Icon2" parent="@android:style/Widget">
+        <item name="android:layout_toStartOf">@id/edit_query</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.Search.DropDown.Query" parent="@android:style/Widget">
+        <item name="android:layout_alignParentEnd">true</item>
+    </style><style name="RtlOverlay.Widget.AppCompat.SearchView.MagIcon" parent="@android:style/Widget">
+        <item name="android:layout_marginStart">@dimen/abc_dropdownitem_text_padding_left</item>
+    </style><style name="ShapeAppearanceOverlay.App.LeftRoundedCorners" /><style name="ShapeAppearanceOverlay.App.RoundButton24" /><style name="SpinnerStyle" /><style name="TextAppearance.AppCompat.Body2" parent="@style/Base.TextAppearance.AppCompat.Body2" /><style name="TextAppearance.AppCompat.Subhead" parent="@style/Base.TextAppearance.AppCompat.Subhead" /><style name="TextAppearance.AppCompat.Tooltip" parent="@style/TextAppearance.AppCompat">
+        <item name="android:textSize">14.0sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+    </style><style name="TextAppearance.Compat.Notification.Info" parent="@android:style/TextAppearance.Material.Notification.Info" /><style name="TextAppearance.Compat.Notification.Time" parent="@android:style/TextAppearance.Material.Notification.Time" /><style name="TextAppearance.Design.Snackbar.Message" parent="@android:style/TextAppearance">
+        <item name="android:textSize">@dimen/design_snackbar_text_size</item>
+        <item name="android:textColor">?android:textColorPrimary</item>
+    </style><style name="TextAppearance.Widget.AppCompat.Toolbar.Title" parent="@style/Base.TextAppearance.Widget.AppCompat.Toolbar.Title" /><style name="TextInputError" /><style name="TextInputGrey" /><style name="ThemeOverlay.AppCompat.Dark" parent="@style/Base.ThemeOverlay.AppCompat.Dark" /><style name="ToolbarTitleText" /><style name="Widget.AppCompat.ListView" parent="@style/Base.Widget.AppCompat.ListView" /><style name="Widget.Compat.NotificationActionContainer" parent="">
+        <item name="android:background">@drawable/notification_action_background</item>
+    </style><style name="Widget.Compat.NotificationActionText" parent="">
+        <item name="android:textAppearance">?android:textAppearanceButton</item>
+        <item name="android:textSize">@dimen/notification_action_text_size</item>
+        <item name="android:textColor">@color/androidx_core_secondary_text_default_material_light</item>
+    </style><style name="Widget.Design.Snackbar" parent="@android:style/Widget">
+        <item name="android:background">@drawable/design_snackbar_background</item>
+        <item name="android:paddingLeft">@dimen/design_snackbar_padding_horizontal</item>
+        <item name="android:paddingRight">@dimen/design_snackbar_padding_horizontal</item>
+        <item name="android:maxWidth">@dimen/design_snackbar_max_width</item>
+        <item name="android:minWidth">@dimen/design_snackbar_min_width</item>
+        <item name="actionTextColorAlpha">@dimen/design_snackbar_action_text_color_alpha</item>
+        <item name="animationMode">slide</item>
+        <item name="elevation">@dimen/design_snackbar_elevation</item>
+        <item name="maxActionInlineWidth">@dimen/design_snackbar_action_inline_max_width</item>
+    </style><style name="redboxButton" /><style name="ucrop_ImageViewWidgetIcon" /><style name="ucrop_TextViewCropAspectRatio" /><style name="ucrop_TextViewWidget" /><style name="ucrop_TextViewWidgetText" /><style name="ucrop_WrapperIconState" /><style name="ucrop_WrapperRotateButton" /><style name="AppTheme" parent="Theme.MaterialComponents.Light.NoActionBar" /><style name="Qualtrics.MobileEmbeddedFeedback" /><style name="ShapeAppearanceOverlay.App" /><style name="Qualtrics" /><style name="ShapeAppearanceOverlay" /></resources>

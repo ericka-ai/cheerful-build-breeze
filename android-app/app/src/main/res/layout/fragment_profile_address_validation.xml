@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout android:id="@id/fragmentProfileAddressValidationRoot" android:background="@color/greyBackground" android:layout_width="fill_parent" android:layout_height="fill_parent"
+<FrameLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:id="@id/fragmentProfileAddressValidationRoot" android:background="@color/greyBackground" android:layout_width="fill_parent" android:layout_height="fill_parent"
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
     <ScrollView android:scrollbars="none" android:clipToPadding="true" android:layout_width="fill_parent" android:layout_height="fill_parent">
         <LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content">

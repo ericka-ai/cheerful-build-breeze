@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout android:orientation="vertical" android:paddingTop="8.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content"
+<LinearLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:orientation="vertical" android:paddingTop="8.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content"
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
     <ImageView android:id="@id/reiseloesungNotizIcon" android:layout_width="20.0sp" android:layout_height="20.0sp" android:importantForAccessibility="no" app:srcCompat="@drawable/ic_hint_normal" />
     <TextView android:textColor="@color/dbRed" android:ellipsize="none" android:layout_gravity="center_vertical" android:id="@id/reiseloesungNotiz" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" android:lineSpacingExtra="6.0sp" android:layout_marginEnd="16.0dip" />
