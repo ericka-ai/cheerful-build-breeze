@@ -16,7 +16,7 @@ class BuchenFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         view.findViewById<View>(R.id.btnSuchen).setOnClickListener {
-            Toast.makeText(requireContext(), "Verbindungssuche kommt bald", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Verbindungssuche", Toast.LENGTH_SHORT).show()
         }
     }
 }

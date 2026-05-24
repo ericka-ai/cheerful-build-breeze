@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content"
+<LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content"
   xmlns:android="http://schemas.android.com/apk/res/android">
-    <TextView android:textSize="16.0sp" android:id="@id/dialogErrorMessage" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:layout_marginHorizontal="24.0dip" />
-    <TextView android:textSize="12.0sp" android:textStyle="bold" android:id="@id/dialogErrorCorrelationId" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:layout_marginHorizontal="24.0dip" />
-    <TextView android:textSize="12.0sp" android:textStyle="bold" android:id="@id/dialogErrorTimestamp" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" android:layout_marginHorizontal="24.0dip" />
+    <TextView android:textSize="16.0sp" android:id="@+id/dialogErrorMessage" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="24.0dip" android:layout_marginTop="16.0dip" android:layout_marginRight="24.0dip" android:layout_marginHorizontal="24.0dip" />
+    <TextView android:textSize="12.0sp" android:textStyle="bold" android:id="@+id/dialogErrorCorrelationId" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="24.0dip" android:layout_marginTop="16.0dip" android:layout_marginRight="24.0dip" android:layout_marginHorizontal="24.0dip" />
+    <TextView android:textSize="12.0sp" android:textStyle="bold" android:id="@+id/dialogErrorTimestamp" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="24.0dip" android:layout_marginTop="4.0dip" android:layout_marginRight="24.0dip" android:layout_marginHorizontal="24.0dip" />
     <ScrollView android:layout_width="wrap_content" android:layout_height="wrap_content">
-        <TextView android:textSize="12.0sp" android:textStyle="bold" android:id="@id/dialogErrorAdditionalText" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" android:lineSpacingExtra="4.0sp" android:layout_marginHorizontal="24.0dip" />
+        <TextView android:textSize="12.0sp" android:textStyle="bold" android:id="@+id/dialogErrorAdditionalText" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginLeft="24.0dip" android:layout_marginTop="4.0dip" android:layout_marginRight="24.0dip" android:lineSpacingExtra="4.0sp" android:layout_marginHorizontal="24.0dip" />
     </ScrollView>
 </LinearLayout>

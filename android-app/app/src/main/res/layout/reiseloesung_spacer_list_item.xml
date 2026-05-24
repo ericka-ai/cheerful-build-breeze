@@ -1,3 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
-<View xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:id="@id/reiseloesungTagListItem" android:layout_width="fill_parent" android:layout_height="12.0dip"
+<View android:id="@+id/reiseloesungTagListItem" android:layout_width="fill_parent" android:layout_height="12.0dip"
   xmlns:android="http://schemas.android.com/apk/res/android" />

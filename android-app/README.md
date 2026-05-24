@@ -9,10 +9,11 @@ Native Android-App zum Erstellen von DB Tickets (German Rail Pass, Eurail Global
   - Eurail Global Pass
   - Deutschlandticket
   - DB Sparpreis
-- **Formular** mit Nachname, Vorname, Geburtsdatum, Klasse, Passagier-Typ
-- **Dynamische Felder** je nach Ticket-Typ (Reisetage, Stationen, Zugtyp)
+- **Formular** mit Nachname und Auftragsnummer
 - **Server-Integration** mit dem FastAPI-Backend (`/api/generate`)
-- **Auftragsnummer** wird automatisch generiert
+- **Echte Tickets** werden vom Server geladen (Auftragsnummer + Nachname)
+- **Bottom-Navigation** mit Reisen, Buchen, Profil
+- **Server-URL Einstellung** im Profil-Tab konfigurierbar
 
 ## Voraussetzungen
 
@@ -27,10 +28,11 @@ Native Android-App zum Erstellen von DB Tickets (German Rail Pass, Eurail Global
 
 ## Server einrichten
 
+Standard Server-URL: `https://cheerful-build-breeze-8.onrender.com`
+
 1. App starten
-2. Zahnrad-Icon oben rechts antippen → Einstellungen
-3. Server-URL eingeben (z.B. `https://dein-server.onrender.com`)
-4. Speichern
+2. Im Tab "Profil" die Server-URL pruefen/aendern
+3. Speichern
 
 ## Entwicklung
 
@@ -56,31 +58,37 @@ Die APK befindet sich dann unter:
 android-app/
   app/src/main/
     java/com/dbtickets/app/
-      MainActivity.kt          # Startbildschirm mit Ticket-Buttons
-      TicketFormActivity.kt     # Formular (Name, Geburtsdatum, etc.)
-      TicketResultActivity.kt   # Ergebnis mit Auftragsnummer
-      SettingsActivity.kt       # Server-URL Einstellungen
+      MainActivity.kt          # Hauptaktivitaet mit Navigation
+      BuchenFragment.kt        # Verbindungssuche
+      ReisenFragment.kt        # Ticket-Liste
+      ProfilFragment.kt        # Profil + Server-Einstellungen
+      Ticket.kt                # Datenmodell
+      TicketStore.kt           # Lokaler Ticket-Speicher
+      TicketDisplayActivity.kt # Ticket-Detailansicht
+      TicketApiClient.kt       # HTTP-Client fuer Server-API
+      ServerConfig.kt          # Server-URL Verwaltung
     res/
-      layout/                   # XML Layouts
-      values/                   # Strings, Colors, Themes
+      layout/                  # XML Layouts
+      values/                  # Strings, Colors, Themes
 ```
 
 ## API Endpoint
 
 Die App nutzt `POST /api/generate` mit folgenden Feldern:
-- `nachname`, `vorname`, `geburtsdatum` (Pflicht)
-- `klasse`, `passagier_typ`, `product`, `tage`
-- `gueltig_von`, `gueltig_bis`
-- `von`, `nach`, `zug_typ`, `zug_nummer` (fuer Sparpreis)
+- `auftragsnummer` (Pflicht)
+- `nachname` (Pflicht)
 
 Response (JSON):
 ```json
 {
   "auftragsnummer": "1234567890123",
+  "nachname": "Mustermann",
   "ticket_id": "1234567",
-  "preis": "452,00€",
-  "product": "grp_consecutive",
+  "klasse": "2. Klasse",
+  "preis": "452,00\u20ac",
+  "product": "German Rail Pass (Konsekutiv)",
   "gueltig_von": "23.05.2026",
-  "gueltig_bis": "06.06.2026"
+  "gueltig_bis": "06.06.2026",
+  "status": "G\u00fcltig"
 }
 ```

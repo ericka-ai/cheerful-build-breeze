@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:orientation="vertical" android:layout_width="wrap_content" android:layout_height="fill_parent" android:alpha="0.0"
+<FrameLayout android:orientation="vertical" android:layout_width="wrap_content" android:layout_height="fill_parent" android:alpha="0.0"
   xmlns:android="http://schemas.android.com/apk/res/android">
-    <androidx.compose.ui.platform.ComposeView android:id="@id/contextualTicketUnavailableError" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="fill_parent" />
-    <LinearLayout android:orientation="vertical" android:id="@id/contextualTicket" android:layout_width="fill_parent" android:layout_height="fill_parent">
-        <include android:id="@id/ticketHeader" layout="@layout/view_ticket_header" />
+    <androidx.compose.ui.platform.ComposeView android:id="@+id/contextualTicketUnavailableError" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="fill_parent" />
+    <LinearLayout android:orientation="vertical" android:id="@+id/contextualTicket" android:layout_width="fill_parent" android:layout_height="fill_parent">
+        <include android:id="@+id/ticketHeader" layout="@layout/view_ticket_header" />
         <FrameLayout android:orientation="horizontal" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginTop="0.0dip">
-            <androidx.core.widget.NestedScrollView android:id="@id/contextualTicketScrollView" android:layout_width="fill_parent" android:layout_height="fill_parent">
-                <LinearLayout android:layout_gravity="center_horizontal" android:orientation="vertical" android:id="@id/contextualTicketContainer" android:background="@color/dbWhite" android:layout_width="fill_parent" android:layout_height="fill_parent" android:paddingVertical="20.0dip">
-                    <ImageView android:id="@id/contextualDynamicBarcode" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:adjustViewBounds="true" android:importantForAccessibility="no" android:paddingHorizontal="20.0dip" />
-                    <FrameLayout android:id="@id/contextualTicketFrame" android:layout_width="fill_parent" android:layout_height="fill_parent" android:paddingHorizontal="20.0dip">
-                        <ViewStub android:id="@id/contextualTicketWebViewStub" android:layout="@layout/layout_contextual_webview" android:inflatedId="@id/contextualTicketWebView" android:layout_width="fill_parent" android:layout_height="wrap_content" />
+            <androidx.core.widget.NestedScrollView android:id="@+id/contextualTicketScrollView" android:layout_width="fill_parent" android:layout_height="fill_parent">
+                <LinearLayout android:layout_gravity="center_horizontal" android:orientation="vertical" android:id="@+id/contextualTicketContainer" android:background="@color/dbWhite" android:paddingTop="20.0dip" android:paddingBottom="20.0dip" android:layout_width="fill_parent" android:layout_height="fill_parent" android:paddingVertical="20.0dip">
+                    <ImageView android:id="@+id/contextualDynamicBarcode" android:paddingLeft="20.0dip" android:paddingRight="20.0dip" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:adjustViewBounds="true" android:importantForAccessibility="no" android:paddingHorizontal="20.0dip" />
+                    <FrameLayout android:id="@+id/contextualTicketFrame" android:paddingLeft="20.0dip" android:paddingRight="20.0dip" android:layout_width="fill_parent" android:layout_height="fill_parent" android:paddingHorizontal="20.0dip">
+                        <ViewStub android:id="@+id/contextualTicketWebViewStub" android:layout="@layout/layout_contextual_webview" android:inflatedId="@+id/contextualTicketWebView" android:layout_width="fill_parent" android:layout_height="wrap_content" />
                     </FrameLayout>
-                    <Space android:id="@id/verbindungsdetailsScrollViewSpace" android:layout_width="fill_parent" android:layout_height="@dimen/confirm_button_height" />
+                    <Space android:id="@+id/verbindungsdetailsScrollViewSpace" android:layout_width="fill_parent" android:layout_height="@dimen/confirm_button_height" />
                 </LinearLayout>
             </androidx.core.widget.NestedScrollView>
-            <include android:id="@id/ticketOverlay" android:layout_width="fill_parent" android:layout_height="fill_parent" layout="@layout/view_ticket_overlay" />
+            <include android:id="@+id/ticketOverlay" android:layout_width="fill_parent" android:layout_height="fill_parent" layout="@layout/view_ticket_overlay" />
         </FrameLayout>
     </LinearLayout>
 </FrameLayout>

@@ -12,5 +12,9 @@ data class Ticket(
     val arrivalTime: String = "",
     val travelClass: String = "2. Klasse",
     val date: String = "",
-    val status: String = "Gültig"
+    val status: String = "Gültig",
+    val ticketId: String = "",
+    val preis: String = "",
+    val gueltigVon: String = "",
+    val gueltigBis: String = ""
 ) : Serializable

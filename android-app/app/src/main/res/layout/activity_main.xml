@@ -1,49 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/greyBackground">
-
-    <androidx.appcompat.widget.Toolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/dbCoolGray700"
-        app:titleTextColor="@color/dbWhite"
-        app:title="Reisen">
-
-        <ImageButton
-            android:id="@+id/btnToolbarAction"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_gravity="end"
-            android:layout_marginEnd="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_add"
-            android:visibility="gone"
-            android:contentDescription="Hinzufügen"
-            app:tint="@color/dbWhite" />
+<LinearLayout android:orientation="vertical" android:background="@color/greyBackground" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <androidx.appcompat.widget.Toolbar android:id="@+id/toolbar" android:background="@color/dbCoolGray700" android:layout_width="fill_parent" android:layout_height="?actionBarSize" app:title="Reisen" app:titleTextColor="@color/dbWhite">
+        <ImageButton android:layout_gravity="end" android:id="@+id/btnToolbarAction" android:background="?selectableItemBackgroundBorderless" android:visibility="gone" android:layout_width="40.0dip" android:layout_height="40.0dip" android:src="@drawable/ic_add" android:contentDescription="Hinzufügen" android:layout_marginEnd="8.0dip" app:tint="@color/dbWhite" />
     </androidx.appcompat.widget.Toolbar>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="4dp"
-        android:background="@color/dbRed" />
-
-    <FrameLayout
-        android:id="@+id/fragmentContainer"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottomNav"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/lightBackground"
-        app:itemIconTint="@color/dbCoolGray500"
-        app:itemTextColor="@color/dbCoolGray500"
-        app:menu="@menu/bottom_nav_menu" />
+    <View android:background="@color/dbRed" android:layout_width="fill_parent" android:layout_height="4.0dip" />
+    <FrameLayout android:id="@+id/fragmentContainer" android:layout_width="fill_parent" android:layout_height="0.0dip" android:layout_weight="1.0" />
+    <com.google.android.material.bottomnavigation.BottomNavigationView android:id="@+id/bottomNav" android:background="@color/lightBackground" android:layout_width="fill_parent" android:layout_height="wrap_content" app:itemIconTint="@color/dbCoolGray500" app:itemTextColor="@color/dbCoolGray500" app:menu="@menu/bottom_nav_menu" />
 </LinearLayout>

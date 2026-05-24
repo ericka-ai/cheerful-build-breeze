@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:layout_width="fill_parent" android:layout_height="fill_parent"
+<FrameLayout android:layout_width="fill_parent" android:layout_height="fill_parent"
   xmlns:android="http://schemas.android.com/apk/res/android">
-    <LinearLayout android:orientation="vertical" android:id="@id/buchungsflow_root" android:layout_width="fill_parent" android:layout_height="fill_parent">
-        <include android:id="@id/deepLinkHeader" layout="@layout/root_deeplink_headerbar" />
-        <include android:id="@id/toolbar" layout="@layout/root_toolbar" />
-        <FrameLayout android:id="@id/rootContainer" android:layout_width="fill_parent" android:layout_height="0.0dip" android:layout_weight="1.0" />
+    <LinearLayout android:orientation="vertical" android:id="@+id/buchungsflow_root" android:layout_width="fill_parent" android:layout_height="fill_parent">
+        <include android:id="@+id/deepLinkHeader" layout="@layout/root_deeplink_headerbar" />
+        <include android:id="@+id/toolbar" layout="@layout/root_toolbar" />
+        <FrameLayout android:id="@+id/rootContainer" android:layout_width="fill_parent" android:layout_height="0.0dip" android:layout_weight="1.0" />
     </LinearLayout>
-    <include android:id="@id/progressOverlay" android:visibility="gone" layout="@layout/overlay_loading_screen" />
+    <include android:id="@+id/progressOverlay" android:visibility="gone" layout="@layout/overlay_loading_screen" />
 </FrameLayout>
