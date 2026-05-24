@@ -2039,6 +2039,8 @@ async def api_generate(
     nach: str = Form(""),
     zug_typ: str = Form("ICE"),
     zug_nummer: str = Form("919"),
+    ticket_id: str = Form(""),
+    order_number: str = Form(""),
 ):
     """JSON API endpoint for Android app."""
     name = f"{nachname}/{vorname}"
@@ -2063,8 +2065,8 @@ async def api_generate(
         birth_date=geburtsdatum,
         validity_start=gueltig_von,
         validity_end=gueltig_bis,
-        ticket_id="",
-        order_number="",
+        ticket_id=ticket_id,
+        order_number=order_number,
         klasse=klasse,
         days=str(days_int),
         passenger_type=passagier_typ,

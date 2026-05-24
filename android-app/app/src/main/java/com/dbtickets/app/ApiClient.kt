@@ -21,4 +21,11 @@ object ApiClient {
         .writeTimeout(60, TimeUnit.SECONDS)
         .addInterceptor(apiKeyInterceptor)
         .build()
+
+    val lookupClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(15, TimeUnit.SECONDS)
+        .addInterceptor(apiKeyInterceptor)
+        .build()
 }

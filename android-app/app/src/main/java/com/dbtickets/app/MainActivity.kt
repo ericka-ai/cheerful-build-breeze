@@ -193,7 +193,7 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
 
         val serverUrl = TicketStore.getServerUrl(this)
-        val client = createHttpClient()
+        val client = ApiClient.lookupClient
 
         val request = Request.Builder()
             .url("$serverUrl/api/ticket/$auftragsnummer")
