@@ -34,7 +34,7 @@ class PdfViewerActivity : AppCompatActivity() {
 
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(0xFF282828.toInt())
+            setBackgroundColor(0xFF141414.toInt())
             setPadding(16, 12, 16, 12)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -69,7 +69,7 @@ class PdfViewerActivity : AppCompatActivity() {
 
         val rootLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFFF5F5F5.toInt())
+            setBackgroundColor(0xFF0D0D0D.toInt())
         }
         rootLayout.addView(topBar)
         rootLayout.addView(scrollView, LinearLayout.LayoutParams(

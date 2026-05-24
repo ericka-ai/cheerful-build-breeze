@@ -531,7 +531,7 @@ class TicketAdapter(
         return if (viewType == TYPE_HEADER) {
             val tv = TextView(parent.context).apply {
                 textSize = 16f
-                setTextColor(parent.context.getColor(R.color.text_secondary))
+                setTextColor(parent.context.getColor(R.color.text_primary))
                 setPadding(0, 32, 0, 12)
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
             }
