@@ -230,7 +230,11 @@ API_SECRET_KEY = os.environ.get(
     "9f098376d138c85c13cb64fb2d006ebe34a91ca6b868cd38c62d0ab9e4abb28e"
 )
 
-TICKET_STORE_FILE = os.path.join(APP_DIR, "ticket_store.json")
+_default_store_path = os.path.join(APP_DIR, "ticket_store.json")
+if not os.access(os.path.dirname(_default_store_path), os.W_OK):
+    _default_store_path = "/tmp/ticket_store.json"
+TICKET_STORE_FILE = os.environ.get("TICKET_STORE_PATH", _default_store_path)
+print(f"[INFO] Ticket store file: {TICKET_STORE_FILE}")
 
 RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX = 30
@@ -282,17 +286,20 @@ def _load_ticket_store():
     if os.path.exists(TICKET_STORE_FILE):
         try:
             with open(TICKET_STORE_FILE, "r") as f:
-                TICKET_STORE = json.load(f)
-        except Exception:
-            TICKET_STORE = {}
+                data = json.load(f)
+                TICKET_STORE.update(data)
+            print(f"[INFO] Loaded {len(TICKET_STORE)} tickets from {TICKET_STORE_FILE}")
+        except Exception as e:
+            print(f"[WARN] Could not load ticket store: {e}")
 
 
 def _save_ticket_store():
     try:
         with open(TICKET_STORE_FILE, "w") as f:
             json.dump(TICKET_STORE, f)
-    except Exception:
-        pass
+        print(f"[INFO] Saved {len(TICKET_STORE)} tickets to {TICKET_STORE_FILE}")
+    except Exception as e:
+        print(f"[WARN] Could not save ticket store to {TICKET_STORE_FILE}: {e}")
 
 
 _load_ticket_store()
@@ -2024,6 +2031,7 @@ async def api_generate(
 @app.get("/api/ticket/{auftragsnummer}")
 async def api_ticket_lookup(auftragsnummer: str):
     """Look up a ticket by Auftragsnummer."""
+    _load_ticket_store()
     ticket = TICKET_STORE.get(auftragsnummer)
     if ticket is None:
         return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
@@ -2033,6 +2041,7 @@ async def api_ticket_lookup(auftragsnummer: str):
 @app.get("/api/tickets")
 async def api_tickets_list():
     """List all stored tickets (without barcode/watermark data for efficiency)."""
+    _load_ticket_store()
     tickets = []
     for nr, t in TICKET_STORE.items():
         tickets.append({
@@ -2062,6 +2071,7 @@ async def api_ticket_delete(auftragsnummer: str):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard():
     """Visual dashboard showing all stored tickets."""
+    _load_ticket_store()
     rows = ""
     for nr, t in TICKET_STORE.items():
         name = t.get("name", "")
