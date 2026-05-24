@@ -6,15 +6,16 @@
     android:orientation="vertical"
     android:background="@color/db_cool_gray_100">
 
-    <!-- Dark Top Bar (DB Navigator Style) -->
+    <!-- Dark Top Bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="52dp"
+        android:layout_height="56dp"
         android:background="@color/db_cool_gray_700"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="20dp"
-        android:paddingEnd="12dp">
+        android:paddingEnd="12dp"
+        android:elevation="4dp">
 
         <TextView
             android:layout_width="0dp"
@@ -22,7 +23,7 @@
             android:layout_weight="1"
             android:text="@string/app_name"
             android:textColor="@color/db_white"
-            android:textSize="18sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <TextView
@@ -30,9 +31,9 @@
             android:layout_height="wrap_content"
             android:text="\u22EE"
             android:textColor="@color/db_white"
-            android:textSize="22sp"
+            android:textSize="24sp"
             android:textStyle="bold"
-            android:paddingStart="12dp"
+            android:paddingStart="16dp"
             android:paddingEnd="4dp"
             android:clickable="true"
             android:focusable="true"
@@ -54,32 +55,32 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- Search Section with white background (like DB Navigator home top) -->
+                <!-- Search Section with rounded bottom corners -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:background="@color/db_white"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:paddingTop="20dp"
-                    android:paddingBottom="20dp">
+                    android:background="@drawable/bg_white_rounded_bottom"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:paddingTop="24dp"
+                    android:paddingBottom="28dp"
+                    android:elevation="2dp">
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/ticket_abrufen"
-                        android:textSize="20sp"
+                        android:textSize="22sp"
                         android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:layout_marginBottom="4dp" />
+                        android:textColor="@color/text_primary" />
 
-                    <!-- Red underline like DB Navigator -->
                     <View
-                        android:layout_width="60dp"
+                        android:layout_width="48dp"
                         android:layout_height="4dp"
                         android:background="@color/db_red"
-                        android:layout_marginBottom="12dp" />
+                        android:layout_marginTop="6dp"
+                        android:layout_marginBottom="16dp" />
 
                     <TextView
                         android:layout_width="match_parent"
@@ -87,9 +88,9 @@
                         android:text="@string/ticket_abrufen_beschreibung"
                         android:textSize="14sp"
                         android:textColor="@color/text_secondary"
-                        android:layout_marginBottom="16dp" />
+                        android:lineSpacingExtra="4sp"
+                        android:layout_marginBottom="20dp" />
 
-                    <!-- Input field with border -->
                     <EditText
                         android:id="@+id/etAuftragsnummer"
                         android:layout_width="match_parent"
@@ -101,7 +102,7 @@
                         android:paddingEnd="16dp"
                         android:textSize="16sp"
                         android:textColor="@color/text_primary"
-                        android:layout_marginBottom="8dp" />
+                        android:layout_marginBottom="12dp" />
 
                     <TextView
                         android:id="@+id/tvError"
@@ -112,7 +113,6 @@
                         android:visibility="gone"
                         android:layout_marginBottom="8dp" />
 
-                    <!-- Red Button (DB Navigator style) -->
                     <Button
                         android:id="@+id/btnLoadTicket"
                         android:layout_width="match_parent"
@@ -121,7 +121,7 @@
                         android:textColor="@color/db_white"
                         android:textSize="16sp"
                         android:textAllCaps="false"
-                        android:backgroundTint="@color/db_red" />
+                        android:background="@drawable/bg_button_red" />
 
                     <ProgressBar
                         android:id="@+id/progressBar"
@@ -129,27 +129,20 @@
                         android:layout_height="36dp"
                         android:layout_gravity="center"
                         android:visibility="gone"
-                        android:layout_marginTop="8dp"
+                        android:layout_marginTop="12dp"
                         android:indeterminateTint="@color/db_red" />
                 </LinearLayout>
 
-                <!-- Shadow separator -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="4dp"
-                    android:background="@drawable/drop_shadow" />
-
-                <!-- Tickets Section (grey background like DB Navigator cards area) -->
+                <!-- Tickets Section -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:paddingTop="16dp"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:paddingTop="20dp"
                     android:paddingBottom="16dp">
 
-                    <!-- Search field -->
                     <EditText
                         android:id="@+id/etSearch"
                         android:layout_width="match_parent"
@@ -164,17 +157,17 @@
                         android:drawableStart="@android:drawable/ic_menu_search"
                         android:drawablePadding="8dp"
                         android:visibility="gone"
-                        android:layout_marginBottom="12dp" />
+                        android:layout_marginBottom="16dp" />
 
                     <TextView
                         android:id="@+id/tvRecentTickets"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/letzte_tickets"
-                        android:textSize="20sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
-                        android:layout_marginBottom="12dp"
+                        android:layout_marginBottom="16dp"
                         android:visibility="gone" />
 
                     <TextView
@@ -185,8 +178,8 @@
                         android:textSize="14sp"
                         android:textColor="@color/text_secondary"
                         android:gravity="center"
-                        android:layout_marginTop="32dp"
-                        android:layout_marginBottom="32dp"
+                        android:layout_marginTop="40dp"
+                        android:layout_marginBottom="40dp"
                         android:visibility="gone" />
 
                     <androidx.recyclerview.widget.RecyclerView
