@@ -5,8 +5,10 @@ activities, layouts, resources, images, and file structure.
 """
 
 import io
+import json
 import os
 import logging
+import re
 import tempfile
 import zipfile
 from collections import defaultdict
@@ -28,6 +30,67 @@ app.add_middleware(
 )
 
 MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 MB
+
+ANDROID_CONSTANTS = {
+    "android:layout_width": {"-1": "match_parent", "-2": "wrap_content"},
+    "android:layout_height": {"-1": "match_parent", "-2": "wrap_content"},
+    "android:orientation": {"0": "horizontal", "1": "vertical"},
+    "android:visibility": {"0": "visible", "1": "invisible", "2": "gone"},
+    "android:gravity": {"17": "center", "1": "center_vertical", "16": "center_horizontal",
+                         "3": "start", "5": "end", "48": "top", "80": "bottom"},
+    "android:inputType": {"1": "text", "2": "number", "129": "textPassword",
+                          "33": "textMultiLine", "97": "textEmailAddress"},
+}
+
+LIBRARY_PREFIXES = (
+    "abc_", "material_", "mtrl_", "design_", "notification_",
+    "select_dialog_", "support_simple_", "tooltip_",
+    "browser_actions_", "custom_dialog_", "compat_",
+)
+
+
+def _humanize_xml(xml_text: str) -> str:
+    """Replace numeric Android constants with readable names."""
+    for attr, replacements in ANDROID_CONSTANTS.items():
+        for val, name in replacements.items():
+            xml_text = xml_text.replace(
+                f'{attr}="{val}"', f'{attr}="{name}"'
+            )
+    xml_text = re.sub(
+        r'@(7F[0-9A-Fa-f]{6})',
+        r'@res/0x\1',
+        xml_text,
+    )
+    return xml_text
+
+
+def _extract_apk_from_xapk(xapk_path: str) -> str:
+    """Extract the base APK from an XAPK bundle. Returns path to temp APK."""
+    with zipfile.ZipFile(xapk_path, "r") as z:
+        manifest_data = None
+        try:
+            manifest_data = json.loads(z.read("manifest.json"))
+        except (KeyError, json.JSONDecodeError):
+            pass
+
+        base_apk_name = None
+        if manifest_data and "split_apks" in manifest_data:
+            for split in manifest_data["split_apks"]:
+                if split.get("id") == "base":
+                    base_apk_name = split["file"]
+                    break
+
+        if not base_apk_name:
+            apk_files = [n for n in z.namelist() if n.endswith(".apk")]
+            if apk_files:
+                base_apk_name = apk_files[0]
+
+        if not base_apk_name:
+            raise ValueError("No APK found inside XAPK bundle")
+
+        with tempfile.NamedTemporaryFile(suffix=".apk", delete=False) as tmp:
+            tmp.write(z.read(base_apk_name))
+            return tmp.name
 
 
 def _analyze_apk(apk_path: str) -> dict:
@@ -115,23 +178,38 @@ def _analyze_apk(apk_path: str) -> dict:
                     except Exception:
                         continue
 
-    # Decode layout XML files using androguard
+    # Separate app layouts from library layouts
+    app_layouts = []
+    lib_layouts = []
+    for lp in layouts:
+        base_name = lp.rsplit("/", 1)[-1] if "/" in lp else lp
+        if any(base_name.startswith(prefix) for prefix in LIBRARY_PREFIXES):
+            lib_layouts.append(lp)
+        else:
+            app_layouts.append(lp)
+
+    # Decode layout XML files using androguard (app layouts first)
     decoded_layouts = []
-    for layout_path in layouts[:50]:
+    for layout_path in (app_layouts + lib_layouts)[:80]:
         try:
             raw_xml = a.get_file(layout_path)
             if raw_xml:
                 from androguard.core.axml import AXMLPrinter
                 axp = AXMLPrinter(raw_xml)
                 decoded_xml = axp.get_xml().decode("utf-8", errors="replace")
+                decoded_xml = _humanize_xml(decoded_xml)
+                base_name = layout_path.rsplit("/", 1)[-1] if "/" in layout_path else layout_path
+                is_lib = any(base_name.startswith(p) for p in LIBRARY_PREFIXES)
                 decoded_layouts.append({
                     "path": layout_path,
                     "xml": decoded_xml,
+                    "is_library": is_lib,
                 })
         except Exception as e:
             decoded_layouts.append({
                 "path": layout_path,
                 "xml": f"<!-- Error decoding: {e} -->",
+                "is_library": False,
             })
 
     # Build folder summary
@@ -155,6 +233,8 @@ def _analyze_apk(apk_path: str) -> dict:
         "icon_path": icon_path,
         "layouts": decoded_layouts,
         "layout_count": len(layouts),
+        "app_layout_count": len(app_layouts),
+        "lib_layout_count": len(lib_layouts),
         "images": images[:200],
         "image_count": len(images),
         "xml_files": xml_files[:100],
@@ -170,10 +250,11 @@ async def index():
 
 @app.post("/analyze")
 async def analyze_apk(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.lower().endswith(".apk"):
+    fname = (file.filename or "").lower()
+    if not fname.endswith(".apk") and not fname.endswith(".xapk"):
         return JSONResponse(
             status_code=400,
-            content={"error": "Please upload a valid .apk file"},
+            content={"error": "Please upload a valid .apk or .xapk file"},
         )
 
     content = await file.read()
@@ -183,12 +264,20 @@ async def analyze_apk(file: UploadFile = File(...)):
             content={"error": f"File too large. Max size: {MAX_FILE_SIZE // (1024*1024)} MB"},
         )
 
-    with tempfile.NamedTemporaryFile(suffix=".apk", delete=False) as tmp:
+    suffix = ".xapk" if fname.endswith(".xapk") else ".apk"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(content)
         tmp_path = tmp.name
 
+    extracted_apk = None
     try:
-        result = _analyze_apk(tmp_path)
+        apk_path = tmp_path
+        if fname.endswith(".xapk"):
+            extracted_apk = _extract_apk_from_xapk(tmp_path)
+            apk_path = extracted_apk
+
+        result = _analyze_apk(apk_path)
+        result["source_format"] = "xapk" if fname.endswith(".xapk") else "apk"
         return JSONResponse(content=result)
     except Exception as e:
         logger.exception("Error analyzing APK")
@@ -198,6 +287,8 @@ async def analyze_apk(file: UploadFile = File(...)):
         )
     finally:
         os.unlink(tmp_path)
+        if extracted_apk and os.path.exists(extracted_apk):
+            os.unlink(extracted_apk)
 
 
 @app.get("/extract-image")
@@ -463,6 +554,14 @@ header p { color: var(--text2); font-size: 1.1em; }
   overflow-y: auto;
 }
 .layout-xml.open { display: block; }
+.layout-item .lib-tag {
+  background: var(--surface2);
+  color: var(--text2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.7em;
+  margin-left: 8px;
+}
 .layout-xml pre {
   font-family: 'Fira Code', 'Courier New', monospace;
   white-space: pre-wrap;
@@ -554,7 +653,7 @@ header p { color: var(--text2); font-size: 1.1em; }
 
 <header>
   <h1><span>APK</span> Analyzer</h1>
-  <p>Upload an Android APK file to inspect its contents, layouts, permissions, and resources</p>
+  <p>Upload an Android APK or XAPK file to inspect its contents, layouts, permissions, and resources</p>
 </header>
 
 <div class="container">
@@ -563,10 +662,10 @@ header p { color: var(--text2); font-size: 1.1em; }
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
     </svg>
-    <h3>Drop your APK file here</h3>
+    <h3>Drop your APK or XAPK file here</h3>
     <p>or click to browse (max 200 MB)</p>
-    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose APK File</button>
-    <input type="file" id="fileInput" accept=".apk">
+    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose File</button>
+    <input type="file" id="fileInput" accept=".apk,.xapk">
   </div>
 
   <div class="progress-container" id="progressContainer">
@@ -642,8 +741,9 @@ function escapeHtml(str) {
 }
 
 async function uploadFile(file) {
-  if (!file.name.toLowerCase().endsWith('.apk')) {
-    showError('Please select a valid APK file.');
+  const fname = file.name.toLowerCase();
+  if (!fname.endsWith('.apk') && !fname.endsWith('.xapk')) {
+    showError('Please select a valid APK or XAPK file.');
     return;
   }
 
@@ -651,7 +751,8 @@ async function uploadFile(file) {
   results.style.display = 'none';
   progressContainer.style.display = 'block';
   progressFill.style.width = '0%';
-  progressText.textContent = 'Uploading APK (' + formatSize(file.size) + ')...';
+  const fileType = fname.endsWith('.xapk') ? 'XAPK' : 'APK';
+  progressText.textContent = 'Uploading ' + fileType + ' (' + formatSize(file.size) + ')...';
 
   const formData = new FormData();
   formData.append('file', file);
@@ -719,10 +820,13 @@ function renderResults(data) {
   if (data.icon_data) {
     iconHtml = '<img src="data:image/png;base64,' + data.icon_data + '" alt="App Icon">';
   }
+  const formatBadge = data.source_format === 'xapk'
+    ? ' <span style="background:var(--purple);color:white;padding:2px 8px;border-radius:6px;font-size:0.7em;vertical-align:middle">XAPK</span>'
+    : '';
   document.getElementById('appHeader').innerHTML =
     '<div class="app-icon">' + iconHtml + '</div>' +
     '<div class="app-details">' +
-      '<h2>' + escapeHtml(info.app_name) + '</h2>' +
+      '<h2>' + escapeHtml(info.app_name) + formatBadge + '</h2>' +
       '<div class="package">' + escapeHtml(info.package) + '</div>' +
       '<div class="meta">' +
         '<span>Version ' + escapeHtml(info.version_name) + ' (' + escapeHtml(info.version_code) + ')</span>' +
@@ -774,11 +878,13 @@ function renderResults(data) {
   document.getElementById('tab-components').innerHTML = compHtml;
 
   // Layouts tab
-  let layoutHtml = '<div class="card"><h3>Layout XML Files <span class="badge">' + data.layout_count + '</span></h3>';
-  if (data.layouts.length === 0) {
-    layoutHtml += '<p style="color:var(--text2)">No layout files found (this APK might use Jetpack Compose or React Native).</p>';
+  const appLayouts = data.layouts.filter(l => !l.is_library);
+  const libLayouts = data.layouts.filter(l => l.is_library);
+  let layoutHtml = '<div class="card"><h3>App Layouts <span class="badge">' + (data.app_layout_count || appLayouts.length) + '</span></h3>';
+  if (appLayouts.length === 0) {
+    layoutHtml += '<p style="color:var(--text2)">No app-specific layout files found (this app might use Jetpack Compose or React Native).</p>';
   } else {
-    data.layouts.forEach((layout, i) => {
+    appLayouts.forEach((layout, i) => {
       layoutHtml += '<div class="layout-item">' +
         '<div class="layout-path" onclick="toggleLayout(' + i + ')">' +
           '<span>' + escapeHtml(layout.path) + '</span>' +
@@ -789,6 +895,21 @@ function renderResults(data) {
     });
   }
   layoutHtml += '</div>';
+  if (libLayouts.length > 0) {
+    layoutHtml += '<div class="card"><h3>Library Layouts <span class="badge" style="background:var(--surface2)">' + (data.lib_layout_count || libLayouts.length) + '</span></h3>';
+    libLayouts.forEach((layout, idx) => {
+      const gi = appLayouts.length + idx;
+      layoutHtml += '<div class="layout-item">' +
+        '<div class="layout-path" onclick="toggleLayout(' + gi + ')">' +
+          '<span style="color:var(--text2)">' + escapeHtml(layout.path) + '</span>' +
+          '<span id="arrow-' + gi + '">&#9654;</span>' +
+        '</div>' +
+        '<div class="layout-xml" id="layout-' + gi + '"><pre>' + escapeHtml(layout.xml) + '</pre></div>' +
+      '</div>';
+    });
+    layoutHtml += '</div>';
+  }
+  layoutHtml += '<p style="color:var(--text2);font-size:0.85em;margin-top:8px">Total: ' + data.layout_count + ' layout files (' + (data.app_layout_count || 0) + ' app + ' + (data.lib_layout_count || 0) + ' library)</p>';
   document.getElementById('tab-layouts').innerHTML = layoutHtml;
 
   // Images tab
