@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:background="@color/greyBackground" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <androidx.recyclerview.widget.RecyclerView android:id="@id/countryList" android:paddingTop="@dimen/drop_shadow_height" android:clipToPadding="false" android:layout_width="fill_parent" android:layout_height="fill_parent" />
+    <TextView android:textSize="13.0dip" android:layout_gravity="end|center" android:id="@id/countryListFastScroll" android:background="@color/lightBackground" android:layout_width="wrap_content" android:layout_height="wrap_content" android:lineSpacingMultiplier="1.1" android:importantForAccessibility="no" android:paddingStart="2.0dip" android:paddingEnd="2.0dip" />
+    <View android:layout_gravity="top" android:background="@drawable/drop_shadow_down" android:layout_width="fill_parent" android:layout_height="@dimen/drop_shadow_height" android:importantForAccessibility="no" />
+</FrameLayout>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:id="@id/verbindungsdetailsFrameLayout" android:layout_width="fill_parent" android:layout_height="fill_parent" xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout android:orientation="vertical" android:background="@color/greyBackground" android:layout_width="fill_parent" android:layout_height="fill_parent">
+        <androidx.recyclerview.widget.RecyclerView android:id="@id/verbindungsdetailsList" android:clipToPadding="false" android:descendantFocusability="beforeDescendants" android:layout_width="fill_parent" android:layout_height="wrap_content" android:overScrollMode="never" android:importantForAccessibility="no" app:layout_constraintTop_toBottomOf="@id/verbindungsdetailsZugbindungsSpace" />
+        <LinearLayout android:orientation="vertical" android:id="@id/verbindungsdetailsAngebotsMeldungen" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="24.0dip" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" />
+        <LinearLayout android:orientation="horizontal" android:id="@id/verbindungsdetailsUnmatchedReservationContainer" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="fill_parent" android:paddingStart="24.0dip" android:paddingEnd="24.0dip">
+            <ImageView android:id="@id/verbindungsdetailsUnmatchedReservationIcon" android:layout_width="20.0dip" android:layout_height="20.0dip" android:importantForAccessibility="no" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" app:srcCompat="@drawable/ic_seat_aisle_grey_20" />
+            <TextView android:textColor="@color/defaultTextColorGrey" android:id="@id/verbindungsdetailsUnmatchedReservationText" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="@string/reiseDetailsUnmatchedReservation" android:lineSpacingExtra="6.0sp" android:layout_marginStart="12.0dip" />
+        </LinearLayout>
+        <Button android:id="@id/addRueckFahrtButton" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="@dimen/secondary_button_height" android:layout_marginTop="24.0dip" android:layout_marginBottom="24.0dip" android:text="@string/addRueckfahrt" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" style="@style/DBBorderedButton" />
+        <Space android:id="@id/verbindungsdetailsScrollViewSpace" android:layout_width="fill_parent" android:layout_height="80.0dip" />
+    </LinearLayout>
+    <include android:id="@id/errorContainer" layout="@layout/verbindungsdetails_error_container" />
+</FrameLayout>

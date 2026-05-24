@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout android:background="@color/progressOverlayBackground" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <LinearLayout android:orientation="vertical" android:id="@id/contextualReservierungPopup" android:background="@drawable/background_contextual_info" android:paddingTop="20.0dip" android:paddingBottom="20.0dip" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" app:layout_constraintVertical_bias="0.31" app:layout_constraintWidth_max="300.0dip">
+        <TextView android:theme="@style/DBHeadTextView" android:textSize="16.0sp" android:gravity="center_vertical" android:id="@id/contextualPopupReservierungsHeadline" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="12.0dip" android:drawablePadding="10.0dip" android:layout_marginStart="20.0dip" android:layout_marginEnd="20.0dip" app:drawableStartCompat="@drawable/ic_seat_aisle" />
+        <View android:background="@drawable/line_divider" android:layout_width="fill_parent" android:layout_height="2.0dip" />
+        <LinearLayout android:orientation="vertical" android:id="@id/contextualReservierungsInfo" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="12.0dip" android:layout_marginStart="20.0dip" android:layout_marginEnd="20.0dip">
+            <LinearLayout android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginBottom="8.0dip">
+                <TextView android:id="@id/contextualWagenHeadline" android:layout_width="56.0dip" android:layout_height="wrap_content" android:text="@string/bookingConfirmationWagon" />
+                <TextView android:id="@id/contextualSitzplatzHeadline" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" android:layout_marginStart="20.0dip" />
+            </LinearLayout>
+            <LinearLayout android:orientation="vertical" android:id="@id/contextualWagenSitzplatzContainer" android:layout_width="fill_parent" android:layout_height="wrap_content" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

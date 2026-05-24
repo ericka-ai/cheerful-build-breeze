@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:id="@id/angebotsDetailsTeilpreisInfoContainer" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <LinearLayout android:orientation="vertical" android:background="@color/lightBackground" android:paddingTop="26.0dip" android:paddingBottom="8.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:paddingStart="24.0dip" android:paddingEnd="24.0dip">
+        <TextView android:theme="@style/DBHeadTextView" android:textSize="20.0sp" android:id="@id/angebotsDetailsTeilpreisInfoHeader" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="@string/teilstreckenpreis" />
+        <androidx.recyclerview.widget.RecyclerView android:id="@id/angebotsDetailsTeilpreisInfos" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="8.0dip" app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+    </LinearLayout>
+    <View android:layout_gravity="top" android:id="@id/angebotsDetailsTeilpreisInfoShadow" android:background="@drawable/drop_shadow_down" android:layout_width="fill_parent" android:layout_height="10.0dip" android:importantForAccessibility="no" />
+</LinearLayout>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <LinearLayout android:orientation="vertical" android:id="@id/bahnCardContent" android:background="@color/lightBackground" android:layout_width="fill_parent" android:layout_height="fill_parent">
+        <androidx.constraintlayout.widget.ConstraintLayout android:id="@id/bahnCardDetailsTabsFrame" android:layout_width="fill_parent" android:layout_height="wrap_content">
+            <com.google.android.material.tabs.TabLayout android:id="@id/bahnCardDetailsTabs" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginBottom="24.0dip" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" app:layout_constraintTop_toTopOf="parent" app:tabIndicatorColor="@color/dbRed" app:tabIndicatorHeight="4.0dip" app:tabInlineLabel="true" app:tabMode="fixed" app:tabSelectedTextColor="@color/defaultTextColor" app:tabTextAppearance="@style/DBGeneralTabs" app:tabTextColor="@color/defaultTextColorGrey">
+                <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/bahnCardInformation" />
+                <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/bahnCardControll" />
+            </com.google.android.material.tabs.TabLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
+        <FrameLayout android:id="@id/ticketReiseplanContainer" android:background="@color/greyBackground" android:layout_width="fill_parent" android:layout_height="0.0dip" android:layout_weight="1.0" android:animateLayoutChanges="true">
+            <include android:id="@id/viewBahnCardKontrolle" android:visibility="invisible" layout="@layout/view_bahncard_kontrolle" />
+            <include android:id="@id/viewBahnCardInformation" android:visibility="visible" layout="@layout/view_bahncard_information" />
+        </FrameLayout>
+    </LinearLayout>
+    <include android:id="@id/bahnCardErrorContainer" android:visibility="gone" layout="@layout/simple_error_container" />
+</FrameLayout>

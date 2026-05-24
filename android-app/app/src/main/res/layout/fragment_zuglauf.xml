@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:id="@id/zuglaufRootContainer" android:background="@color/greyBackground" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout android:id="@id/zuglaufSwipeRefresh" android:layout_width="fill_parent" android:layout_height="fill_parent">
+        <FrameLayout android:id="@id/zuglaufConnectionFrame" android:layout_width="fill_parent" android:layout_height="0.0dip" android:layout_weight="1.0">
+            <androidx.core.widget.NestedScrollView android:id="@id/zuglaufConnectionContent" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content">
+                <LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content">
+                    <androidx.compose.ui.platform.ComposeView android:gravity="end" android:layout_gravity="end|bottom|center" android:id="@id/refreshDateText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" />
+                    <androidx.constraintlayout.widget.ConstraintLayout android:id="@id/zuglaufHeader" android:background="@color/lightBackground" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="0.0dip" android:layout_marginTop="8.0dip" android:layout_weight="1.0" android:paddingHorizontal="12.0dip" android:paddingVertical="16.0dip">
+                        <TextView android:gravity="center_horizontal" android:id="@id/zuglaufDate" android:layout_width="wrap_content" android:layout_height="wrap_content" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
+                        <TextView android:id="@id/zuglaufConnectionInfo" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_marginTop="8.0dip" android:lineSpacingExtra="6.0sp" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/zuglaufDate" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+                    <LinearLayout android:orientation="vertical" android:id="@id/zuglaufNotizenList" android:background="@color/lightBackground" android:paddingTop="16.0dip" android:paddingBottom="16.0dip" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:paddingHorizontal="12.0dip">
+                        <include layout="@layout/reiseloesung_details_notiz" />
+                    </LinearLayout>
+                    <androidx.recyclerview.widget.RecyclerView android:id="@id/zuglaufList" android:clipToPadding="false" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginTop="16.0dip" android:overScrollMode="never" />
+                    <Button android:id="@id/showZuglaufOnMapButton" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="@dimen/secondary_button_height" android:layout_marginTop="24.0dip" android:layout_marginBottom="8.0dip" android:text="@string/showZuglaufOnMapButton" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" style="@style/DBBorderedButtonScalableText" />
+                    <LinearLayout android:orientation="vertical" android:id="@id/zuglaufInfoList" android:background="@color/lightBackground" android:paddingTop="16.0dip" android:paddingBottom="16.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip" android:layout_marginBottom="16.0dip" android:paddingHorizontal="12.0dip">
+                        <TextView android:textStyle="bold" android:id="@id/zuglaufConnectionDaysTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="8.0dip" android:text="@string/connectionDays" />
+                        <TextView android:id="@id/zuglaufConnectionDays" android:layout_width="wrap_content" android:layout_height="wrap_content" android:lineSpacingExtra="6.0sp" />
+                        <TextView android:textStyle="bold" android:id="@id/zuglaufAttributeTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="48.0dip" android:text="@string/attributeInformation" />
+                        <androidx.recyclerview.widget.RecyclerView android:id="@id/zuglaufAttributeList" android:paddingBottom="20.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:overScrollMode="never" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.core.widget.NestedScrollView>
+            <View android:background="@drawable/drop_shadow_down" android:layout_width="fill_parent" android:layout_height="@dimen/drop_shadow_height" />
+            <ProgressBar android:layout_gravity="center" android:id="@id/zuglaufProgress" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="fill_parent" style="?android:progressBarStyle" />
+            <include android:id="@id/simpleErrorContainer" layout="@layout/simple_error_container" />
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+    <View android:background="@drawable/drop_shadow_down" android:layout_width="fill_parent" android:layout_height="@dimen/drop_shadow_height" app:layout_constraintLeft_toLeftOf="parent" app:layout_constraintRight_toRightOf="parent" app:layout_constraintTop_toTopOf="parent" />
+</LinearLayout>
