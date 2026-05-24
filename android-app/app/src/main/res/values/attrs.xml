@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <attr name="contextualColorFuture" format="reference|color|dimension|boolean" />
+    <attr name="contextualColorPast" format="reference|color|dimension|boolean" />
+    <attr name="lineWidth" format="reference|color|dimension|boolean" />
+    <attr name="roundEndCapEnd" format="reference|color|dimension|boolean" />
+    <attr name="roundEndCapStart" format="reference|color|dimension|boolean" />
+    <attr name="selectionRequired" format="reference|color|dimension|boolean" />
+    <attr name="autofillInlineSuggestionChip" format="reference" />
+    <attr name="autofillInlineSuggestionStartIconStyle" format="reference" />
+    <attr name="autofillInlineSuggestionTitle" format="reference" />
+    <attr name="autofillInlineSuggestionSubtitle" format="reference" />
+    <attr name="autofillInlineSuggestionEndIconStyle" format="reference" />
+<attr name="contextualUseImplicitPadding" format="enum"><enum name="none" value="0" /><enum name="top" value="1" /><enum name="bottom" value="2" /><enum name="both" value="3" /></attr><attr name="contextualImplicitTopOrBottomPadding" format="dimension" /></resources>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout android:id="@id/bahnBonusDetailRootView" android:layout_width="fill_parent" android:layout_height="fill_parent"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:id="@id/bahnBonusDetailRootView" android:layout_width="fill_parent" android:layout_height="fill_parent"
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
     <androidx.constraintlayout.widget.Group android:id="@id/bahnbonusNumberGroup" android:layout_width="wrap_content" android:layout_height="wrap_content" app:constraint_referenced_ids="bahnbonusDetailNumber,bahnbonusDetailIcon, bahnbonusDetailCopy, bahnbonusDetailTitle" />
     <androidx.constraintlayout.widget.Group android:id="@id/bahnbonusContentGroup" android:layout_width="wrap_content" android:layout_height="wrap_content" app:constraint_referenced_ids="bahnbonusDetailBackground,bahnbonusDetailStatuspunkte, bahnbonusDetailPraemienpunkte, bahnbonusDetailLaufzeit, bahnBonusSammelwunschSwitch" />

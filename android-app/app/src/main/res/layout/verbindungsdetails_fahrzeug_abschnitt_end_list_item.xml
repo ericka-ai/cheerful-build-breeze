@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout android:id="@id/verbindungsdetailsListItem" android:background="@color/lightBackground" android:layout_width="fill_parent" android:layout_height="wrap_content"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:id="@id/verbindungsdetailsListItem" android:background="@color/lightBackground" android:layout_width="fill_parent" android:layout_height="wrap_content"
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
     <androidx.compose.ui.platform.ComposeView android:id="@id/verbindungsdetailsWeitereAbfahrtenToggle" android:layout_width="wrap_content" android:layout_height="wrap_content" app:layout_constraintStart_toEndOf="@id/verbindungsdetailsPerlEnd" app:layout_constraintTop_toTopOf="parent" />
     <TextView android:textSize="16.0sp" android:textStyle="bold" android:gravity="end" android:id="@id/verbindungsdetailsEndTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12.0dip" app:layout_constraintStart_toEndOf="@id/verbindungsdetailsPerlEnd" app:layout_constraintTop_toTopOf="@id/verbindungsdetailsPerlEnd" />

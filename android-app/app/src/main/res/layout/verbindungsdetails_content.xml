@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout android:id="@id/verbindungsdetailsFrameLayout" android:layout_width="fill_parent" android:layout_height="fill_parent" xmlns:app="http://schemas.android.com/apk/res-auto"
+<FrameLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:id="@id/verbindungsdetailsFrameLayout" android:layout_width="fill_parent" android:layout_height="fill_parent" xmlns:app="http://schemas.android.com/apk/res-auto"
   xmlns:android="http://schemas.android.com/apk/res/android">
     <LinearLayout android:orientation="vertical" android:background="@color/greyBackground" android:layout_width="fill_parent" android:layout_height="fill_parent">
         <androidx.recyclerview.widget.RecyclerView android:id="@id/verbindungsdetailsList" android:clipToPadding="false" android:descendantFocusability="beforeDescendants" android:layout_width="fill_parent" android:layout_height="wrap_content" android:overScrollMode="never" android:importantForAccessibility="no" app:layout_constraintTop_toBottomOf="@id/verbindungsdetailsZugbindungsSpace" />

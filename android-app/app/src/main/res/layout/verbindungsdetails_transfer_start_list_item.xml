@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout android:id="@id/verbindungsdetailsTransferStartListItem" android:background="@color/verbindungsdetailsGreyWalkway" android:layout_width="fill_parent" android:layout_height="wrap_content"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:tools="http://schemas.android.com/tools" tools:viewBindingIgnore="true" android:id="@id/verbindungsdetailsTransferStartListItem" android:background="@color/verbindungsdetailsGreyWalkway" android:layout_width="fill_parent" android:layout_height="wrap_content"
   xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
     <include android:visibility="gone" layout="@layout/view_verbindungsdetails_dummy_time" />
     <TextView android:textSize="16.0sp" android:textStyle="bold" android:gravity="end" android:id="@id/verbindungsdetailsStartTime" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" app:layout_constraintEnd_toEndOf="@id/verbindungsdetailsDummyItem" app:layout_constraintStart_toStartOf="@id/verbindungsdetailsDummyItem" app:layout_constraintTop_toTopOf="parent" />
