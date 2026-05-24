@@ -252,27 +252,9 @@ class MainActivity : AppCompatActivity() {
                     TicketExpiryReceiver.scheduleReminder(this@MainActivity, ticket)
 
                     val barcodeBase64 = json.optString("barcode_base64", "")
-                    if (barcodeBase64.isNotEmpty()) {
-                        val barcodeBytes = android.util.Base64.decode(barcodeBase64, android.util.Base64.DEFAULT)
-                        val dir = File(filesDir, "barcodes")
-                        dir.mkdirs()
-                        val imgFile = File(dir, "barcode_${ticket.ticketId}.png")
-                        FileOutputStream(imgFile).use { it.write(barcodeBytes) }
-                        TicketStore.updateTicketBarcodePath(this@MainActivity, ticket.id, imgFile.absolutePath)
-                    }
-
                     val watermarkBase64 = json.optString("watermark_base64", "")
-                    if (watermarkBase64.isNotEmpty()) {
-                        val wmBytes = android.util.Base64.decode(watermarkBase64, android.util.Base64.DEFAULT)
-                        val dir = File(filesDir, "watermarks")
-                        dir.mkdirs()
-                        val imgFile = File(dir, "watermark_${ticket.ticketId}.jpg")
-                        FileOutputStream(imgFile).use { it.write(wmBytes) }
-                        TicketStore.updateTicketWatermarkPath(this@MainActivity, ticket.id, imgFile.absolutePath)
-                    }
 
-                    downloadPdfAsync(ticket)
-
+                    // Show ticket immediately, process images in background
                     runOnUiThread {
                         binding.btnLoadTicket.isEnabled = true
                         binding.btnLoadTicket.text = getString(R.string.ticket_laden)
@@ -283,7 +265,33 @@ class MainActivity : AppCompatActivity() {
                         startActivity(intent)
                     }
 
-                } catch (e: Exception) {
+                    // Save barcode/watermark in background
+                    Thread {
+                        try {
+                            if (barcodeBase64.isNotEmpty()) {
+                                val barcodeBytes = android.util.Base64.decode(barcodeBase64, android.util.Base64.DEFAULT)
+                                val dir = File(filesDir, "barcodes")
+                                dir.mkdirs()
+                                val imgFile = File(dir, "barcode_${ticket.ticketId}.png")
+                                FileOutputStream(imgFile).use { it.write(barcodeBytes) }
+                                TicketStore.updateTicketBarcodePath(this@MainActivity, ticket.id, imgFile.absolutePath)
+                            }
+                            if (watermarkBase64.isNotEmpty()) {
+                                val wmBytes = android.util.Base64.decode(watermarkBase64, android.util.Base64.DEFAULT)
+                                val dir = File(filesDir, "watermarks")
+                                dir.mkdirs()
+                                val imgFile = File(dir, "watermark_${ticket.ticketId}.jpg")
+                                FileOutputStream(imgFile).use { it.write(wmBytes) }
+                                TicketStore.updateTicketWatermarkPath(this@MainActivity, ticket.id, imgFile.absolutePath)
+                            }
+                        } catch (t: Throwable) {
+                            // Ignore image save errors
+                        }
+                    }.start()
+
+                    downloadPdfAsync(ticket)
+
+                } catch (t: Throwable) {
                     runOnUiThread {
                         binding.btnLoadTicket.isEnabled = true
                         binding.btnLoadTicket.text = getString(R.string.ticket_laden)
