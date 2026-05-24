@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge android:gravity="center_vertical" android:orientation="horizontal" android:background="@drawable/background_verkehrsmittel_chip" android:layout_width="wrap_content" android:layout_height="wrap_content" android:backgroundTint="@color/produktICE"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <ImageView android:id="@id/verbindungsdetailsTypeIcon" android:layout_width="wrap_content" android:layout_height="24.0dip" android:layout_marginTop="4.0dip" android:layout_marginBottom="4.0dip" android:adjustViewBounds="true" android:importantForAccessibility="no" app:srcCompat="@drawable/ic_ice" />
+    <View android:id="@id/verbindungsdetailsVerkehrsmittelSeparator" android:background="@color/dbCoolGray100" android:layout_width="1.0dip" android:layout_height="fill_parent" android:layout_marginTop="6.0dip" android:layout_marginBottom="6.0dip" android:importantForAccessibility="no" android:layout_marginStart="2.0dip" android:layout_marginEnd="6.0dip" />
+    <TextView android:textStyle="bold" android:textColor="@color/dbWhite" android:gravity="start" android:id="@id/verbindungsdetailsVerkehrsmittel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" android:layout_marginBottom="4.0dip" android:lineSpacingExtra="4.0dip" android:layout_marginEnd="5.0dip" />
+</merge>

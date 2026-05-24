@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:orientation="vertical" android:id="@id/bahnBonusUnsubscribeLayout" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <View android:background="@drawable/drop_shadow_down" android:layout_width="fill_parent" android:layout_height="@dimen/drop_shadow_height" />
+    <ScrollView android:paddingTop="@dimen/drop_shadow_height" android:paddingBottom="104.0dip" android:clipToPadding="false" android:layout_width="fill_parent" android:layout_height="fill_parent">
+        <TextView android:gravity="center_horizontal" android:id="@id/bahnBonusUnsubscribeText" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="60.0dip" android:text="@string/bahnBonusUnsubscribeDescription" android:drawablePadding="32.0dip" android:lineSpacingExtra="4.0sp" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" app:drawableTopCompat="@drawable/ic_bahnbonus_unsubscribe_large" />
+    </ScrollView>
+    <Button android:layout_gravity="bottom" android:id="@id/bahnBonusUnsubscribeButton" android:layout_width="fill_parent" android:layout_height="@dimen/confirm_button_height" android:layout_marginBottom="24.0dip" android:text="@string/bahnBonusUnsubscribeButton" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" style="@style/DBDangerousButton" />
+</FrameLayout>

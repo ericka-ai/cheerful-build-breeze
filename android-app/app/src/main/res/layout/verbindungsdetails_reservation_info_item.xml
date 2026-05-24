@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="wrap_content" android:layout_height="wrap_content"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <TextView android:textColor="@color/defaultTextColorGrey" android:id="@id/reservationInfoHeader" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/klasse" android:layout_marginEnd="20.0dip" />
+    <TextView android:textStyle="bold" android:id="@id/reservationInfoValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="20.0dip" />
+</LinearLayout>

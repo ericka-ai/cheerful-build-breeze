@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <include android:id="@id/toolbar" layout="@layout/root_toolbar" />
+    <androidx.compose.ui.platform.ComposeView android:id="@id/fahrtinformationenTabs" android:layout_width="fill_parent" android:layout_height="wrap_content" />
+    <FrameLayout android:id="@id/rootContainer" android:layout_width="fill_parent" android:layout_height="fill_parent" />
+</LinearLayout>

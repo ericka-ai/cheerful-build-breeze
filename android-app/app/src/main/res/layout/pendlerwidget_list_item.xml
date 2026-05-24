@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="horizontal" android:id="@id/pendlerWidgetListItem" android:background="@color/lightBackground" android:padding="6.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" android:layout_marginStart="2.0dip" android:layout_marginEnd="6.0dip">
+        <LinearLayout android:layout_width="fill_parent" android:layout_height="wrap_content">
+            <TextView android:textStyle="bold" android:textColor="@color/defaultTextColor" android:id="@id/pendlerWidgetStartTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_weight="0.0" android:fontFamily="@font/dbsans_bold" android:layout_marginEnd="6.0dip" />
+            <TextView android:id="@id/pendlerWidgetEzStartTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_weight="0.0" android:fontFamily="@font/dbsans_regular" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_weight="1.0" />
+            <TextView android:id="@id/pendlerWidgetEzArrivalTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_weight="0.0" android:fontFamily="@font/dbsans_regular" />
+            <TextView android:textStyle="bold" android:textColor="@color/defaultTextColor" android:id="@id/pendlerWidgetArrivalTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_weight="0.0" android:fontFamily="@font/dbsans_bold" android:layout_marginStart="6.0dip" />
+        </LinearLayout>
+        <RelativeLayout android:gravity="center" android:layout_width="fill_parent" android:layout_height="fill_parent">
+            <ImageView android:layout_width="8.0dip" android:layout_height="8.0dip" android:src="@drawable/pendler_widget_black_dot" android:layout_centerVertical="true" android:importantForAccessibility="no" android:layout_alignParentStart="true" />
+            <LinearLayout android:paddingTop="8.0dip" android:paddingBottom="8.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content">
+                <TextView android:id="@id/pendlerWidgetAbschnitt1" android:background="@drawable/background_rounded_corner_pendlerwidget" android:layout_width="fill_parent" android:layout_height="3.0dip" android:layout_weight="1.0" android:layout_marginStart="3.0dip" android:layout_marginEnd="3.0dip" />
+                <TextView android:id="@id/pendlerWidgetAbschnitt2" android:background="@drawable/background_rounded_corner_pendlerwidget" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="3.0dip" android:layout_weight="1.0" android:layout_marginStart="3.0dip" android:layout_marginEnd="3.0dip" />
+                <TextView android:id="@id/pendlerWidgetAbschnitt3" android:background="@drawable/background_rounded_corner_pendlerwidget" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="3.0dip" android:layout_weight="1.0" android:layout_marginStart="3.0dip" android:layout_marginEnd="3.0dip" />
+                <TextView android:id="@id/pendlerWidgetAbschnitt4" android:background="@drawable/background_rounded_corner_pendlerwidget" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="3.0dip" android:layout_weight="1.0" android:layout_marginStart="3.0dip" android:layout_marginEnd="3.0dip" />
+                <TextView android:id="@id/pendlerWidgetAbschnitt5" android:background="@drawable/background_rounded_corner_pendlerwidget" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="3.0dip" android:layout_weight="1.0" android:layout_marginStart="3.0dip" android:layout_marginEnd="3.0dip" />
+            </LinearLayout>
+            <ImageView android:layout_width="8.0dip" android:layout_height="8.0dip" android:src="@drawable/pendler_widget_black_dot" android:layout_centerVertical="true" android:importantForAccessibility="no" android:layout_alignParentEnd="true" />
+        </RelativeLayout>
+        <LinearLayout android:orientation="horizontal" android:layout_width="fill_parent" android:layout_height="wrap_content">
+            <TextView android:textSize="12.0sp" android:textColor="@color/defaultTextColorGrey" android:gravity="start" android:id="@id/pendlerWidgetStartTrackNumber" android:layout_width="0.0dip" android:layout_height="wrap_content" android:singleLine="true" android:layout_weight="1.0" android:fontFamily="@font/dbsans_regular" />
+            <TextView android:textSize="12.0sp" android:textColor="@color/defaultTextColorGrey" android:ellipsize="end" android:gravity="end" android:id="@id/pendlerWidgetStartTrainNumber" android:layout_width="0.0dip" android:layout_height="wrap_content" android:singleLine="true" android:layout_weight="1.0" android:fontFamily="@font/dbsans_regular" />
+        </LinearLayout>
+    </LinearLayout>
+    <ImageView android:layout_gravity="center_vertical" android:id="@id/pendlerWidgetAlert" android:visibility="gone" android:layout_width="20.0dip" android:layout_height="20.0dip" android:src="@drawable/ic_hint_red" android:importantForAccessibility="no" />
+    <ImageView android:layout_gravity="center_vertical" android:id="@id/pendlerWidgetAlternative" android:padding="2.0dip" android:visibility="gone" android:layout_width="20.0dip" android:layout_height="20.0dip" android:src="@drawable/ic_alternative_verbindung" android:contentDescription="@string/reiseloesungAlternativeConnection" />
+</LinearLayout>

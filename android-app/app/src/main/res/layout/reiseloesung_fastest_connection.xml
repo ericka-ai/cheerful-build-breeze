@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <View android:id="@id/fastestConnectionDivider" android:background="@color/lineDivider" android:layout_width="fill_parent" android:layout_height="1.0dip" />
+    <androidx.constraintlayout.widget.ConstraintLayout android:id="@id/fastestConnectionContainer" android:layout_width="fill_parent" android:layout_height="wrap_content" android:minHeight="44.0dip">
+        <androidx.appcompat.widget.LinearLayoutCompat android:orientation="vertical" android:id="@id/linearLayoutCompat" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_marginTop="12.0dip" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent">
+            <androidx.constraintlayout.widget.ConstraintLayout android:id="@id/fastestConnectionContent" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginBottom="4.0dip" android:minHeight="24.0dip">
+                <ImageView android:id="@id/fastestConnectionIcon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/ic_transportation_fast" android:importantForAccessibility="no" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" />
+                <TextView android:id="@id/fastestConnectionLabel" android:layout_width="0.0dip" android:layout_height="fill_parent" android:text="@string/fastestConnectionShow" android:layout_marginStart="8.0dip" android:layout_marginEnd="8.0dip" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toStartOf="@id/fastestConnectionState" app:layout_constraintStart_toEndOf="@id/fastestConnectionIcon" app:layout_constraintTop_toTopOf="parent" />
+                <TextView android:textStyle="bold" android:gravity="end" android:id="@id/fastestConnectionState" android:layout_width="wrap_content" android:layout_height="fill_parent" android:lines="1" android:lineSpacingMultiplier="1.2" android:layout_marginEnd="8.0dip" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toStartOf="@id/fastestConnectionMoreIcon" app:layout_constraintTop_toTopOf="parent" />
+                <ImageView android:id="@id/fastestConnectionMoreIcon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/ic_show_more" android:importantForAccessibility="no" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintTop_toTopOf="parent" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </androidx.appcompat.widget.LinearLayoutCompat>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>

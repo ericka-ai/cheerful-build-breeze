@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:orientation="horizontal" android:id="@id/deepLinkHeaderRoot" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:minHeight="@dimen/deeplink_header_height" style="@style/DeepLinkHeaderBar"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <ImageView android:layout_gravity="center_vertical" android:id="@id/deepLinkHeaderIcon" android:layout_width="20.0dip" android:layout_height="20.0dip" android:src="@drawable/ic_deeplink_header" android:contentDescription="@null" android:importantForAccessibility="no" android:layout_marginStart="16.0dip" />
+    <LinearLayout android:layout_gravity="center_vertical" android:orientation="vertical" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" android:layout_marginStart="12.0dip" android:layout_marginEnd="4.0dip" android:layout_marginVertical="8.0dip">
+        <TextView android:id="@id/deepLinkHeaderTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/deepLinkDefaultTitle" style="@style/DeepLinkHeaderBarText" />
+        <TextView android:id="@id/deepLinkHeaderSubtitle" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2.0dip" style="@style/DeepLinkHeaderBarSubtitle" />
+    </LinearLayout>
+    <ImageButton android:layout_gravity="center_vertical" android:id="@id/deepLinkHeaderCloseButton" android:background="@android:color/transparent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/ic_deeplink_close" android:contentDescription="@string/close" android:layout_marginEnd="16.0dip" />
+</LinearLayout>

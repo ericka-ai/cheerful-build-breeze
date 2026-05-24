@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:id="@id/fragmentPersonalDataRootView" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <ScrollView android:id="@id/personalDataScrollView" android:scrollbars="none" android:clipToPadding="true" android:layout_width="fill_parent" android:layout_height="wrap_content">
+        <LinearLayout android:orientation="vertical" android:paddingTop="20.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content">
+            <TextView android:textColor="@color/dbCoolGray500" android:gravity="center_horizontal" android:id="@id/personalDataHeader" android:paddingBottom="20.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="@string/personalDataBuchungHint" android:lineSpacingExtra="6.0sp" android:paddingStart="24.0dip" android:paddingEnd="24.0dip" />
+            <include android:id="@id/personalDataReisenderTypeContainer" android:visibility="gone" layout="@layout/view_reisenden_type" />
+            <include android:id="@id/personalDataNameCollapsed" layout="@layout/view_profile_card_collapsed" />
+            <include android:id="@id/personalDataName" android:visibility="visible" layout="@layout/view_name_expanded" />
+            <include android:id="@id/personalDataBirthdayCollapsed" layout="@layout/view_profile_card_collapsed" />
+            <include android:id="@id/personalDataBirthday" android:visibility="visible" layout="@layout/view_birthday" />
+            <include android:id="@id/personalDataHauptadresseCollapsed" layout="@layout/view_profile_card_collapsed" />
+            <include android:id="@id/hauptadressePersonalDataInput" layout="@layout/view_address_input" />
+            <include android:id="@id/personalDataEmailCollapsed" android:visibility="gone" layout="@layout/view_profile_card_collapsed" />
+            <include android:id="@id/personalDataEmail" android:visibility="gone" layout="@layout/view_edit_email_address" />
+            <include android:id="@id/personalDataTelefon" android:visibility="gone" layout="@layout/view_edit_phone_number" />
+            <TextView android:textColor="@color/defaultTextColorGrey" android:id="@id/personalDataFooter" android:paddingTop="8.0dip" android:paddingBottom="24.0dip" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="@string/personalDataSaveToKundenkontoHint" android:lineSpacingExtra="6.0sp" android:paddingStart="24.0dip" android:paddingEnd="24.0dip" />
+            <TextView android:textColor="@color/defaultTextColorGrey" android:id="@id/personalDataPrefilledWarning" android:paddingTop="8.0dip" android:paddingBottom="24.0dip" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="@string/personalDataPrefilledErmaessigungHint" android:lineSpacingExtra="6.0sp" android:paddingStart="24.0dip" android:paddingEnd="24.0dip" />
+            <Button android:id="@id/personalDataSecondaryButton" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="@dimen/secondary_button_height" android:layout_marginBottom="20.0dip" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" style="@style/DBBorderedButton" />
+            <View android:id="@id/personalDataScrollViewSpace" android:layout_width="fill_parent" android:layout_height="72.0dip" app:layout_constraintTop_toBottomOf="@id/profileCountryInput" />
+        </LinearLayout>
+    </ScrollView>
+    <View android:layout_gravity="top" android:background="@drawable/drop_shadow_down" android:layout_width="fill_parent" android:layout_height="@dimen/drop_shadow_height" android:importantForAccessibility="no" />
+    <Button android:enabled="false" android:layout_gravity="bottom" android:id="@id/personalDataSave" android:layout_width="fill_parent" android:layout_height="@dimen/confirm_button_height" android:layout_marginTop="16.0dip" android:layout_marginBottom="16.0dip" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" style="@style/DBPrimaryButton" />
+</FrameLayout>

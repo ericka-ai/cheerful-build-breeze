@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:orientation="vertical" android:id="@id/bahnBonusSubscribeLayout" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <View android:background="@drawable/drop_shadow_down" android:layout_width="fill_parent" android:layout_height="@dimen/drop_shadow_height" />
+    <ScrollView android:paddingTop="@dimen/drop_shadow_height" android:paddingBottom="104.0dip" android:clipToPadding="false" android:layout_width="fill_parent" android:layout_height="fill_parent">
+        <LinearLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content">
+            <ImageView android:layout_gravity="center_horizontal" android:layout_width="80.0dip" android:layout_height="80.0dip" android:layout_marginTop="40.0dip" android:src="@drawable/ic_bahnbonus" android:importantForAccessibility="no" />
+            <TextView android:textSize="16.0sp" android:textStyle="bold" android:gravity="center_horizontal" android:layout_gravity="center_horizontal" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="30.0dip" android:text="@string/bahnBonusSubscribeHeader" android:lineSpacingExtra="4.0sp" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" />
+            <TextView android:textColorLink="@color/defaultTextColor" android:gravity="center_horizontal" android:layout_gravity="center_horizontal" android:id="@id/bahnBonusSubscribeInfoText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8.0dip" android:text="@string/bahnBonusSubscribeMessage" android:lineSpacingExtra="4.0sp" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" />
+            <db.vendo.android.vendigator.core.commons.ui.component.newsletter.view.NewsletterCardView android:id="@id/bahnBonusNewsletterKachel" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="20.0dip" />
+        </LinearLayout>
+    </ScrollView>
+    <Button android:layout_gravity="bottom" android:id="@id/bahnBonusSubscribeButton" android:layout_width="fill_parent" android:layout_height="@dimen/confirm_button_height" android:layout_marginBottom="24.0dip" android:text="@string/participate" android:layout_marginStart="24.0dip" android:layout_marginEnd="24.0dip" style="@style/DBPrimaryButton" />
+</FrameLayout>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout android:layout_width="fill_parent" android:layout_height="wrap_content"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <FrameLayout android:layout_gravity="center" android:id="@id/kciCheckedinView" android:background="@drawable/background_border_transparent" android:visibility="visible" android:layout_width="fill_parent" android:layout_height="wrap_content" android:minHeight="32.0dip">
+        <androidx.constraintlayout.widget.ConstraintLayout android:layout_gravity="center" android:orientation="horizontal" android:layout_width="fill_parent" android:layout_height="wrap_content" android:paddingStart="4.0dip" android:paddingEnd="4.0dip">
+            <ImageView android:id="@id/kciCheckedInIcon" android:layout_width="24.0dip" android:layout_height="24.0dip" android:importantForAccessibility="no" app:layout_constraintBottom_toBottomOf="@id/kciCheckedinText" app:layout_constraintEnd_toStartOf="@id/kciCheckedinText" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="@id/kciCheckedinText" />
+            <TextView android:ellipsize="end" android:gravity="center" android:id="@id/kciCheckedinText" android:layout_width="0.0dip" android:layout_height="wrap_content" android:text="@string/checkedIn" android:maxLines="1" android:layout_marginStart="4.0dip" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toEndOf="@id/kciCheckedInIcon" app:layout_constraintTop_toTopOf="parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </FrameLayout>
+</FrameLayout>
