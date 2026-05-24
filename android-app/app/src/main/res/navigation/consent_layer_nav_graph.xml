@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<navigation xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/consent_layer_nav_graph"
-    app:startDestination="@id/consent_fragment">
-    <fragment
-        android:id="@+id/consent_fragment"
-        android:name="androidx.fragment.app.Fragment"
-        android:label="Consent" />
+<navigation android:id="@id/consent_layer_nav_graph" app:startDestination="@id/consentLevel1Fragment"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <fragment android:label="@string/cookieSettings" android:name="db.vendo.android.vendigator.view.consentlayer.ConsentLevel1Fragment" android:id="@id/consentLevel1Fragment">
+        <action android:id="@id/action_consentLevel1Fragment_to_imprintFragment" app:destination="@id/imprintFragment" />
+        <action android:id="@id/action_consentLevel1Fragment_to_consentLevel2Fragment" app:destination="@id/consentLevel2Fragment" />
+    </fragment>
+    <fragment android:label="@string/imprint" android:name="db.vendo.android.vendigator.view.legal.ImprintFragment" android:id="@id/imprintFragment" />
+    <fragment android:label="@string/cookieSettings" android:name="db.vendo.android.vendigator.view.consentlayer.ConsentLevel2Fragment" android:id="@id/consentLevel2Fragment">
+        <action android:id="@id/action_consentLevel2Fragment_to_consentLevel3Fragment" app:destination="@id/consentLevel3Fragment" />
+    </fragment>
+    <fragment android:label="@string/cookieSettings" android:name="db.vendo.android.vendigator.view.consentlayer.ConsentLevel3Fragment" android:id="@id/consentLevel3Fragment">
+        <argument android:name="kind" app:argType="db.vendo.android.vendigator.view.consentlayer.compose.ConsentLevel3State" />
+    </fragment>
 </navigation>

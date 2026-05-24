@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/dbCoolGray500" />
+    <padding android:left="@dimen/contextual_focus_list_padding" android:top="@dimen/contextual_focus_list_padding" android:right="@dimen/contextual_focus_list_padding" android:bottom="@dimen/contextual_focus_list_padding" />
+    <corners android:radius="@dimen/contextual_focus_list_padding" />
+</shape>

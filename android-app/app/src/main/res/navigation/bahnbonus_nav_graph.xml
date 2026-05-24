@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation android:id="@id/bahnbonus_nav_graph" app:startDestination="@id/bahnBonusInfoFragment"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <fragment android:label="@string/bahnBonusFormatted" android:name="db.vendo.android.vendigator.feature.bahnbonus.view.BahnBonusInfoFragment" android:id="@id/bahnBonusInfoFragment">
+        <action android:id="@id/action_bahnBonusInfoFragment_to_bahnBonusUnsubscribeFragment" app:destination="@id/bahnBonusUnsubscribeFragment" />
+        <action android:id="@id/action_bahnBonusInfoFragment_to_bahnBonusSubscribeFragment" app:destination="@id/bahnBonusSubscribeFragment" />
+    </fragment>
+    <fragment android:label="@string/bahnBonusSubscribeTitle" android:name="db.vendo.android.vendigator.feature.bahnbonus.view.BahnBonusSubscribeFragment" android:id="@id/bahnBonusSubscribeFragment">
+        <action android:id="@id/action_bahnBonusSubscribeFragment_to_bahnBonusInfoFragment" app:destination="@id/bahnBonusInfoFragment" app:popUpTo="@id/bahnBonusInfoFragment" app:popUpToInclusive="true" />
+    </fragment>
+    <fragment android:label="@string/bahnBonusUnsubscribeTitle" android:name="db.vendo.android.vendigator.feature.bahnbonus.view.BahnBonusUnsubscribeFragment" android:id="@id/bahnBonusUnsubscribeFragment" />
+    <fragment android:name="db.vendo.android.vendigator.feature.bahnbonus.view.BahnBonusLinkingFragment" android:id="@id/bahnBonusLinkingFragment" />
+</navigation>

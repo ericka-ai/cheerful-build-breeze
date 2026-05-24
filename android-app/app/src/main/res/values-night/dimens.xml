@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="map_marker_msp_sharing_geofence_border">1.0dip</dimen>
+</resources>

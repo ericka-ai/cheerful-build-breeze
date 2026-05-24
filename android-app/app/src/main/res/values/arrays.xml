@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="android_wear_capabilities">
+        <item>db_navigator_phone_app</item>
+    </string-array>
+    <array name="multiple_choice_ids">
+        <item>@id/multiple_choice_1</item>
+        <item>@id/multiple_choice_2</item>
+        <item>@id/multiple_choice_3</item>
+        <item>@id/multiple_choice_4</item>
+        <item>@id/multiple_choice_5</item>
+        <item>@id/multiple_choice_6</item>
+        <item>@id/multiple_choice_7</item>
+        <item>@id/multiple_choice_8</item>
+        <item>@id/multiple_choice_9</item>
+        <item>@id/multiple_choice_10</item>
+        <item>@id/multiple_choice_11</item>
+    </array>
+    <string-array name="reise_einstellungen_benachrichtungen_time_picker_minutes">
+        <item>30</item>
+        <item>35</item>
+        <item>40</item>
+        <item>45</item>
+        <item>50</item>
+        <item>55</item>
+        <item>60</item>
+        <item>65</item>
+        <item>70</item>
+        <item>75</item>
+        <item>80</item>
+        <item>85</item>
+        <item>90</item>
+        <item>95</item>
+        <item>100</item>
+        <item>105</item>
+        <item>110</item>
+        <item>115</item>
+        <item>120</item>
+    </string-array>
+    <string-array name="reise_einstellungen_verspaetungsalarm_time_picker_minutes">
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>20</item>
+        <item>25</item>
+        <item>30</item>
+    </string-array>
+    <string-array name="time_picker_hours">
+        <item>00</item>
+        <item>01</item>
+        <item>02</item>
+        <item>03</item>
+        <item>04</item>
+        <item>05</item>
+        <item>06</item>
+        <item>07</item>
+        <item>08</item>
+        <item>09</item>
+        <item>10</item>
+        <item>11</item>
+        <item>12</item>
+        <item>13</item>
+        <item>14</item>
+        <item>15</item>
+        <item>16</item>
+        <item>17</item>
+        <item>18</item>
+        <item>19</item>
+        <item>20</item>
+        <item>21</item>
+        <item>22</item>
+        <item>23</item>
+    </string-array>
+    <string-array name="time_picker_minutes">
+        <item>00</item>
+        <item>05</item>
+        <item>10</item>
+        <item>15</item>
+        <item>20</item>
+        <item>25</item>
+        <item>30</item>
+        <item>35</item>
+        <item>40</item>
+        <item>45</item>
+        <item>50</item>
+        <item>55</item>
+    </string-array>
+</resources>

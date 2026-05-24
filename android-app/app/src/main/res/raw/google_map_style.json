@@ -1,0 +1,24 @@
+[
+    {
+        "featureType": "transit",
+        "stylers": [
+            {
+                "visibility": "off"
+            }
+        ]
+    },
+    {
+        "featureType": "transit.line",
+        "stylers": [
+            {
+                "color": "#878c96"
+            },
+            {
+                "visibility": "on"
+            },
+            {
+                "weight": 1.2
+            }
+        ]
+    }
+]

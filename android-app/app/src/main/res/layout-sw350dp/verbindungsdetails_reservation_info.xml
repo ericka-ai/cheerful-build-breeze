@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout android:id="@id/verbindungsdetailsReservierungsContainer" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_marginTop="16.0dip"
+  xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+    <ImageView android:id="@id/verbindungsdetailsSitzplatzIcon" android:layout_width="34.0dip" android:layout_height="20.0dip" android:importantForAccessibility="no" android:paddingEnd="14.0dip" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent" app:srcCompat="@drawable/ic_seat_aisle_grey_20" />
+    <LinearLayout android:orientation="horizontal" android:id="@id/verbindungsdetailsReservierungsInfo" android:layout_width="0.0dip" android:layout_height="wrap_content" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toEndOf="@id/verbindungsdetailsSitzplatzIcon" app:layout_constraintTop_toTopOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>
