@@ -4,13 +4,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background">
+    android:background="@color/greyBackground">
 
-    <!-- Dark Top Bar -->
+    <!-- Top Bar -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:background="@color/surface"
+        android:background="@color/dbCoolGray700"
         android:gravity="center_vertical"
         android:paddingStart="4dp"
         android:paddingEnd="16dp">
@@ -20,25 +20,24 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_revert"
+            android:src="@drawable/ic_arrow_back_dark"
             android:contentDescription="@string/zurueck"
-            android:tint="@color/text_primary" />
+            android:tint="@color/dbWhite" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/settings_title"
-            android:textColor="@color/text_primary"
+            android:textColor="@color/dbWhite"
             android:textSize="18sp"
-            android:textStyle="bold"
-            android:fontFamily="sans-serif-medium" />
+            android:fontFamily="@font/dbsans_bold" />
     </LinearLayout>
 
     <!-- Red accent line -->
     <View
         android:layout_width="match_parent"
-        android:layout_height="2dp"
-        android:background="@color/db_red" />
+        android:layout_height="4dp"
+        android:background="@color/dbRed" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -48,6 +47,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:background="@drawable/background_rounded_corner_bottom"
             android:padding="20dp">
 
             <!-- Server URL Section -->
@@ -56,110 +56,108 @@
                 android:layout_height="wrap_content"
                 android:text="Server"
                 android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/defaultTextColor"
+                android:fontFamily="@font/dbsans_bold"
+                android:layout_marginBottom="4dp" />
+
+            <View
+                android:layout_width="40dp"
+                android:layout_height="4dp"
+                android:background="@color/dbRed"
                 android:layout_marginBottom="12dp" />
 
-            <com.google.android.material.card.MaterialCardView
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.DBTickets.TextInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/card_bg">
+                android:hint="@string/server_url">
 
-                <LinearLayout
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etServerUrl"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.DBTickets.TextInput"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/server_url">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etServerUrl"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="textUri"
-                            android:hint="@string/server_url_hint"
-                            android:textColor="@color/text_primary" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                    android:inputType="textUri"
+                    android:hint="@string/server_url_hint"
+                    android:textColor="@color/defaultTextColor"
+                    android:fontFamily="@font/dbsans_regular" />
+            </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Die Server-URL zeigt auf den FastAPI-Backend-Server."
                 android:textSize="12sp"
-                android:textColor="@color/text_secondary"
+                android:textColor="@color/defaultTextColorGrey"
+                android:fontFamily="@font/dbsans_regular"
                 android:layout_marginBottom="28dp" />
 
-            <!-- Einstellungen Section -->
+            <!-- Einstellungen -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Einstellungen"
                 android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/defaultTextColor"
+                android:fontFamily="@font/dbsans_bold"
+                android:layout_marginBottom="4dp" />
+
+            <View
+                android:layout_width="40dp"
+                android:layout_height="4dp"
+                android:background="@color/dbRed"
                 android:layout_marginBottom="12dp" />
 
-            <!-- Dark Mode Card -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- Dark Mode toggle -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="28dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/card_bg">
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="28dp">
 
                 <LinearLayout
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:padding="16dp">
+                    android:layout_weight="1"
+                    android:orientation="vertical">
 
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Dunkler Modus"
-                            android:textSize="15sp"
-                            android:textColor="@color/text_primary" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Ticket-Ansicht im dunklen Design"
-                            android:textSize="12sp"
-                            android:textColor="@color/text_secondary"
-                            android:layout_marginTop="2dp" />
-                    </LinearLayout>
-
-                    <com.google.android.material.switchmaterial.SwitchMaterial
-                        android:id="@+id/switchDarkMode"
+                    <TextView
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                        android:layout_height="wrap_content"
+                        android:text="Dunkler Modus"
+                        android:textSize="15sp"
+                        android:textColor="@color/defaultTextColor"
+                        android:fontFamily="@font/dbsans_regular" />
 
-            <com.google.android.material.button.MaterialButton
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Systemeinstellung folgen"
+                        android:textSize="12sp"
+                        android:textColor="@color/defaultTextColorGrey"
+                        android:fontFamily="@font/dbsans_regular"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchDarkMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/lineDivider"
+                android:layout_marginBottom="20dp" />
+
+            <Button
                 android:id="@+id/btnSave"
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
                 android:text="@string/speichern"
-                style="@style/Widget.DBTickets.Button.Gray" />
+                style="@style/DBPrimaryButton" />
         </LinearLayout>
     </ScrollView>
 
