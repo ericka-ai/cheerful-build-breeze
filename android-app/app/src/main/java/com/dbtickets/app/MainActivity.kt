@@ -1,15 +1,22 @@
 package com.dbtickets.app
 
+import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -19,10 +26,14 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.dbtickets.app.databinding.ActivityMainBinding
 import okhttp3.*
+import org.json.JSONArray
 import org.json.JSONObject
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
@@ -30,6 +41,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var allTickets: List<Ticket> = emptyList()
     private var isAuthenticated = false
+
+    private val importLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { importBackup(it) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnLoadTicket.setOnClickListener {
             val auftragsnummer = binding.etAuftragsnummer.text.toString().trim()
             if (auftragsnummer.isEmpty()) {
-                binding.tvError.text = "Bitte Auftragsnummer eingeben"
+                binding.tvError.text = getString(R.string.bitte_auftragsnummer_eingeben)
                 binding.tvError.visibility = View.VISIBLE
                 return@setOnClickListener
             }
@@ -97,13 +112,13 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onAuthenticationFailed() {
-                Toast.makeText(this@MainActivity, "Authentifizierung fehlgeschlagen", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, getString(R.string.authentifizierung_fehlgeschlagen), Toast.LENGTH_SHORT).show()
             }
         })
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("DB Tickets")
-            .setSubtitle("Identifiziere dich um fortzufahren")
+            .setTitle(getString(R.string.app_name))
+            .setSubtitle(getString(R.string.identifiziere_dich))
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
             .build()
 
@@ -114,20 +129,25 @@ class MainActivity : AppCompatActivity() {
         val swipeHandler = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
             override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
 
+            override fun getSwipeDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
+                if (viewHolder is TicketAdapter.HeaderViewHolder) return 0
+                return super.getSwipeDirs(recyclerView, viewHolder)
+            }
+
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.bindingAdapterPosition
                 val adapter = binding.rvTickets.adapter as? TicketAdapter ?: return
-                val ticket = adapter.getTicketAt(position)
+                val ticket = try { adapter.getTicketAt(position) } catch (e: Exception) { loadTicketHistory(); return }
 
                 AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Ticket l\u00f6schen")
-                    .setMessage("M\u00f6chtest du das Ticket ${ticket.auftragsnummer} wirklich l\u00f6schen?")
-                    .setPositiveButton("L\u00f6schen") { _, _ ->
+                    .setTitle(getString(R.string.ticket_loeschen))
+                    .setMessage(getString(R.string.ticket_loeschen_frage, ticket.auftragsnummer))
+                    .setPositiveButton(getString(R.string.loeschen)) { _, _ ->
                         TicketStore.deleteTicket(this@MainActivity, ticket.id)
                         loadTicketHistory()
-                        Toast.makeText(this@MainActivity, "Ticket gel\u00f6scht", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, getString(R.string.ticket_geloescht), Toast.LENGTH_SHORT).show()
                     }
-                    .setNegativeButton("Abbrechen") { _, _ ->
+                    .setNegativeButton(getString(R.string.abbrechen)) { _, _ ->
                         loadTicketHistory()
                     }
                     .setOnCancelListener {
@@ -169,7 +189,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnLoadTicket.isEnabled = false
-        binding.btnLoadTicket.text = "Wird geladen..."
+        binding.btnLoadTicket.text = getString(R.string.wird_geladen)
         binding.progressBar.visibility = View.VISIBLE
 
         val serverUrl = TicketStore.getServerUrl(this)
@@ -184,9 +204,9 @@ class MainActivity : AppCompatActivity() {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread {
                     binding.btnLoadTicket.isEnabled = true
-                    binding.btnLoadTicket.text = "Ticket laden"
+                    binding.btnLoadTicket.text = getString(R.string.ticket_laden)
                     binding.progressBar.visibility = View.GONE
-                    binding.tvError.text = "Verbindung zum Server fehlgeschlagen"
+                    binding.tvError.text = getString(R.string.error_connection)
                     binding.tvError.visibility = View.VISIBLE
                 }
             }
@@ -197,9 +217,9 @@ class MainActivity : AppCompatActivity() {
                 if (!response.isSuccessful) {
                     runOnUiThread {
                         binding.btnLoadTicket.isEnabled = true
-                        binding.btnLoadTicket.text = "Ticket laden"
+                        binding.btnLoadTicket.text = getString(R.string.ticket_laden)
                         binding.progressBar.visibility = View.GONE
-                        binding.tvError.text = "Ticket nicht gefunden"
+                        binding.tvError.text = getString(R.string.ticket_nicht_gefunden)
                         binding.tvError.visibility = View.VISIBLE
                     }
                     return
@@ -255,7 +275,7 @@ class MainActivity : AppCompatActivity() {
 
                     runOnUiThread {
                         binding.btnLoadTicket.isEnabled = true
-                        binding.btnLoadTicket.text = "Ticket laden"
+                        binding.btnLoadTicket.text = getString(R.string.ticket_laden)
                         binding.progressBar.visibility = View.GONE
 
                         val intent = Intent(this@MainActivity, TicketResultActivity::class.java)
@@ -266,9 +286,9 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     runOnUiThread {
                         binding.btnLoadTicket.isEnabled = true
-                        binding.btnLoadTicket.text = "Ticket laden"
+                        binding.btnLoadTicket.text = getString(R.string.ticket_laden)
                         binding.progressBar.visibility = View.GONE
-                        binding.tvError.text = "Fehler beim Laden des Tickets"
+                        binding.tvError.text = getString(R.string.fehler_beim_laden)
                         binding.tvError.visibility = View.VISIBLE
                     }
                 }
@@ -326,6 +346,15 @@ class MainActivity : AppCompatActivity() {
             binding.etSearch.visibility = if (allTickets.size > 3) View.VISIBLE else View.GONE
             displayTickets(allTickets)
         }
+        updateWidget()
+    }
+
+    private fun updateWidget() {
+        val manager = AppWidgetManager.getInstance(this)
+        val ids = manager.getAppWidgetIds(ComponentName(this, TicketWidgetProvider::class.java))
+        for (id in ids) {
+            TicketWidgetProvider.updateWidget(this, manager, id)
+        }
     }
 
     private fun filterTickets(query: String) {
@@ -352,36 +381,181 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
     }
+
+    fun onMenuClick(view: View) {
+        val popup = PopupMenu(this, view)
+        popup.menu.add(0, 1, 0, getString(R.string.backup_exportieren))
+        popup.menu.add(0, 2, 1, getString(R.string.backup_importieren))
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> exportBackup()
+                2 -> importLauncher.launch("application/json")
+            }
+            true
+        }
+        popup.show()
+    }
+
+    private fun exportBackup() {
+        val tickets = TicketStore.getTickets(this)
+        if (tickets.isEmpty()) {
+            Toast.makeText(this, getString(R.string.keine_tickets_zum_exportieren), Toast.LENGTH_SHORT).show()
+            return
+        }
+        val array = JSONArray()
+        tickets.forEach { array.put(it.toJson()) }
+        val backup = JSONObject()
+        backup.put("exported_at", TicketStore.nowFormatted())
+        backup.put("total_tickets", tickets.size)
+        backup.put("tickets", array)
+
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val file = File(downloadsDir, "db_tickets_backup_${System.currentTimeMillis()}.json")
+        file.writeText(backup.toString(2))
+        Toast.makeText(this, getString(R.string.backup_erfolgreich), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun importBackup(uri: Uri) {
+        try {
+            val inputStream = contentResolver.openInputStream(uri) ?: return
+            val jsonStr = inputStream.bufferedReader().readText()
+            inputStream.close()
+            val backup = JSONObject(jsonStr)
+            val ticketsArray = backup.optJSONArray("tickets") ?: return
+            var count = 0
+            for (i in 0 until ticketsArray.length()) {
+                val obj = ticketsArray.getJSONObject(i)
+                val ticket = Ticket.fromJson(obj)
+                if (TicketStore.getTicketByAuftragsnummer(this, ticket.auftragsnummer) == null) {
+                    TicketStore.saveTicket(this, ticket)
+                    count++
+                }
+            }
+            Toast.makeText(this, getString(R.string.restore_erfolgreich, count), Toast.LENGTH_SHORT).show()
+            loadTicketHistory()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Import fehlgeschlagen: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+sealed class TicketListItem {
+    data class Header(val title: String) : TicketListItem()
+    data class TicketItem(val ticket: Ticket) : TicketListItem()
 }
 
 class TicketAdapter(
-    private val tickets: List<Ticket>,
+    tickets: List<Ticket>,
     private val onClick: (Ticket) -> Unit
-) : RecyclerView.Adapter<TicketAdapter.ViewHolder>() {
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    private val items: List<TicketListItem>
+
+    init {
+        items = buildGroupedList(tickets)
+    }
+
+    private fun buildGroupedList(tickets: List<Ticket>): List<TicketListItem> {
+        if (tickets.size < 3) {
+            return tickets.map { TicketListItem.TicketItem(it) }
+        }
+        val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
+        val now = Date()
+        val active = mutableListOf<Ticket>()
+        val upcoming = mutableListOf<Ticket>()
+        val expired = mutableListOf<Ticket>()
+
+        for (t in tickets) {
+            try {
+                val start = sdf.parse(t.gueltigVon)
+                val end = sdf.parse(t.gueltigBis)
+                when {
+                    end != null && end.before(now) -> expired.add(t)
+                    start != null && start.after(now) -> upcoming.add(t)
+                    else -> active.add(t)
+                }
+            } catch (e: Exception) {
+                active.add(t)
+            }
+        }
+
+        val result = mutableListOf<TicketListItem>()
+        if (active.isNotEmpty()) {
+            result.add(TicketListItem.Header("Aktive Tickets"))
+            active.forEach { result.add(TicketListItem.TicketItem(it)) }
+        }
+        if (upcoming.isNotEmpty()) {
+            result.add(TicketListItem.Header("Kommende Tickets"))
+            upcoming.forEach { result.add(TicketListItem.TicketItem(it)) }
+        }
+        if (expired.isNotEmpty()) {
+            result.add(TicketListItem.Header("Abgelaufene Tickets"))
+            expired.forEach { result.add(TicketListItem.TicketItem(it)) }
+        }
+        return result
+    }
+
+    companion object {
+        private const val TYPE_HEADER = 0
+        private const val TYPE_TICKET = 1
+    }
+
+    override fun getItemViewType(position: Int): Int {
+        return when (items[position]) {
+            is TicketListItem.Header -> TYPE_HEADER
+            is TicketListItem.TicketItem -> TYPE_TICKET
+        }
+    }
+
+    class HeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvHeader: TextView = view as TextView
+    }
+
+    class TicketViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvName: TextView = view.findViewById(R.id.tvItemName)
         val tvType: TextView = view.findViewById(R.id.tvItemTicketType)
         val tvDate: TextView = view.findViewById(R.id.tvItemDate)
         val tvAuftrag: TextView = view.findViewById(R.id.tvItemAuftrag)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_ticket, parent, false)
-        return ViewHolder(view)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        return if (viewType == TYPE_HEADER) {
+            val tv = TextView(parent.context).apply {
+                textSize = 14f
+                setTextColor(parent.context.getColor(R.color.text_secondary))
+                setPadding(4, 24, 4, 8)
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+            }
+            HeaderViewHolder(tv)
+        } else {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_ticket, parent, false)
+            TicketViewHolder(view)
+        }
     }
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val ticket = tickets[position]
-        holder.tvName.text = "${ticket.vorname} ${ticket.nachname}"
-        holder.tvType.text = ticket.ticketTypeLabel
-        holder.tvDate.text = "${ticket.gueltigVon} - ${ticket.gueltigBis}"
-        holder.tvAuftrag.text = "Nr: ${ticket.auftragsnummer}"
-        holder.itemView.setOnClickListener { onClick(ticket) }
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val item = items[position]) {
+            is TicketListItem.Header -> {
+                (holder as HeaderViewHolder).tvHeader.text = item.title
+            }
+            is TicketListItem.TicketItem -> {
+                val ticket = item.ticket
+                val h = holder as TicketViewHolder
+                h.tvName.text = "${ticket.vorname} ${ticket.nachname}"
+                h.tvType.text = ticket.ticketTypeLabel
+                h.tvDate.text = "${ticket.gueltigVon} - ${ticket.gueltigBis}"
+                h.tvAuftrag.text = "Nr: ${ticket.auftragsnummer}"
+                h.itemView.setOnClickListener { onClick(ticket) }
+            }
+        }
     }
 
-    override fun getItemCount() = tickets.size
+    override fun getItemCount() = items.size
 
-    fun getTicketAt(position: Int): Ticket = tickets[position]
+    fun getTicketAt(position: Int): Ticket {
+        val item = items[position]
+        return if (item is TicketListItem.TicketItem) item.ticket
+        else throw IllegalStateException("Not a ticket position")
+    }
 }
