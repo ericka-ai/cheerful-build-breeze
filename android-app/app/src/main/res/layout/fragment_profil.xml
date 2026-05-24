@@ -12,6 +12,7 @@
 
         <!-- Profile header -->
         <LinearLayout
+            android:id="@+id/profileHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -20,6 +21,7 @@
             android:gravity="center_horizontal">
 
             <ImageView
+                android:id="@+id/ivProfileAvatar"
                 android:layout_width="72dp"
                 android:layout_height="72dp"
                 android:src="@drawable/ic_tab_profil"
@@ -27,6 +29,7 @@
                 android:layout_marginBottom="12dp" />
 
             <TextView
+                android:id="@+id/tvProfileTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Mein Profil"
@@ -35,12 +38,38 @@
                 android:fontFamily="@font/dbsans_bold" />
 
             <TextView
+                android:id="@+id/tvProfileStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Nicht angemeldet"
                 android:textSize="14sp"
                 android:textColor="@color/dbCoolGray500"
                 android:layout_marginTop="4dp" />
+
+            <Button
+                android:id="@+id/btnLogin"
+                android:layout_width="200dp"
+                android:layout_height="44dp"
+                android:text="Anmelden / Registrieren"
+                android:textColor="@color/dbWhite"
+                android:backgroundTint="@color/dbRed"
+                android:fontFamily="@font/dbsans_bold"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:layout_marginTop="16dp" />
+
+            <Button
+                android:id="@+id/btnLogout"
+                android:layout_width="200dp"
+                android:layout_height="44dp"
+                android:text="Abmelden"
+                android:textColor="@color/dbRed"
+                android:backgroundTint="@color/lightBackground"
+                android:fontFamily="@font/dbsans_bold"
+                android:textAllCaps="false"
+                android:textSize="14sp"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <View
@@ -69,12 +98,15 @@
                 android:paddingBottom="8dp" />
 
             <LinearLayout
+                android:id="@+id/btnBahnCard"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingStart="20dp"
                 android:paddingEnd="20dp"
+                android:clickable="true"
+                android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -99,12 +131,15 @@
                 android:layout_marginStart="20dp" />
 
             <LinearLayout
+                android:id="@+id/btnBahnBonus"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingStart="20dp"
                 android:paddingEnd="20dp"
+                android:clickable="true"
+                android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -129,12 +164,15 @@
                 android:layout_marginStart="20dp" />
 
             <LinearLayout
+                android:id="@+id/btnPersoenlicheDaten"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingStart="20dp"
                 android:paddingEnd="20dp"
+                android:clickable="true"
+                android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -142,6 +180,72 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Persönliche Daten"
+                    android:textSize="15sp"
+                    android:textColor="@color/dbCoolGray700" />
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_show_more"
+                    app:tint="@color/dbCoolGray400" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider"
+                android:layout_marginStart="20dp" />
+
+            <LinearLayout
+                android:id="@+id/btnZahlungsmittel"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Zahlungsmittel"
+                    android:textSize="15sp"
+                    android:textColor="@color/dbCoolGray700" />
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_show_more"
+                    app:tint="@color/dbCoolGray400" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider"
+                android:layout_marginStart="20dp" />
+
+            <LinearLayout
+                android:id="@+id/btnEinstellungen"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Einstellungen"
                     android:textSize="15sp"
                     android:textColor="@color/dbCoolGray700" />
 
@@ -207,6 +311,120 @@
                 android:visibility="gone" />
         </LinearLayout>
 
+        <!-- Rechtliches -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/lightBackground"
+            android:layout_marginTop="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Rechtliches"
+                android:textSize="14sp"
+                android:textColor="@color/dbCoolGray700"
+                android:fontFamily="@font/dbsans_bold"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="8dp" />
+
+            <LinearLayout
+                android:id="@+id/btnDatenschutz"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Datenschutz"
+                    android:textSize="15sp"
+                    android:textColor="@color/dbCoolGray700" />
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_show_more"
+                    app:tint="@color/dbCoolGray400" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider"
+                android:layout_marginStart="20dp" />
+
+            <LinearLayout
+                android:id="@+id/btnImpressum"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Impressum"
+                    android:textSize="15sp"
+                    android:textColor="@color/dbCoolGray700" />
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_show_more"
+                    app:tint="@color/dbCoolGray400" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider"
+                android:layout_marginStart="20dp" />
+
+            <LinearLayout
+                android:id="@+id/btnNutzungsbedingungen"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Nutzungsbedingungen"
+                    android:textSize="15sp"
+                    android:textColor="@color/dbCoolGray700" />
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_show_more"
+                    app:tint="@color/dbCoolGray400" />
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- App info -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -232,5 +450,9 @@
                 android:textSize="14sp"
                 android:textColor="@color/dbCoolGray500" />
         </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="24dp" />
     </LinearLayout>
 </ScrollView>

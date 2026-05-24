@@ -1,76 +1,235 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/greyBackground">
 
-    <!-- Search header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="@color/lightBackground"
-        android:padding="20dp">
+        android:orientation="vertical">
 
-        <TextView
+        <!-- Search header -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Verbindung suchen"
-            android:textSize="20sp"
-            android:textColor="@color/dbCoolGray700"
-            android:fontFamily="@font/dbsans_bold" />
+            android:orientation="vertical"
+            android:background="@color/lightBackground"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Verbindung suchen"
+                android:textSize="20sp"
+                android:textColor="@color/dbCoolGray700"
+                android:fontFamily="@font/dbsans_bold" />
+
+            <View
+                android:layout_width="50dp"
+                android:layout_height="4dp"
+                android:background="@color/dbRed"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="20dp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Von"
+                android:layout_marginBottom="12dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etVon"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <ImageButton
+                android:id="@+id/btnSwap"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center_horizontal"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_swap_vert"
+                app:tint="@color/dbRed"
+                android:contentDescription="Tauschen"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Nach"
+                android:layout_marginBottom="16dp"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/etNach"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Date and time -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Datum"
+                    android:layout_marginEnd="8dp"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etDatum"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="date"
+                        android:focusable="false"
+                        android:clickable="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Uhrzeit"
+                    android:layout_marginStart="8dp"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etUhrzeit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="time"
+                        android:focusable="false"
+                        android:clickable="true" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- Reisende -->
+            <LinearLayout
+                android:id="@+id/btnReisende"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_tab_profil"
+                    app:tint="@color/dbCoolGray500"
+                    android:layout_marginEnd="12dp" />
+
+                <TextView
+                    android:id="@+id/tvReisende"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="1 Erwachsener, 2. Kl."
+                    android:textSize="14sp"
+                    android:textColor="@color/dbCoolGray700" />
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_show_more"
+                    app:tint="@color/dbCoolGray400" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnSuchen"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="Suchen"
+                android:textColor="@color/dbWhite"
+                android:backgroundTint="@color/dbRed"
+                android:fontFamily="@font/dbsans_bold"
+                android:textAllCaps="false"
+                android:textSize="16sp" />
+        </LinearLayout>
 
         <View
-            android:layout_width="50dp"
+            android:layout_width="match_parent"
             android:layout_height="4dp"
-            android:background="@color/dbRed"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="20dp" />
+            android:background="@drawable/drop_shadow_down" />
 
-        <com.google.android.material.textfield.TextInputLayout
+        <!-- Letzte Suchen -->
+        <LinearLayout
+            android:id="@+id/letzteSuchenSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Von"
-            android:layout_marginBottom="12dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:orientation="vertical"
+            android:background="@color/lightBackground"
+            android:layout_marginTop="12dp"
+            android:visibility="gone">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etVon"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:text="Letzte Suchen"
+                android:textSize="14sp"
+                android:textColor="@color/dbCoolGray700"
+                android:fontFamily="@font/dbsans_bold"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="8dp" />
 
-        <com.google.android.material.textfield.TextInputLayout
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvLetzteSuchen"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Search results -->
+        <LinearLayout
+            android:id="@+id/searchResultsSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Nach"
-            android:layout_marginBottom="16dp"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:orientation="vertical"
+            android:layout_marginTop="12dp"
+            android:visibility="gone">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/etNach"
+            <TextView
+                android:id="@+id/tvResultsHeader"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:textSize="16sp"
+                android:textColor="@color/dbCoolGray700"
+                android:fontFamily="@font/dbsans_bold"
+                android:background="@color/lightBackground"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="12dp" />
 
-        <Button
-            android:id="@+id/btnSuchen"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:text="Suchen"
-            android:textColor="@color/dbWhite"
-            android:backgroundTint="@color/dbRed"
-            android:fontFamily="@font/dbsans_bold"
-            android:textAllCaps="false"
-            android:textSize="16sp" />
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvSearchResults"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/searchProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="24dp"
+            android:visibility="gone" />
     </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="4dp"
-        android:background="@drawable/drop_shadow_down" />
-</LinearLayout>
+</ScrollView>
