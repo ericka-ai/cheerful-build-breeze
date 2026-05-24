@@ -2,16 +2,24 @@
 <resources>
     <color name="db_red">#EC0016</color>
     <color name="db_red_dark">#C40014</color>
-    <color name="db_dark">#1B1B1B</color>
-    <color name="db_grey">#878787</color>
-    <color name="db_light_grey">#F0F0F0</color>
+    <color name="db_red_light">#FA9090</color>
+    <color name="db_dark">#282D37</color>
+    <color name="db_grey">#878C96</color>
+    <color name="db_grey_light">#AFB4BB</color>
+    <color name="db_light_grey">#D7DCE1</color>
     <color name="db_white">#FFFFFF</color>
     <color name="db_blue">#1455C0</color>
     <color name="db_green">#408335</color>
+    <color name="db_cool_gray_100">#F0F3F5</color>
+    <color name="db_cool_gray_200">#D7DCE1</color>
+    <color name="db_cool_gray_500">#646973</color>
+    <color name="db_cool_gray_600">#3C414B</color>
+    <color name="db_cool_gray_700">#282D37</color>
     <color name="card_bg">#FFFFFF</color>
-    <color name="text_primary">#1B1B1B</color>
-    <color name="text_secondary">#6B6B6B</color>
-    <color name="background">#F5F5F5</color>
+    <color name="text_primary">#282D37</color>
+    <color name="text_secondary">#646973</color>
+    <color name="background">#F0F3F5</color>
     <color name="eurail_blue">#1E3A5F</color>
     <color name="dt_green">#2D8C3C</color>
+    <color name="divider">#D7DCE1</color>
 </resources>

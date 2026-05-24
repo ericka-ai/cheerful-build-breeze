@@ -4,17 +4,17 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background">
+    android:background="@color/db_cool_gray_100">
 
-    <!-- Top Bar -->
+    <!-- Dark Top Bar (DB Navigator Style) -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="@color/db_red"
+        android:layout_height="52dp"
+        android:background="@color/db_cool_gray_700"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="12dp">
 
         <TextView
             android:layout_width="0dp"
@@ -22,7 +22,7 @@
             android:layout_weight="1"
             android:text="@string/app_name"
             android:textColor="@color/db_white"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <TextView
@@ -30,14 +30,13 @@
             android:layout_height="wrap_content"
             android:text="\u22EE"
             android:textColor="@color/db_white"
-            android:textSize="24sp"
+            android:textSize="22sp"
             android:textStyle="bold"
             android:paddingStart="12dp"
             android:paddingEnd="4dp"
             android:clickable="true"
             android:focusable="true"
             android:onClick="onMenuClick" />
-
     </LinearLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -45,7 +44,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <ScrollView
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fillViewport="true">
@@ -53,146 +52,152 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:orientation="vertical">
 
-                <!-- Header -->
-                <TextView
+                <!-- Search Section with white background (like DB Navigator home top) -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/ticket_abrufen"
-                    android:textSize="24sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:layout_marginBottom="8dp" />
+                    android:orientation="vertical"
+                    android:background="@color/db_white"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
+                    android:paddingTop="20dp"
+                    android:paddingBottom="20dp">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/ticket_abrufen_beschreibung"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_secondary"
-                    android:layout_marginBottom="20dp" />
-
-                <!-- Auftragsnummer Input Card -->
-                <androidx.cardview.widget.CardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="16dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="4dp">
-
-                    <LinearLayout
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="20dp">
+                        android:text="@string/ticket_abrufen"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="4dp" />
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Auftragsnummer"
-                            android:textSize="14sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary"
-                            android:layout_marginBottom="8dp" />
+                    <!-- Red underline like DB Navigator -->
+                    <View
+                        android:layout_width="60dp"
+                        android:layout_height="4dp"
+                        android:background="@color/db_red"
+                        android:layout_marginBottom="12dp" />
 
-                        <EditText
-                            android:id="@+id/etAuftragsnummer"
-                            android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:hint="z.B. 2597538415754"
-                            android:inputType="number"
-                            android:background="@drawable/edit_text_bg"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
-                            android:textSize="16sp"
-                            android:textColor="@color/text_primary"
-                            android:layout_marginBottom="12dp" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ticket_abrufen_beschreibung"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginBottom="16dp" />
 
-                        <TextView
-                            android:id="@+id/tvError"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textSize="13sp"
-                            android:textColor="@color/db_red"
-                            android:visibility="gone"
-                            android:layout_marginBottom="8dp" />
+                    <!-- Input field with border -->
+                    <EditText
+                        android:id="@+id/etAuftragsnummer"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:hint="z.B. 2597538415754"
+                        android:inputType="number"
+                        android:background="@drawable/edit_text_bg"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="8dp" />
 
-                        <Button
-                            android:id="@+id/btnLoadTicket"
-                            android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:text="@string/ticket_laden"
-                            android:textColor="@color/db_white"
-                            android:textSize="16sp"
-                            android:textAllCaps="false"
-                            android:backgroundTint="@color/db_red" />
+                    <TextView
+                        android:id="@+id/tvError"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="13sp"
+                        android:textColor="@color/db_red"
+                        android:visibility="gone"
+                        android:layout_marginBottom="8dp" />
 
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
+                    <!-- Red Button (DB Navigator style) -->
+                    <Button
+                        android:id="@+id/btnLoadTicket"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:text="@string/ticket_laden"
+                        android:textColor="@color/db_white"
+                        android:textSize="16sp"
+                        android:textAllCaps="false"
+                        android:backgroundTint="@color/db_red" />
 
-                <!-- Loading indicator -->
-                <ProgressBar
-                    android:id="@+id/progressBar"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_gravity="center"
-                    android:visibility="gone"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp"
-                    android:indeterminateTint="@color/db_red" />
+                    <ProgressBar
+                        android:id="@+id/progressBar"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        android:layout_marginTop="8dp"
+                        android:indeterminateTint="@color/db_red" />
+                </LinearLayout>
 
-                <!-- Search tickets -->
-                <EditText
-                    android:id="@+id/etSearch"
+                <!-- Shadow separator -->
+                <View
                     android:layout_width="match_parent"
-                    android:layout_height="40dp"
-                    android:hint="@string/tickets_durchsuchen"
-                    android:inputType="text"
-                    android:background="@drawable/edit_text_bg"
-                    android:paddingStart="12dp"
-                    android:paddingEnd="12dp"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_primary"
-                    android:drawableStart="@android:drawable/ic_menu_search"
-                    android:drawablePadding="8dp"
-                    android:visibility="gone"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_height="4dp"
+                    android:background="@drawable/drop_shadow" />
 
-                <!-- Recent Tickets -->
-                <TextView
-                    android:id="@+id/tvRecentTickets"
+                <!-- Tickets Section (grey background like DB Navigator cards area) -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/letzte_tickets"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp"
-                    android:visibility="gone" />
+                    android:orientation="vertical"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="16dp">
 
-                <TextView
-                    android:id="@+id/tvNoTickets"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/noch_keine_tickets"
-                    android:textSize="14sp"
-                    android:textColor="@color/text_secondary"
-                    android:gravity="center"
-                    android:layout_marginTop="16dp"
-                    android:visibility="gone" />
+                    <!-- Search field -->
+                    <EditText
+                        android:id="@+id/etSearch"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:hint="@string/tickets_durchsuchen"
+                        android:inputType="text"
+                        android:background="@drawable/search_bg"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_primary"
+                        android:drawableStart="@android:drawable/ic_menu_search"
+                        android:drawablePadding="8dp"
+                        android:visibility="gone"
+                        android:layout_marginBottom="12dp" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvTickets"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="false"
-                    android:visibility="gone" />
+                    <TextView
+                        android:id="@+id/tvRecentTickets"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/letzte_tickets"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_primary"
+                        android:layout_marginBottom="12dp"
+                        android:visibility="gone" />
 
+                    <TextView
+                        android:id="@+id/tvNoTickets"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/noch_keine_tickets"
+                        android:textSize="14sp"
+                        android:textColor="@color/text_secondary"
+                        android:gravity="center"
+                        android:layout_marginTop="32dp"
+                        android:layout_marginBottom="32dp"
+                        android:visibility="gone" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvTickets"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false"
+                        android:clipToPadding="false"
+                        android:visibility="gone" />
+                </LinearLayout>
             </LinearLayout>
-        </ScrollView>
+        </androidx.core.widget.NestedScrollView>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 </LinearLayout>
