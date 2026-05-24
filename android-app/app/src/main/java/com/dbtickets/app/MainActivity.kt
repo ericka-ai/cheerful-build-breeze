@@ -516,14 +516,15 @@ class TicketAdapter(
         val tvType: TextView = view.findViewById(R.id.tvItemTicketType)
         val tvDate: TextView = view.findViewById(R.id.tvItemDate)
         val tvAuftrag: TextView = view.findViewById(R.id.tvItemAuftrag)
+        val tvPreis: TextView = view.findViewById(R.id.tvItemPreis)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         return if (viewType == TYPE_HEADER) {
             val tv = TextView(parent.context).apply {
-                textSize = 14f
+                textSize = 16f
                 setTextColor(parent.context.getColor(R.color.text_secondary))
-                setPadding(4, 24, 4, 8)
+                setPadding(0, 32, 0, 12)
                 setTypeface(typeface, android.graphics.Typeface.BOLD)
             }
             HeaderViewHolder(tv)
@@ -542,10 +543,16 @@ class TicketAdapter(
             is TicketListItem.TicketItem -> {
                 val ticket = item.ticket
                 val h = holder as TicketViewHolder
-                h.tvName.text = "${ticket.vorname} ${ticket.nachname}"
                 h.tvType.text = ticket.ticketTypeLabel
-                h.tvDate.text = "${ticket.gueltigVon} - ${ticket.gueltigBis}"
-                h.tvAuftrag.text = "Nr: ${ticket.auftragsnummer}"
+                h.tvName.text = "${ticket.vorname} ${ticket.nachname}"
+                h.tvDate.text = "${ticket.gueltigVon} – ${ticket.gueltigBis}"
+                h.tvAuftrag.text = "Nr. ${ticket.auftragsnummer}"
+                if (ticket.preis.isNotEmpty()) {
+                    h.tvPreis.text = "${ticket.preis} €"
+                    h.tvPreis.visibility = View.VISIBLE
+                } else {
+                    h.tvPreis.visibility = View.GONE
+                }
                 h.itemView.setOnClickListener { onClick(ticket) }
             }
         }
