@@ -2358,6 +2358,31 @@ async def api_restore(file: UploadFile = File(...)):
         return JSONResponse({"error": str(e)}, status_code=400)
 
 
+@app.post("/ticket-lookup")
+async def ticket_lookup_by_name(
+    auftragsnummer: str = Form(...),
+    nachname: str = Form(...),
+):
+    """Look up a ticket by Auftragsnummer + Nachname (public, no auth needed)."""
+    _load_ticket_store()
+    ticket = TICKET_STORE.get(auftragsnummer)
+    if ticket is None:
+        return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
+    stored_nachname = ticket.get("nachname", "")
+    if stored_nachname.strip().lower() != nachname.strip().lower():
+        return JSONResponse({"error": "Nachname stimmt nicht überein"}, status_code=403)
+    safe = {k: v for k, v in ticket.items() if k not in ("barcode_base64", "watermark_base64")}
+    safe["barcode_base64"] = ticket.get("barcode_base64", "")
+    safe["watermark_base64"] = ticket.get("watermark_base64", "")
+    return JSONResponse(safe)
+
+
+@app.get("/lookup", response_class=HTMLResponse)
+async def lookup_page():
+    """Public ticket lookup page — enter Auftragsnummer + Nachname to view ticket."""
+    return LOOKUP_HTML
+
+
 @app.get("/download/{ticket_id}")
 async def download_ticket(ticket_id: str):
     """Serve a previously generated ticket PDF by ticket_id (re-generates)."""
@@ -2610,6 +2635,176 @@ async def batch_generate(file: UploadFile = File(...)):
 
 # ─── HTML ────────────────────────────────────────────────────────────────────
 
+LOOKUP_HTML = r"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meine Tickets</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+       background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center;
+       align-items: flex-start; padding: 40px 20px; }
+.container { max-width: 560px; width: 100%; }
+.card { background: #fff; border-radius: 12px; box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+        padding: 40px; margin-bottom: 20px; }
+h1 { font-size: 24px; margin-bottom: 8px; color: #1a1a1a; }
+.subtitle { color: #666; font-size: 14px; margin-bottom: 28px; }
+.form-group { margin-bottom: 16px; }
+label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px; }
+input { width: 100%; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 8px;
+        font-size: 14px; color: #1a1a1a; transition: border-color 0.2s; }
+input:focus { outline: none; border-color: #ec0016; box-shadow: 0 0 0 3px rgba(236,0,22,0.1); }
+button { width: 100%; padding: 12px; background: #ec0016; color: #fff; border: none;
+         border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;
+         transition: background 0.2s; margin-top: 8px; }
+button:hover { background: #c9000f; }
+button:disabled { background: #ccc; cursor: wait; }
+.back-link { display: inline-block; margin-bottom: 20px; color: #ec0016; text-decoration: none;
+             font-size: 14px; font-weight: 600; }
+.back-link:hover { text-decoration: underline; }
+.error { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 12px;
+         border-radius: 8px; margin-top: 16px; display: none; font-size: 14px; }
+.ticket-result { display: none; margin-top: 20px; }
+.ticket-card { background: #fff; border-radius: 12px; border: 2px solid #ec0016;
+               overflow: hidden; }
+.ticket-header { background: #ec0016; color: #fff; padding: 20px; }
+.ticket-header h2 { font-size: 20px; margin: 0; color: #fff; }
+.ticket-header .ticket-type { font-size: 13px; opacity: 0.9; margin-top: 4px; }
+.ticket-body { padding: 20px; }
+.ticket-row { display: flex; justify-content: space-between; padding: 10px 0;
+              border-bottom: 1px solid #f0f0f0; }
+.ticket-row:last-child { border-bottom: none; }
+.ticket-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+.ticket-value { font-size: 15px; color: #1a1a1a; font-weight: 600; text-align: right; }
+.ticket-barcode { text-align: center; padding: 20px; border-top: 2px dashed #eee; }
+.ticket-barcode img { max-width: 200px; }
+.ticket-watermark { text-align: center; padding: 10px 20px 20px; }
+.ticket-watermark img { max-width: 100%; border-radius: 8px; border: 1px solid #eee; }
+</style>
+</head>
+<body>
+<div class="container">
+<a href="/" class="back-link">&larr; Zum Ticket Generator</a>
+
+<div class="card">
+  <h1>Meine Tickets</h1>
+  <p class="subtitle">Ticket abrufen mit Auftragsnummer und Nachname</p>
+
+  <form id="lookupForm" onsubmit="lookupTicket(event)">
+    <div class="form-group">
+      <label>Auftragsnummer</label>
+      <input type="text" id="auftragsNr" placeholder="z.B. 1234567890123" required />
+    </div>
+    <div class="form-group">
+      <label>Nachname</label>
+      <input type="text" id="nachname" placeholder="z.B. Mustermann" required />
+    </div>
+    <button type="submit" id="lookupBtn">Ticket suchen</button>
+  </form>
+
+  <div class="error" id="errorMsg"></div>
+</div>
+
+<div class="ticket-result" id="ticketResult">
+  <div class="ticket-card">
+    <div class="ticket-header">
+      <h2 id="tProductLabel">—</h2>
+      <div class="ticket-type" id="tAuftrag">—</div>
+    </div>
+    <div class="ticket-body">
+      <div class="ticket-row"><div><span class="ticket-label">Name</span></div><div class="ticket-value" id="tName">—</div></div>
+      <div class="ticket-row"><div><span class="ticket-label">Geburtsdatum</span></div><div class="ticket-value" id="tGeburt">—</div></div>
+      <div class="ticket-row"><div><span class="ticket-label">Klasse</span></div><div class="ticket-value" id="tKlasse">—</div></div>
+      <div class="ticket-row"><div><span class="ticket-label">Passagiertyp</span></div><div class="ticket-value" id="tPassagier">—</div></div>
+      <div class="ticket-row"><div><span class="ticket-label">Gültig von</span></div><div class="ticket-value" id="tVon">—</div></div>
+      <div class="ticket-row"><div><span class="ticket-label">Gültig bis</span></div><div class="ticket-value" id="tBis">—</div></div>
+      <div class="ticket-row"><div><span class="ticket-label">Preis</span></div><div class="ticket-value" id="tPreis">—</div></div>
+      <div class="ticket-row"><div><span class="ticket-label">Ticket-ID</span></div><div class="ticket-value" id="tTicketId">—</div></div>
+    </div>
+    <div class="ticket-barcode" id="tBarcodeSection" style="display:none">
+      <p style="font-size:12px;color:#888;margin-bottom:8px">Aztec Barcode</p>
+      <img id="tBarcode" src="" alt="Barcode" />
+    </div>
+    <div class="ticket-watermark" id="tWatermarkSection" style="display:none">
+      <img id="tWatermark" src="" alt="Ticket Vorschau" />
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+async function lookupTicket(e) {
+  e.preventDefault();
+  var btn = document.getElementById('lookupBtn');
+  var errDiv = document.getElementById('errorMsg');
+  var resultDiv = document.getElementById('ticketResult');
+  btn.disabled = true;
+  btn.textContent = 'Suche...';
+  errDiv.style.display = 'none';
+  resultDiv.style.display = 'none';
+
+  var nr = document.getElementById('auftragsNr').value.trim();
+  var name = document.getElementById('nachname').value.trim();
+
+  try {
+    var fd = new FormData();
+    fd.append('auftragsnummer', nr);
+    fd.append('nachname', name);
+    var resp = await fetch('/ticket-lookup', { method: 'POST', body: fd });
+    var data = await resp.json();
+
+    if (!resp.ok) {
+      errDiv.textContent = data.error || 'Ticket nicht gefunden';
+      errDiv.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Ticket suchen';
+      return;
+    }
+
+    document.getElementById('tProductLabel').textContent = data.ticket_type_label || data.product || '—';
+    document.getElementById('tAuftrag').textContent = 'Auftragsnr. ' + (data.auftragsnummer || '—');
+    document.getElementById('tName').textContent = data.name || '—';
+    document.getElementById('tGeburt').textContent = data.geburtsdatum || '—';
+    document.getElementById('tKlasse').textContent = (data.klasse === '1' ? '1. Klasse' : '2. Klasse');
+    document.getElementById('tPassagier').textContent = data.passagier_typ || '—';
+    document.getElementById('tVon').textContent = data.gueltig_von || '—';
+    document.getElementById('tBis').textContent = data.gueltig_bis || '—';
+    document.getElementById('tPreis').textContent = data.preis || '—';
+    document.getElementById('tTicketId').textContent = data.ticket_id || '—';
+
+    var barcodeSection = document.getElementById('tBarcodeSection');
+    if (data.barcode_base64) {
+      document.getElementById('tBarcode').src = 'data:image/png;base64,' + data.barcode_base64;
+      barcodeSection.style.display = 'block';
+    } else {
+      barcodeSection.style.display = 'none';
+    }
+
+    var wmSection = document.getElementById('tWatermarkSection');
+    if (data.watermark_base64) {
+      document.getElementById('tWatermark').src = 'data:image/png;base64,' + data.watermark_base64;
+      wmSection.style.display = 'block';
+    } else {
+      wmSection.style.display = 'none';
+    }
+
+    resultDiv.style.display = 'block';
+    resultDiv.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    errDiv.textContent = 'Verbindungsfehler: ' + err.message;
+    errDiv.style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Ticket suchen';
+}
+</script>
+</body>
+</html>"""
+
+
 HTML_FORM = r"""<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -2656,6 +2851,7 @@ button:disabled { background: #ccc; cursor: wait; }
 <div class="card">
   <h1>Ticket Generator</h1>
   <p class="subtitle">German Rail Pass, Eurail, DB Sparpreis & Deutschlandticket</p>
+  <a href="/lookup" style="display:inline-block;margin-bottom:16px;color:#ec0016;font-size:14px;font-weight:600;text-decoration:none">Meine Tickets abrufen &rarr;</a>
 
   <form id="ticketForm" action="/generate" method="post">
     <div class="form-group">
