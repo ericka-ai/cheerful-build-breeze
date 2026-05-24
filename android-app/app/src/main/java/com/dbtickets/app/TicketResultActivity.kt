@@ -84,9 +84,10 @@ class TicketResultActivity : AppCompatActivity() {
         val items = arrayOf(
             "Entsch\u00e4digung beantragen",
             "Rechnung \u00f6ffnen",
+            getString(R.string.ticket_teilen),
             "Feedback zur Reise",
             "Zur Stornierung",
-            "Ticket l\u00f6schen"
+            getString(R.string.ticket_loeschen)
         )
 
         val builder = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog)
@@ -94,14 +95,32 @@ class TicketResultActivity : AppCompatActivity() {
             when (which) {
                 0 -> Toast.makeText(this, "Entsch\u00e4digungsantrag wird vorbereitet...", Toast.LENGTH_SHORT).show()
                 1 -> openPdf()
-                2 -> Toast.makeText(this, "Vielen Dank f\u00fcr Ihr Feedback!", Toast.LENGTH_SHORT).show()
-                3 -> showStornierungDialog(t)
-                4 -> showDeleteDialog(t)
+                2 -> shareTicket(t)
+                3 -> Toast.makeText(this, "Vielen Dank f\u00fcr Ihr Feedback!", Toast.LENGTH_SHORT).show()
+                4 -> showStornierungDialog(t)
+                5 -> showDeleteDialog(t)
             }
             dialog.dismiss()
         }
-        builder.setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
+        builder.setNegativeButton(getString(R.string.abbrechen)) { dialog, _ -> dialog.dismiss() }
         builder.show()
+    }
+
+    private fun shareTicket(t: Ticket) {
+        val shareText = getString(
+            R.string.ticket_teilen_text,
+            "${t.vorname} ${t.nachname}",
+            t.ticketTypeLabel,
+            t.gueltigVon,
+            t.gueltigBis,
+            t.auftragsnummer
+        )
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, shareText)
+            type = "text/plain"
+        }
+        startActivity(Intent.createChooser(sendIntent, getString(R.string.ticket_teilen)))
     }
 
     private fun showStornierungDialog(t: Ticket) {
@@ -131,15 +150,15 @@ class TicketResultActivity : AppCompatActivity() {
 
     private fun showDeleteDialog(t: Ticket) {
         AlertDialog.Builder(this)
-            .setTitle("Ticket l\u00f6schen")
-            .setMessage("M\u00f6chtest du das Ticket ${t.auftragsnummer} wirklich l\u00f6schen?")
-            .setPositiveButton("L\u00f6schen") { dialog, _ ->
+            .setTitle(getString(R.string.ticket_loeschen))
+            .setMessage(getString(R.string.ticket_loeschen_frage, t.auftragsnummer))
+            .setPositiveButton(getString(R.string.loeschen)) { dialog, _ ->
                 TicketStore.deleteTicket(this, t.id)
-                Toast.makeText(this, "Ticket gel\u00f6scht", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.ticket_geloescht), Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
                 finish()
             }
-            .setNegativeButton("Abbrechen") { dialog, _ -> dialog.dismiss() }
+            .setNegativeButton(getString(R.string.abbrechen)) { dialog, _ -> dialog.dismiss() }
             .show()
     }
 
@@ -363,14 +382,8 @@ class TicketResultActivity : AppCompatActivity() {
             return
         }
 
-        val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", pdfFile)
-        val viewIntent = Intent(Intent.ACTION_VIEW)
-        viewIntent.setDataAndType(uri, "application/pdf")
-        viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        try {
-            startActivity(viewIntent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Kein PDF-Viewer installiert", Toast.LENGTH_SHORT).show()
-        }
+        val intent = Intent(this, PdfViewerActivity::class.java)
+        intent.putExtra("pdf_path", pdfFile.absolutePath)
+        startActivity(intent)
     }
 }

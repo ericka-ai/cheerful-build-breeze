@@ -19,15 +19,23 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import base64
+import hashlib
 import asn1tools
 import cv2
 import numpy as np
 import aztec_code_generator as aztec
 from PIL import Image, ImageDraw, ImageFont
-from fastapi import FastAPI, Form, UploadFile, File
+from fastapi import FastAPI, Form, UploadFile, File, Request, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+
+try:
+    import psycopg2
+    import psycopg2.extras
+    HAS_POSTGRES = True
+except ImportError:
+    HAS_POSTGRES = False
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(APP_DIR, "assets")
@@ -230,7 +238,15 @@ API_SECRET_KEY = os.environ.get(
     "9f098376d138c85c13cb64fb2d006ebe34a91ca6b868cd38c62d0ab9e4abb28e"
 )
 
-TICKET_STORE_FILE = os.path.join(APP_DIR, "ticket_store.json")
+DASHBOARD_PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "Adela987")
+DASHBOARD_SESSION_SECRET = os.environ.get("DASHBOARD_SESSION_SECRET", "db-tickets-session-2024")
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+_default_store_path = os.path.join(APP_DIR, "ticket_store.json")
+if not os.access(os.path.dirname(_default_store_path), os.W_OK):
+    _default_store_path = "/tmp/ticket_store.json"
+TICKET_STORE_FILE = os.environ.get("TICKET_STORE_PATH", _default_store_path)
 
 RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX = 30
@@ -277,24 +293,96 @@ async def rate_limit(request, call_next):
 TICKET_STORE: dict[str, dict] = {}
 
 
+def _init_postgres():
+    if not DATABASE_URL or not HAS_POSTGRES:
+        return
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS tickets (
+                auftragsnummer TEXT PRIMARY KEY,
+                data JSONB NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("[INFO] PostgreSQL table initialized")
+    except Exception as e:
+        print(f"[WARN] PostgreSQL init failed: {e}")
+
+
 def _load_ticket_store():
     global TICKET_STORE
+    if DATABASE_URL and HAS_POSTGRES:
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor(psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT auftragsnummer, data FROM tickets")
+            for row in cur.fetchall():
+                TICKET_STORE[row["auftragsnummer"]] = row["data"]
+            cur.close()
+            conn.close()
+            print(f"[INFO] Loaded {len(TICKET_STORE)} tickets from PostgreSQL")
+            return
+        except Exception as e:
+            print(f"[WARN] PostgreSQL load failed: {e}")
     if os.path.exists(TICKET_STORE_FILE):
         try:
             with open(TICKET_STORE_FILE, "r") as f:
-                TICKET_STORE = json.load(f)
-        except Exception:
-            TICKET_STORE = {}
+                data = json.load(f)
+                TICKET_STORE.update(data)
+        except Exception as e:
+            print(f"[WARN] Could not load ticket store: {e}")
 
 
 def _save_ticket_store():
+    if DATABASE_URL and HAS_POSTGRES:
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
+            for nr, data in TICKET_STORE.items():
+                cur.execute(
+                    "INSERT INTO tickets (auftragsnummer, data) VALUES (%s, %s) "
+                    "ON CONFLICT (auftragsnummer) DO UPDATE SET data = %s",
+                    (nr, json.dumps(data), json.dumps(data))
+                )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return
+        except Exception as e:
+            print(f"[WARN] PostgreSQL save failed: {e}")
     try:
         with open(TICKET_STORE_FILE, "w") as f:
             json.dump(TICKET_STORE, f)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[WARN] Could not save ticket store: {e}")
 
 
+def _delete_ticket_from_store(auftragsnummer: str):
+    if auftragsnummer in TICKET_STORE:
+        del TICKET_STORE[auftragsnummer]
+    if DATABASE_URL and HAS_POSTGRES:
+        try:
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
+            cur.execute("DELETE FROM tickets WHERE auftragsnummer = %s", (auftragsnummer,))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"[WARN] PostgreSQL delete failed: {e}")
+    _save_ticket_store()
+
+
+def _make_session_token(password: str) -> str:
+    return hashlib.sha256(f"{password}:{DASHBOARD_SESSION_SECRET}".encode()).hexdigest()
+
+
+_init_postgres()
 _load_ticket_store()
 
 
@@ -2024,6 +2112,7 @@ async def api_generate(
 @app.get("/api/ticket/{auftragsnummer}")
 async def api_ticket_lookup(auftragsnummer: str):
     """Look up a ticket by Auftragsnummer."""
+    _load_ticket_store()
     ticket = TICKET_STORE.get(auftragsnummer)
     if ticket is None:
         return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
@@ -2033,6 +2122,7 @@ async def api_ticket_lookup(auftragsnummer: str):
 @app.get("/api/tickets")
 async def api_tickets_list():
     """List all stored tickets (without barcode/watermark data for efficiency)."""
+    _load_ticket_store()
     tickets = []
     for nr, t in TICKET_STORE.items():
         tickets.append({
@@ -2052,16 +2142,75 @@ async def api_tickets_list():
 @app.delete("/api/ticket/{auftragsnummer}")
 async def api_ticket_delete(auftragsnummer: str):
     """Delete a ticket by Auftragsnummer."""
+    _load_ticket_store()
     if auftragsnummer in TICKET_STORE:
-        del TICKET_STORE[auftragsnummer]
-        _save_ticket_store()
+        _delete_ticket_from_store(auftragsnummer)
         return JSONResponse({"status": "deleted"})
     return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
 
 
+@app.get("/dashboard/login", response_class=HTMLResponse)
+async def dashboard_login(error: str = ""):
+    """Login page for the dashboard."""
+    error_html = f'<p style="color:#EC0016;margin-bottom:12px">{error}</p>' if error else ""
+    return f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Login</title>
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }}
+.login-card {{ background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); padding: 40px; width: 100%; max-width: 400px; }}
+.login-card h1 {{ color: #EC0016; font-size: 24px; margin-bottom: 8px; }}
+.login-card p.sub {{ color: #6b6b6b; font-size: 14px; margin-bottom: 24px; }}
+input {{ width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; margin-bottom: 16px; }}
+input:focus {{ outline: none; border-color: #EC0016; }}
+button {{ width: 100%; padding: 12px; background: #EC0016; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }}
+button:hover {{ background: #c40014; }}
+</style>
+</head>
+<body>
+<div class="login-card">
+    <h1>DB Tickets</h1>
+    <p class="sub">Dashboard-Zugang</p>
+    {error_html}
+    <form method="POST" action="/dashboard/login">
+        <input type="password" name="password" placeholder="Passwort" autofocus required />
+        <button type="submit">Anmelden</button>
+    </form>
+</div>
+</body>
+</html>"""
+
+
+@app.post("/dashboard/login")
+async def dashboard_login_post(password: str = Form(...)):
+    """Handle dashboard login."""
+    if password == DASHBOARD_PASSWORD:
+        token = _make_session_token(password)
+        response = RedirectResponse(url="/dashboard", status_code=303)
+        response.set_cookie(key="dashboard_session", value=token, httponly=True, max_age=86400)
+        return response
+    return RedirectResponse(url="/dashboard/login?error=Falsches+Passwort", status_code=303)
+
+
+@app.get("/dashboard/logout")
+async def dashboard_logout():
+    """Logout from the dashboard."""
+    response = RedirectResponse(url="/dashboard/login", status_code=303)
+    response.delete_cookie(key="dashboard_session")
+    return response
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard():
+async def dashboard(request: Request):
     """Visual dashboard showing all stored tickets."""
+    session = request.cookies.get("dashboard_session", "")
+    if session != _make_session_token(DASHBOARD_PASSWORD):
+        return RedirectResponse(url="/dashboard/login", status_code=303)
+    _load_ticket_store()
     rows = ""
     for nr, t in TICKET_STORE.items():
         name = t.get("name", "")
@@ -2128,6 +2277,7 @@ tr:hover {{ background: #fafafa; }}
     <div class="nav">
         <a href="/">Ticket erstellen</a>
         <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/logout">Abmelden</a>
     </div>
 </div>
 <div class="container">
