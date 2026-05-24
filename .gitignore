@@ -27,6 +27,10 @@ android-app/build/
 android-app/local.properties
 *.apk
 
+# Python
+__pycache__/
+*.pyc
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
