@@ -1988,9 +1988,18 @@ async def generate(
 
     pdf_bytes = generate_pdf(cfg)
 
-    parts = name.split("/", 1)
-    nachname_part = parts[0] if parts else name
-    vorname_part = parts[1] if len(parts) > 1 else ""
+    if "/" in name:
+        parts = name.split("/", 1)
+        nachname_part = parts[0].strip() if parts else name
+        vorname_part = parts[1].strip() if len(parts) > 1 else ""
+    else:
+        words = name.strip().split()
+        if len(words) >= 2:
+            vorname_part = " ".join(words[:-1])
+            nachname_part = words[-1]
+        else:
+            nachname_part = name.strip()
+            vorname_part = ""
 
     barcode_b64 = generate_barcode_base64(cfg)
     watermark_b64 = generate_watermark_base64(cfg)
@@ -2335,7 +2344,15 @@ async def mob_buchungen_anonym(request: Request):
 
     if nachname:
         stored_nachname = ticket.get("nachname", "")
-        if stored_nachname.strip().lower() != nachname.strip().lower():
+        stored_name = ticket.get("name", "")
+        query = nachname.strip().lower()
+        match = (
+            stored_nachname.strip().lower() == query
+            or stored_name.strip().lower() == query
+            or query in stored_name.strip().lower()
+            or query in stored_nachname.strip().lower()
+        )
+        if not match:
             return JSONResponse(
                 {"error": "Nachname stimmt nicht überein"},
                 status_code=403,
@@ -2577,7 +2594,15 @@ async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
 
     if nachname:
         stored_nachname = ticket.get("nachname", "")
-        if stored_nachname.strip().lower() != nachname.strip().lower():
+        stored_name = ticket.get("name", "")
+        query = nachname.strip().lower()
+        match = (
+            stored_nachname.strip().lower() == query
+            or stored_name.strip().lower() == query
+            or query in stored_name.strip().lower()
+            or query in stored_nachname.strip().lower()
+        )
+        if not match:
             return JSONResponse(
                 {"error": "Nachname stimmt nicht überein"},
                 status_code=403,
@@ -2809,7 +2834,15 @@ async def ticket_lookup_by_name(
     if ticket is None:
         return JSONResponse({"error": "Ticket nicht gefunden"}, status_code=404)
     stored_nachname = ticket.get("nachname", "")
-    if stored_nachname.strip().lower() != nachname.strip().lower():
+    stored_name = ticket.get("name", "")
+    query = nachname.strip().lower()
+    match = (
+        stored_nachname.strip().lower() == query
+        or stored_name.strip().lower() == query
+        or query in stored_name.strip().lower()
+        or query in stored_nachname.strip().lower()
+    )
+    if not match:
         return JSONResponse({"error": "Nachname stimmt nicht überein"}, status_code=403)
     safe = {k: v for k, v in ticket.items() if k not in ("barcode_base64", "watermark_base64")}
     safe["barcode_base64"] = ticket.get("barcode_base64", "")
