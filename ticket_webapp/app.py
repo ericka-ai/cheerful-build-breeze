@@ -2531,15 +2531,24 @@ def _build_ticket_obj(c: dict, start_iso: str) -> dict:
     """Build the TicketModel object for manuellLaden responses.
 
     The DB Navigator TicketModel expects:
-      - ticket (String): raw barcode data, base64-encoded
+      - ticket (String): raw barcode bytes as Latin-1 string (NOT base64)
       - mediaTyp (String): "BARCODE"
       - rawBarcode (RawBarcodeModel): {typ, data}
       - anzeige (AnzeigeModel): display metadata for the Reisedetails view
       - ticketSicherheit (TicketSicherheitModel): optional security overlay
+
+    The ticket field must contain the raw UIC 918.3 bytes decoded as
+    ISO-8859-1 (Latin-1). Each byte maps 1:1 to a Unicode code point 0-255.
+    JSON serialises non-ASCII code points as \\uXXXX escapes, so the data
+    survives UTF-8 transport. The app passes this string to ZXing
+    AztecWriter which re-encodes it into an on-screen Aztec barcode.
+    Sending base64 here causes the app to display garbled text instead.
     """
     raw_b64 = c["barcode_raw_b64"] or c["barcode_b64"]
+    raw_bytes = base64.b64decode(raw_b64)
+    ticket_str = raw_bytes.decode("latin-1")
     return {
-        "ticket": raw_b64,
+        "ticket": ticket_str,
         "mediaTyp": "BARCODE",
         "rawBarcode": {
             "typ": "MOBILE_PLUS",
