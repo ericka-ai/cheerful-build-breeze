@@ -2539,52 +2539,42 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
 
     reise_info = {
         "angebotsname": product_label,
-        "ticketStatus": "GUELTIG",
-        "materialisierungsart": "MOB",
-        "upgradeAuftrag": False,
-        "geraetebindungStatus": None,
         "reisendenInformation": [{
             "vorname": vorname,
             "nachname": nachname,
         }],
-        "fahrtrichtung": "EINFACHE_FAHRT",
-        "verbindung": None,
         "reservierungen": [],
+        "teilpreis": False,
         "istVerknuepft": False,
-        "teilpreis": ticket.get("preis", ""),
-        "resStatus": None,
-        "fahrradResStatus": None,
-        "raeumlicheGueltigkeit": {
-            "von": station_from,
-            "nach": station_to,
-        } if station_from else None,
+        "raeumlicheGueltigkeit": None,
+        "ticketStatus": "GUELTIG",
         "ticket": ticket_obj,
         "verbundInformationen": None,
+        "kciTicketRefId": None,
+        "materialisierungsart": "MOB",
         "klasse": "_2" if klasse == "2" else "_1",
-        "reiseDetails": None,
+        "fahrtrichtung": "HINFAHRT",
+        "cityInfotext": None,
+        "verbindung": None,
+        "resStatus": None,
     }
 
     standard_infos = {
         "buchungsdatum": now_iso,
-        "aenderungsDatum": now_iso,
         "auftragsnummer": auftragsnummer,
-        "anonymeBuchung": True,
         "zeitlicheGueltigkeit": {
             "ersterGeltungszeitpunkt": start_iso,
             "letzterGeltungszeitpunkt": end_iso,
         },
-        "kundenwunschId": kw_id,
-        "status": "GUELTIG",
-        "letzterGeltungszeitpunkt": end_iso,
-        "privaterKundenkontobezug": False,
-        "rechnungsausstellung": False,
+        "anonymeBuchung": True,
+        "istGesperrt": False,
+        "aenderungsDatum": now_iso,
         "identifikationsperson": {
-            "anrede": "",
             "vorname": vorname,
             "nachname": nachname,
-            "abweichenderReisender": False,
+            "anrede": "",
         },
-        "statusErsatzerstattung": None,
+        "letzterGeltungszeitpunkt": end_iso,
     }
 
     return {
@@ -2592,15 +2582,8 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
             "accessToken": str(_uuid.uuid4()),
         },
         "auftragsbezogeneReisen": [{
-            "katalog": None,
-            "streckenzeitkarte": None,
-            "vertrag": None,
-            "reise": {
-                "standardInfos": standard_infos,
-                "reiseInfos": reise_info,
-            },
-            "reisekette": None,
-            "autonomeReservierung": None,
+            "standardInfos": standard_infos,
+            "reiseInfos": reise_info,
         }],
     }
 
