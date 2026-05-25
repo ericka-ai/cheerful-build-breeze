@@ -2862,6 +2862,80 @@ async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
     )
 
 
+# ─── BARCODE PREVIEW (WebView simulator for testing) ─────────────────────────
+
+@app.get("/test/barcode/{auftragsnummer}", response_class=HTMLResponse)
+async def test_barcode_preview(auftragsnummer: str):
+    """Render the barcode exactly as Android WebView would display it.
+
+    Simulates the DB Navigator rendering pipeline:
+    1. Fetches the ticket data
+    2. Base64-decodes the ``ticket`` field
+    3. Displays the resulting HTML in an iframe (like WebView.loadData)
+
+    Use this endpoint to visually verify barcode rendering without a device.
+    """
+    conn = _get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM tickets WHERE auftragsnummer = %s", (auftragsnummer,))
+    ticket = cur.fetchone()
+    cur.close()
+    if not ticket:
+        return HTMLResponse(
+            f"<h2>Ticket {auftragsnummer} not found</h2>",
+            status_code=404,
+        )
+
+    c = _ticket_common_fields(ticket)
+    start_iso = _parse_date_to_iso(c["gueltig_von"])
+    ticket_obj = _build_ticket_obj(c, start_iso)
+    ticket_b64 = ticket_obj["ticket"]
+    media_typ = ticket_obj["mediaTyp"]
+
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Barcode Test – {auftragsnummer}</title>
+<style>
+body {{ font-family: -apple-system, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }}
+h2 {{ color: #333; }}
+.info {{ background: #f5f5f5; padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 14px; }}
+.info b {{ color: #555; }}
+.webview-frame {{ border: 2px solid #ccc; border-radius: 8px; width: 100%; height: 400px; background: #fff; }}
+.status {{ padding: 8px 16px; border-radius: 4px; font-weight: bold; margin: 8px 0; display: inline-block; }}
+.ok {{ background: #d4edda; color: #155724; }}
+.fail {{ background: #f8d7da; color: #721c24; }}
+</style></head><body>
+<h2>Barcode Preview – WebView Simulator</h2>
+<div class="info">
+  <b>Auftragsnummer:</b> {auftragsnummer}<br>
+  <b>mediaTyp:</b> {media_typ}<br>
+  <b>ticket size:</b> {len(ticket_b64)} chars (base64)<br>
+  <b>Nachname:</b> {c.get("nachname", "")}<br>
+</div>
+<h3>WebView Rendering (iframe):</h3>
+<p>This iframe simulates exactly how Android WebView renders the ticket field:</p>
+<iframe id="webview" class="webview-frame" sandbox="allow-same-origin"></iframe>
+<div id="result"></div>
+<script>
+const ticketB64 = "{ticket_b64}";
+const mediaTyp = "{media_typ}";
+try {{
+  const decoded = atob(ticketB64);
+  const iframe = document.getElementById('webview');
+  iframe.srcdoc = decoded;
+  document.getElementById('result').innerHTML =
+    '<span class="status ok">Barcode rendered successfully</span>' +
+    '<br><br><b>Decoded HTML length:</b> ' + decoded.length + ' chars' +
+    '<br><b>Contains SVG:</b> ' + (decoded.includes('<svg') ? 'Yes' : 'No') +
+    '<br><b>Contains rect elements:</b> ' + (decoded.match(/<rect/g) || []).length;
+}} catch(e) {{
+  document.getElementById('result').innerHTML =
+    '<span class="status fail">Error: ' + e.message + '</span>';
+}}
+</script>
+</body></html>"""
+    return HTMLResponse(html)
+
+
 # ─── CATCH-ALL PROXY FOR /mob/ REQUESTS ─────────────────────────────────────
 # Forwards any /mob/ request not handled above to the real DB backend.
 # This lets the APK keep working for Fahrplan, Bahnhofstafel, etc.
