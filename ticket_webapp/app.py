@@ -2438,6 +2438,159 @@ async def mob_reisen_alternativen(reise_id: str, request: Request):
     return await mob_reisen_detail(reise_id)
 
 
+def _ticket_to_manuell_geladen(ticket: dict) -> dict:
+    """Convert a stored ticket to ManuellGeladenerAuftragModel format.
+    This is the response format for POST /mob/auftrag/{nr}/manuellLaden,
+    which is called when the user enters Auftragsnummer + Nachname."""
+    auftragsnummer = ticket.get("auftragsnummer", "")
+    name = ticket.get("name", "")
+    nachname = ticket.get("nachname", "")
+    vorname = ticket.get("vorname", "")
+    klasse = ticket.get("klasse", "2")
+    product_label = ticket.get("ticket_type_label", ticket.get("product", "Fahrkarte"))
+    gueltig_von = ticket.get("gueltig_von", "")
+    gueltig_bis = ticket.get("gueltig_bis", "")
+    station_from = ticket.get("station_from", "Berlin Hbf")
+    station_to = ticket.get("station_to", "München Hbf")
+    zugtyp = ticket.get("zugtyp", "ICE")
+    train_number = ticket.get("train_number", "919")
+    barcode_b64 = ticket.get("barcode_base64", "")
+
+    kw_id = str(_uuid.uuid4())
+    now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+02:00")
+    start_iso = _parse_date_to_iso(gueltig_von)
+    end_iso = _parse_date_to_iso(gueltig_bis)
+
+    gueltig_text = f"Gültig vom {gueltig_von} bis {gueltig_bis}"
+
+    ticket_obj = {
+        "ticket": barcode_b64,
+        "mediaTyp": "BARCODE",
+        "ticketSicherheit": {
+            "showCounter": False,
+            "logo": None,
+            "anzeigeAb": start_iso,
+            "anzeigeBis": end_iso,
+            "overlayDaten": None,
+        },
+        "anzeige": {
+            "fahrtberechtigungAnlagezeitpunkt": now_iso,
+            "gueltigkeitAb": start_iso,
+            "auftragsnummer": auftragsnummer,
+            "gueltigkeitText": gueltig_text,
+            "verbund": None,
+        },
+        "rawBarcode": {
+            "typ": "MOBILE_PLUS",
+            "data": barcode_b64,
+        },
+    }
+
+    reise_info = {
+        "angebotsname": product_label,
+        "ticketStatus": "GUELTIG",
+        "materialisierungsart": "MOB",
+        "upgradeAuftrag": False,
+        "geraetebindungStatus": None,
+        "reisendenInformation": [{
+            "vorname": vorname,
+            "nachname": nachname,
+        }],
+        "fahrtrichtung": "EINFACHE_FAHRT",
+        "verbindung": None,
+        "reservierungen": [],
+        "istVerknuepft": False,
+        "teilpreis": ticket.get("preis", ""),
+        "resStatus": None,
+        "fahrradResStatus": None,
+        "raeumlicheGueltigkeit": {
+            "von": station_from,
+            "nach": station_to,
+        } if station_from else None,
+        "ticket": ticket_obj,
+        "verbundInformationen": None,
+        "klasse": "_2" if klasse == "2" else "_1",
+        "reiseDetails": None,
+    }
+
+    standard_infos = {
+        "buchungsdatum": now_iso,
+        "aenderungsDatum": now_iso,
+        "auftragsnummer": auftragsnummer,
+        "anonymeBuchung": True,
+        "zeitlicheGueltigkeit": {
+            "ersterGeltungszeitpunkt": start_iso,
+            "letzterGeltungszeitpunkt": end_iso,
+        },
+        "kundenwunschId": kw_id,
+        "status": "GUELTIG",
+        "letzterGeltungszeitpunkt": end_iso,
+        "privaterKundenkontobezug": False,
+        "rechnungsausstellung": False,
+        "identifikationsperson": {
+            "anrede": "",
+            "vorname": vorname,
+            "nachname": nachname,
+            "abweichenderReisender": False,
+        },
+        "statusErsatzerstattung": None,
+    }
+
+    return {
+        "anonymerZugriff": {
+            "accessToken": str(_uuid.uuid4()),
+        },
+        "auftragsbezogeneReisen": [{
+            "katalog": None,
+            "streckenzeitkarte": None,
+            "vertrag": None,
+            "reise": {
+                "standardInfos": standard_infos,
+                "reiseInfos": reise_info,
+            },
+            "reisekette": None,
+            "autonomeReservierung": None,
+        }],
+    }
+
+
+@app.post("/mob/auftrag/{auftragsnummer}/manuellLaden")
+async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
+    """DB Navigator: manually load an order by Auftragsnummer + Nachname.
+    This is the endpoint called when the user enters Auftragsnummer + Nachname
+    in the 'Meine Reisen' section of the app."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    nachname = body.get("nachname", "")
+
+    _load_ticket_store()
+    ticket = TICKET_STORE.get(auftragsnummer)
+    if ticket is None:
+        return JSONResponse(
+            {"error": "Auftrag nicht gefunden"},
+            status_code=404,
+            media_type="application/x.db.vendo.mob.auftraege.v11+json",
+        )
+
+    if nachname:
+        stored_nachname = ticket.get("nachname", "")
+        if stored_nachname.strip().lower() != nachname.strip().lower():
+            return JSONResponse(
+                {"error": "Nachname stimmt nicht überein"},
+                status_code=403,
+                media_type="application/x.db.vendo.mob.auftraege.v11+json",
+            )
+
+    result = _ticket_to_manuell_geladen(ticket)
+    return JSONResponse(
+        result,
+        media_type="application/x.db.vendo.mob.auftraege.v11+json",
+    )
+
+
 @app.get("/dashboard/login", response_class=HTMLResponse)
 async def dashboard_login(error: str = ""):
     """Login page for the dashboard."""
