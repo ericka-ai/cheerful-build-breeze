@@ -2650,6 +2650,55 @@ async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
     )
 
 
+# ─── CATCH-ALL PROXY FOR /mob/ REQUESTS ─────────────────────────────────────
+# Forwards any /mob/ request not handled above to the real DB backend.
+# This lets the APK keep working for Fahrplan, Bahnhofstafel, etc.
+import httpx
+
+_BAHN_BASE = "https://app.services-bahn.de"
+_proxy_client = httpx.AsyncClient(timeout=30.0, follow_redirects=True)
+
+_PROXY_SKIP_HEADERS = {"host", "content-length", "transfer-encoding", "connection"}
+
+
+@app.api_route("/mob/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def mob_proxy(path: str, request: Request):
+    """Proxy unhandled /mob/ requests to app.services-bahn.de."""
+    import logging
+    target_url = f"{_BAHN_BASE}/mob/{path}"
+    if request.url.query:
+        target_url += f"?{request.url.query}"
+
+    fwd_headers = {
+        k: v for k, v in request.headers.items()
+        if k.lower() not in _PROXY_SKIP_HEADERS
+    }
+    fwd_headers["host"] = "app.services-bahn.de"
+
+    body = await request.body()
+    logging.info(f"PROXY: {request.method} /mob/{path} -> {target_url}")
+
+    try:
+        resp = await _proxy_client.request(
+            method=request.method,
+            url=target_url,
+            headers=fwd_headers,
+            content=body,
+        )
+        resp_headers = {
+            k: v for k, v in resp.headers.items()
+            if k.lower() not in {"transfer-encoding", "content-encoding", "content-length"}
+        }
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=resp_headers,
+        )
+    except Exception as exc:
+        logging.error(f"PROXY ERROR: {exc}")
+        return JSONResponse({"error": str(exc)}, status_code=502)
+
+
 @app.get("/dashboard/login", response_class=HTMLResponse)
 async def dashboard_login(error: str = ""):
     """Login page for the dashboard."""
