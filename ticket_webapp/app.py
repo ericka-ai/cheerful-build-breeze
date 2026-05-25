@@ -2527,40 +2527,24 @@ def _ticket_common_fields(ticket: dict) -> dict:
     }
 
 
-def _barcode_html_b64(png_b64: str) -> str:
-    """Wrap a barcode PNG (already base64-encoded) in minimal HTML and
-    return the whole page as a base64 string suitable for WebView
-    ``loadData(content, 'text/html', 'base64')``."""
-    html = (
-        "<html><body style='margin:0;padding:0;display:flex;"
-        "justify-content:center;align-items:center;height:100vh;"
-        "background:#fff'>"
-        f"<img src='data:image/png;base64,{png_b64}' "
-        "style='max-width:90%;max-height:90%'/>"
-        "</body></html>"
-    )
-    return base64.b64encode(html.encode("utf-8")).decode("ascii")
-
-
 def _build_ticket_obj(c: dict, start_iso: str) -> dict:
     """Build the TicketModel object for manuellLaden responses.
 
     The DB Navigator loads the ``ticket`` field into a WebView via
-    ``loadData(content, mediaTyp, 'base64')`` (hk/e1.java).  The field
-    is internally called ``ticketHtml`` (z30/z.java).
+    ``loadData(content, mediaTyp, 'base64')`` (hk/e1.java).
 
-    We embed the Aztec barcode PNG inside a minimal HTML page and set
-    ``mediaTyp`` to ``text/html`` so the WebView renders it as an image
-    instead of showing the raw UIC binary as garbled text.
+    We send the Aztec barcode PNG directly with ``mediaTyp`` set to
+    ``image/png`` so the WebView renders it as an image.  Android
+    WebView does not support ``data:`` URIs inside HTML loaded via
+    ``loadData``, so we avoid wrapping the PNG in HTML.
 
     ``rawBarcode`` still carries the raw UIC 918.3 data for scanning.
     """
     png_b64 = c["barcode_b64"]
     raw_b64 = c["barcode_raw_b64"] or png_b64
-    ticket_html_b64 = _barcode_html_b64(png_b64)
     return {
-        "ticket": ticket_html_b64,
-        "mediaTyp": "text/html",
+        "ticket": png_b64,
+        "mediaTyp": "image/png",
         "rawBarcode": {
             "typ": "MOBILE_PLUS",
             "data": raw_b64,
