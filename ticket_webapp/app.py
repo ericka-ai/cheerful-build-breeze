@@ -2534,32 +2534,61 @@ def _barcode_to_svg(png_b64: str) -> str:
     is loaded via ``loadData``.  An inline SVG built from the raw pixel
     data avoids both restrictions.
 
-    Uses row-based run-length encoding so consecutive dark pixels become
-    a single ``<rect>`` to keep the SVG compact.
+    Downsamples the barcode to module-level resolution (each module is
+    typically rendered as NxN pixels in the PNG) and uses row-based
+    run-length encoding to keep the SVG compact.
     """
     import io
     from PIL import Image
 
     img = Image.open(io.BytesIO(base64.b64decode(png_b64))).convert("1")
     w, h = img.size
+
+    # Detect module size by finding the smallest run of same-color pixels
+    # in the first rows that contain pattern data (skip quiet zone).
     pixels = img.load()
-    rects: list[str] = []
+    min_run = w
     for y in range(h):
         x = 0
         while x < w:
-            if pixels[x, y] == 0:
-                x0 = x
-                while x < w and pixels[x, y] == 0:
-                    x += 1
+            val = pixels[x, y]
+            x0 = x
+            while x < w and pixels[x, y] == val:
+                x += 1
+            run = x - x0
+            if 1 < run < min_run:
+                min_run = run
+        if min_run <= 6:
+            break
+    module = max(min_run, 1)
+
+    # Downsample to module grid
+    mw = w // module
+    mh = h // module
+    rects: list[str] = []
+    for my in range(mh):
+        mx = 0
+        while mx < mw:
+            # Sample the centre pixel of each module
+            px = mx * module + module // 2
+            py = my * module + module // 2
+            if px < w and py < h and pixels[px, py] == 0:
+                mx0 = mx
+                while mx < mw:
+                    px2 = mx * module + module // 2
+                    if px2 < w and pixels[px2, py] == 0:
+                        mx += 1
+                    else:
+                        break
                 rects.append(
-                    f'<rect x="{x0}" y="{y}" width="{x - x0}" height="1"/>'
+                    f'<rect x="{mx0}" y="{my}" width="{mx - mx0}" height="1"/>'
                 )
             else:
-                x += 1
+                mx += 1
     svg = (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {mw} {mh}" '
         f'shape-rendering="crispEdges">'
-        f'<rect width="{w}" height="{h}" fill="#fff"/>'
+        f'<rect width="{mw}" height="{mh}" fill="#fff"/>'
         f'<g fill="#000">{"".join(rects)}</g></svg>'
     )
     return svg
