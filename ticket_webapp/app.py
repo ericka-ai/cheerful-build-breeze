@@ -2517,20 +2517,6 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
     ticket_obj = {
         "ticket": barcode_b64,
         "mediaTyp": "BARCODE",
-        "ticketSicherheit": {
-            "showCounter": False,
-            "logo": None,
-            "anzeigeAb": start_iso,
-            "anzeigeBis": end_iso,
-            "overlayDaten": None,
-        },
-        "anzeige": {
-            "fahrtberechtigungAnlagezeitpunkt": now_iso,
-            "gueltigkeitAb": start_iso,
-            "auftragsnummer": auftragsnummer,
-            "gueltigkeitText": gueltig_text,
-            "verbund": None,
-        },
         "rawBarcode": {
             "typ": "MOBILE_PLUS",
             "data": barcode_b64,
@@ -2540,8 +2526,9 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
     reise_info = {
         "angebotsname": product_label,
         "reisendenInformation": [{
-            "vorname": vorname,
-            "nachname": nachname,
+            "anzahl": 1,
+            "typ": "ERWACHSENER",
+            "ermaessigungen": [],
         }],
         "reservierungen": [],
         "teilpreis": False,
