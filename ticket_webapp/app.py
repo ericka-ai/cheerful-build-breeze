@@ -2605,6 +2605,7 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
     }
 
 
+@app.post("/mob/auftrag/{auftragsnummer}/manuellLaden/nvs")
 @app.post("/mob/auftrag/{auftragsnummer}/manuellLaden")
 async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
     """DB Navigator: manually load an order by Auftragsnummer + Nachname.
