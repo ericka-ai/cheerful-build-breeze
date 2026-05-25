@@ -2507,6 +2507,8 @@ async def mob_reisen_alternativen(reise_id: str, request: Request):
 
 def _ticket_common_fields(ticket: dict) -> dict:
     """Extract common fields used by both NVS and regular manuellLaden."""
+    gueltig_von = ticket.get("gueltig_von", "")
+    gueltig_bis = ticket.get("gueltig_bis", "")
     return {
         "auftragsnummer": ticket.get("auftragsnummer", ""),
         "nachname": ticket.get("nachname", ""),
@@ -2515,12 +2517,42 @@ def _ticket_common_fields(ticket: dict) -> dict:
         "product_label": ticket.get(
             "ticket_type_label", ticket.get("product", "Fahrkarte")
         ),
-        "gueltig_von": ticket.get("gueltig_von", ""),
-        "gueltig_bis": ticket.get("gueltig_bis", ""),
+        "gueltig_von": gueltig_von,
+        "gueltig_bis": gueltig_bis,
+        "gueltig_text": f"Gültig vom {gueltig_von} bis {gueltig_bis}" if gueltig_von and gueltig_bis else "",
         "barcode_b64": ticket.get("barcode_base64", ""),
         "barcode_raw_b64": ticket.get("barcode_raw_base64", ""),
         "kw_id": str(_uuid.uuid4()),
         "now_iso": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+02:00"),
+    }
+
+
+def _build_ticket_obj(c: dict, start_iso: str) -> dict:
+    """Build the TicketModel object for manuellLaden responses.
+
+    The DB Navigator TicketModel expects:
+      - ticket (String): raw barcode data, base64-encoded
+      - mediaTyp (String): "BARCODE"
+      - rawBarcode (RawBarcodeModel): {typ, data}
+      - anzeige (AnzeigeModel): display metadata for the Reisedetails view
+      - ticketSicherheit (TicketSicherheitModel): optional security overlay
+    """
+    raw_b64 = c["barcode_raw_b64"] or c["barcode_b64"]
+    return {
+        "ticket": raw_b64,
+        "mediaTyp": "BARCODE",
+        "rawBarcode": {
+            "typ": "MOBILE_PLUS",
+            "data": raw_b64,
+        },
+        "anzeige": {
+            "auftragsnummer": c["auftragsnummer"],
+            "gueltigkeitAb": start_iso,
+            "gueltigkeitText": c["gueltig_text"],
+            "fahrtberechtigungAnlagezeitpunkt": c["now_iso"],
+            "verbund": None,
+        },
+        "ticketSicherheit": None,
     }
 
 
@@ -2530,16 +2562,8 @@ def _ticket_to_manuell_geladen_nvs(ticket: dict) -> dict:
     c = _ticket_common_fields(ticket)
     start_iso = _parse_date_to_iso(c["gueltig_von"])
     end_iso = _parse_date_to_iso(c["gueltig_bis"])
-    raw_b64 = c["barcode_raw_b64"] or c["barcode_b64"]
 
-    ticket_obj = {
-        "ticket": raw_b64,
-        "mediaTyp": "BARCODE",
-        "rawBarcode": {
-            "typ": "MOBILE_PLUS",
-            "data": raw_b64,
-        },
-    }
+    ticket_obj = _build_ticket_obj(c, start_iso)
 
     reise_info = {
         "angebotsname": c["product_label"],
@@ -2606,16 +2630,8 @@ def _ticket_to_manuell_geladen_regular(ticket: dict) -> dict:
     c = _ticket_common_fields(ticket)
     start_iso = _parse_date_to_iso(c["gueltig_von"])
     end_iso = _parse_date_to_iso(c["gueltig_bis"])
-    raw_b64 = c["barcode_raw_b64"] or c["barcode_b64"]
 
-    ticket_obj = {
-        "ticket": raw_b64,
-        "mediaTyp": "BARCODE",
-        "rawBarcode": {
-            "typ": "MOBILE_PLUS",
-            "data": raw_b64,
-        },
-    }
+    ticket_obj = _build_ticket_obj(c, start_iso)
 
     reise_info = {
         "angebotsname": c["product_label"],
