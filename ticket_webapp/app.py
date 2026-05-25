@@ -2527,26 +2527,40 @@ def _ticket_common_fields(ticket: dict) -> dict:
     }
 
 
+def _barcode_html_b64(png_b64: str) -> str:
+    """Wrap a barcode PNG (already base64-encoded) in minimal HTML and
+    return the whole page as a base64 string suitable for WebView
+    ``loadData(content, 'text/html', 'base64')``."""
+    html = (
+        "<html><body style='margin:0;padding:0;display:flex;"
+        "justify-content:center;align-items:center;height:100vh;"
+        "background:#fff'>"
+        f"<img src='data:image/png;base64,{png_b64}' "
+        "style='max-width:90%;max-height:90%'/>"
+        "</body></html>"
+    )
+    return base64.b64encode(html.encode("utf-8")).decode("ascii")
+
+
 def _build_ticket_obj(c: dict, start_iso: str) -> dict:
     """Build the TicketModel object for manuellLaden responses.
 
-    The DB Navigator app renders the Reisedetails view as follows
-    (decompiled from o10/v2.java, method F, line 142):
+    The DB Navigator loads the ``ticket`` field into a WebView via
+    ``loadData(content, mediaTyp, 'base64')`` (hk/e1.java).  The field
+    is internally called ``ticketHtml`` (z30/z.java).
 
-        if (ticketSicherheit != null && ticketAnzeige != null)
-            → G()  // renders barcode + display metadata
-        else
-            → null  // fallback: shows decoded ticket string as text
+    We embed the Aztec barcode PNG inside a minimal HTML page and set
+    ``mediaTyp`` to ``text/html`` so the WebView renders it as an image
+    instead of showing the raw UIC binary as garbled text.
 
-    So BOTH ticketSicherheit AND anzeige must be non-null for the proper
-    barcode display.  The ticket field is base64-encoded (the app calls
-    Base64.decode on it), but it is only shown as fallback text when the
-    ticketSicherheit/anzeige guard fails.
+    ``rawBarcode`` still carries the raw UIC 918.3 data for scanning.
     """
-    raw_b64 = c["barcode_raw_b64"] or c["barcode_b64"]
+    png_b64 = c["barcode_b64"]
+    raw_b64 = c["barcode_raw_b64"] or png_b64
+    ticket_html_b64 = _barcode_html_b64(png_b64)
     return {
-        "ticket": raw_b64,
-        "mediaTyp": "BARCODE",
+        "ticket": ticket_html_b64,
+        "mediaTyp": "text/html",
         "rawBarcode": {
             "typ": "MOBILE_PLUS",
             "data": raw_b64,
