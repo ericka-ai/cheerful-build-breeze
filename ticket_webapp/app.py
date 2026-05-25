@@ -1088,6 +1088,7 @@ def generate_aztec_barcode(cfg, output_path):
     code = aztec.AztecCode(barcode_data, ec_percent=50)
     img = code.image(module_size=6, border=1)
     img.save(output_path, "PNG")
+    return barcode_data
 
 
 def generate_barcode_base64(cfg) -> str:
@@ -1099,6 +1100,19 @@ def generate_barcode_base64(cfg) -> str:
         barcode_bytes = f.read()
     os.unlink(barcode_path)
     return base64.b64encode(barcode_bytes).decode("ascii")
+
+
+def generate_barcode_both(cfg) -> tuple:
+    """Generate barcode; return (PNG base64, raw UIC data base64)."""
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+        barcode_path = tmp.name
+    raw_data = generate_aztec_barcode(cfg, barcode_path)
+    with open(barcode_path, "rb") as f:
+        png_bytes = f.read()
+    os.unlink(barcode_path)
+    png_b64 = base64.b64encode(png_bytes).decode("ascii")
+    raw_b64 = base64.b64encode(raw_data).decode("ascii")
+    return png_b64, raw_b64
 
 
 def generate_watermark_base64(cfg) -> str:
@@ -2035,7 +2049,7 @@ async def generate(
             nachname_part = name.strip()
             vorname_part = ""
 
-    barcode_b64 = generate_barcode_base64(cfg)
+    barcode_b64, barcode_raw_b64 = generate_barcode_both(cfg)
     watermark_b64 = generate_watermark_base64(cfg)
 
     ticket_entry = {
@@ -2055,6 +2069,7 @@ async def generate(
         "created_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
         "pdf_url": f"/download/{cfg['ticket_id']}",
         "barcode_base64": barcode_b64,
+        "barcode_raw_base64": barcode_raw_b64,
         "watermark_base64": watermark_b64,
     }
     if product in ("db_sparpreis", "deutschlandticket"):
@@ -2134,7 +2149,7 @@ async def api_generate(
     )
 
     generate_pdf(cfg)
-    barcode_b64 = generate_barcode_base64(cfg)
+    barcode_b64, barcode_raw_b64 = generate_barcode_both(cfg)
     watermark_b64 = generate_watermark_base64(cfg)
 
     ticket_data = {
@@ -2154,6 +2169,7 @@ async def api_generate(
         "created_at": datetime.now().strftime("%d.%m.%Y %H:%M"),
         "pdf_url": f"/download/{cfg['ticket_id']}",
         "barcode_base64": barcode_b64,
+        "barcode_raw_base64": barcode_raw_b64,
         "watermark_base64": watermark_b64,
     }
     if product in ("db_sparpreis", "deutschlandticket"):
@@ -2502,6 +2518,7 @@ def _ticket_common_fields(ticket: dict) -> dict:
         "gueltig_von": ticket.get("gueltig_von", ""),
         "gueltig_bis": ticket.get("gueltig_bis", ""),
         "barcode_b64": ticket.get("barcode_base64", ""),
+        "barcode_raw_b64": ticket.get("barcode_raw_base64", ""),
         "kw_id": str(_uuid.uuid4()),
         "now_iso": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+02:00"),
     }
@@ -2513,14 +2530,14 @@ def _ticket_to_manuell_geladen_nvs(ticket: dict) -> dict:
     c = _ticket_common_fields(ticket)
     start_iso = _parse_date_to_iso(c["gueltig_von"])
     end_iso = _parse_date_to_iso(c["gueltig_bis"])
-    barcode_b64 = c["barcode_b64"]
+    raw_b64 = c["barcode_raw_b64"] or c["barcode_b64"]
 
     ticket_obj = {
-        "ticket": barcode_b64,
+        "ticket": raw_b64,
         "mediaTyp": "BARCODE",
         "rawBarcode": {
             "typ": "MOBILE_PLUS",
-            "data": barcode_b64,
+            "data": raw_b64,
         },
     }
 
@@ -2589,14 +2606,14 @@ def _ticket_to_manuell_geladen_regular(ticket: dict) -> dict:
     c = _ticket_common_fields(ticket)
     start_iso = _parse_date_to_iso(c["gueltig_von"])
     end_iso = _parse_date_to_iso(c["gueltig_bis"])
-    barcode_b64 = c["barcode_b64"]
+    raw_b64 = c["barcode_raw_b64"] or c["barcode_b64"]
 
     ticket_obj = {
-        "ticket": barcode_b64,
+        "ticket": raw_b64,
         "mediaTyp": "BARCODE",
         "rawBarcode": {
             "typ": "MOBILE_PLUS",
-            "data": barcode_b64,
+            "data": raw_b64,
         },
     }
 
