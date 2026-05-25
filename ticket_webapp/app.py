@@ -2527,24 +2527,71 @@ def _ticket_common_fields(ticket: dict) -> dict:
     }
 
 
+def _barcode_to_svg(png_b64: str) -> str:
+    """Decode a barcode PNG and re-render it as an inline SVG.
+
+    Android WebView blocks ``data:`` URIs and network loads when content
+    is loaded via ``loadData``.  An inline SVG built from the raw pixel
+    data avoids both restrictions.
+
+    Uses row-based run-length encoding so consecutive dark pixels become
+    a single ``<rect>`` to keep the SVG compact.
+    """
+    import io
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(base64.b64decode(png_b64))).convert("1")
+    w, h = img.size
+    pixels = img.load()
+    rects: list[str] = []
+    for y in range(h):
+        x = 0
+        while x < w:
+            if pixels[x, y] == 0:
+                x0 = x
+                while x < w and pixels[x, y] == 0:
+                    x += 1
+                rects.append(
+                    f'<rect x="{x0}" y="{y}" width="{x - x0}" height="1"/>'
+                )
+            else:
+                x += 1
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" '
+        f'shape-rendering="crispEdges">'
+        f'<rect width="{w}" height="{h}" fill="#fff"/>'
+        f'<g fill="#000">{"".join(rects)}</g></svg>'
+    )
+    return svg
+
+
 def _build_ticket_obj(c: dict, start_iso: str) -> dict:
     """Build the TicketModel object for manuellLaden responses.
 
     The DB Navigator loads the ``ticket`` field into a WebView via
-    ``loadData(content, mediaTyp, 'base64')`` (hk/e1.java).
+    ``loadData(content, mediaTyp, 'base64')`` (hk/e1.java).  The app
+    first base64-decodes the ``ticket`` field, converts the bytes to a
+    UTF-8 string, then passes that string through ``e1.a()`` which
+    re-encodes it for WebView's ``loadData(content, mediaTyp, 'base64')``.
 
-    We send the Aztec barcode PNG directly with ``mediaTyp`` set to
-    ``image/png`` so the WebView renders it as an image.  Android
-    WebView does not support ``data:`` URIs inside HTML loaded via
-    ``loadData``, so we avoid wrapping the PNG in HTML.
+    We embed the Aztec barcode as an inline SVG inside minimal HTML.
+    An inline SVG works inside ``loadData`` because it is part of the
+    HTML document itself (no ``data:`` URIs or network loads needed).
 
     ``rawBarcode`` still carries the raw UIC 918.3 data for scanning.
     """
     png_b64 = c["barcode_b64"]
     raw_b64 = c["barcode_raw_b64"] or png_b64
+    svg = _barcode_to_svg(png_b64)
+    html = (
+        "<html><body style='margin:0;padding:0;display:flex;"
+        "justify-content:center;align-items:center;height:100vh;"
+        f"background:#fff'>{svg}</body></html>"
+    )
+    ticket_b64 = base64.b64encode(html.encode("utf-8")).decode("ascii")
     return {
-        "ticket": png_b64,
-        "mediaTyp": "image/png",
+        "ticket": ticket_b64,
+        "mediaTyp": "text/html",
         "rawBarcode": {
             "typ": "MOBILE_PLUS",
             "data": raw_b64,
