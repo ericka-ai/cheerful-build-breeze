@@ -264,6 +264,40 @@ app.add_middleware(
 )
 
 
+_REQUEST_LOG: list[dict] = []
+
+
+@app.middleware("http")
+async def log_mob_requests(request, call_next):
+    """Log all /mob/ requests for debugging the DB Navigator integration."""
+    path = request.url.path
+    if path.startswith("/mob/"):
+        import logging
+        body_bytes = await request.body()
+        log_entry = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "method": request.method,
+            "path": path,
+            "query": str(request.url.query),
+            "content_type": request.headers.get("content-type", ""),
+            "accept": request.headers.get("accept", ""),
+            "user_agent": request.headers.get("user-agent", ""),
+            "body": body_bytes.decode("utf-8", errors="replace")[:500],
+        }
+        _REQUEST_LOG.append(log_entry)
+        if len(_REQUEST_LOG) > 50:
+            _REQUEST_LOG.pop(0)
+        logging.info(f"MOB REQUEST: {log_entry['method']} {log_entry['path']} body={log_entry['body']}")
+    response = await call_next(request)
+    return response
+
+
+@app.get("/debug/mob-requests")
+async def debug_mob_requests():
+    """View recent /mob/ requests for debugging."""
+    return JSONResponse(_REQUEST_LOG)
+
+
 @app.middleware("http")
 async def check_api_key(request, call_next):
     path = request.url.path
