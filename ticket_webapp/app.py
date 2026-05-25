@@ -2489,30 +2489,31 @@ async def mob_reisen_alternativen(reise_id: str, request: Request):
     return await mob_reisen_detail(reise_id)
 
 
-def _ticket_to_manuell_geladen(ticket: dict) -> dict:
-    """Convert a stored ticket to ManuellGeladenerAuftragModel format.
-    This is the response format for POST /mob/auftrag/{nr}/manuellLaden,
-    which is called when the user enters Auftragsnummer + Nachname."""
-    auftragsnummer = ticket.get("auftragsnummer", "")
-    name = ticket.get("name", "")
-    nachname = ticket.get("nachname", "")
-    vorname = ticket.get("vorname", "")
-    klasse = ticket.get("klasse", "2")
-    product_label = ticket.get("ticket_type_label", ticket.get("product", "Fahrkarte"))
-    gueltig_von = ticket.get("gueltig_von", "")
-    gueltig_bis = ticket.get("gueltig_bis", "")
-    station_from = ticket.get("station_from", "Berlin Hbf")
-    station_to = ticket.get("station_to", "München Hbf")
-    zugtyp = ticket.get("zugtyp", "ICE")
-    train_number = ticket.get("train_number", "919")
-    barcode_b64 = ticket.get("barcode_base64", "")
+def _ticket_common_fields(ticket: dict) -> dict:
+    """Extract common fields used by both NVS and regular manuellLaden."""
+    return {
+        "auftragsnummer": ticket.get("auftragsnummer", ""),
+        "nachname": ticket.get("nachname", ""),
+        "vorname": ticket.get("vorname", ""),
+        "klasse": ticket.get("klasse", "2"),
+        "product_label": ticket.get(
+            "ticket_type_label", ticket.get("product", "Fahrkarte")
+        ),
+        "gueltig_von": ticket.get("gueltig_von", ""),
+        "gueltig_bis": ticket.get("gueltig_bis", ""),
+        "barcode_b64": ticket.get("barcode_base64", ""),
+        "kw_id": str(_uuid.uuid4()),
+        "now_iso": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+02:00"),
+    }
 
-    kw_id = str(_uuid.uuid4())
-    now_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+02:00")
-    start_iso = _parse_date_to_iso(gueltig_von)
-    end_iso = _parse_date_to_iso(gueltig_bis)
 
-    gueltig_text = f"Gültig vom {gueltig_von} bis {gueltig_bis}"
+def _ticket_to_manuell_geladen_nvs(ticket: dict) -> dict:
+    """Convert a stored ticket to ManuellGeladenerNVSAuftragModel format.
+    Response format for POST /mob/auftrag/{nr}/manuellLaden/nvs."""
+    c = _ticket_common_fields(ticket)
+    start_iso = _parse_date_to_iso(c["gueltig_von"])
+    end_iso = _parse_date_to_iso(c["gueltig_bis"])
+    barcode_b64 = c["barcode_b64"]
 
     ticket_obj = {
         "ticket": barcode_b64,
@@ -2524,7 +2525,7 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
     }
 
     reise_info = {
-        "angebotsname": product_label,
+        "angebotsname": c["product_label"],
         "reisendenInformation": [{
             "anzahl": 1,
             "typ": "ERWACHSENER",
@@ -2539,7 +2540,7 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
         "verbundInformationen": None,
         "kciTicketRefId": None,
         "materialisierungsart": "MOB",
-        "klasse": "KLASSE_2" if klasse == "2" else "KLASSE_1",
+        "klasse": "KLASSE_2" if c["klasse"] == "2" else "KLASSE_1",
         "fahrtrichtung": "einfacheFahrt",
         "cityInfotext": None,
         "verbindung": None,
@@ -2547,18 +2548,18 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
     }
 
     standard_infos = {
-        "buchungsdatum": now_iso,
-        "auftragsnummer": auftragsnummer,
+        "buchungsdatum": c["now_iso"],
+        "auftragsnummer": c["auftragsnummer"],
         "zeitlicheGueltigkeit": {
             "ersterGeltungszeitpunkt": start_iso,
             "letzterGeltungszeitpunkt": end_iso,
         },
         "anonymeBuchung": True,
         "istGesperrt": False,
-        "aenderungsDatum": now_iso,
+        "aenderungsDatum": c["now_iso"],
         "identifikationsperson": {
-            "vorname": vorname,
-            "nachname": nachname,
+            "vorname": c["vorname"],
+            "nachname": c["nachname"],
             "anrede": "",
         },
         "letzterGeltungszeitpunkt": end_iso,
@@ -2575,12 +2576,105 @@ def _ticket_to_manuell_geladen(ticket: dict) -> dict:
     }
 
 
-@app.post("/mob/auftrag/{auftragsnummer}/manuellLaden/nvs")
-@app.post("/mob/auftrag/{auftragsnummer}/manuellLaden")
-async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
-    """DB Navigator: manually load an order by Auftragsnummer + Nachname.
-    This is the endpoint called when the user enters Auftragsnummer + Nachname
-    in the 'Meine Reisen' section of the app."""
+def _ticket_to_manuell_geladen_regular(ticket: dict) -> dict:
+    """Convert a stored ticket to ManuellGeladenerAuftragModel format.
+    Response format for POST /mob/auftrag/{nr}/manuellLaden (non-NVS).
+
+    Key differences from NVS format:
+    - auftragsbezogeneReisen items use a 'reise' wrapper
+    - ManuellgeladeneStandardInfosModel has extra required fields
+    - ReiseInfosModel has extra required fields
+    - IdentifikationspersonModel includes abweichenderReisender
+    """
+    c = _ticket_common_fields(ticket)
+    start_iso = _parse_date_to_iso(c["gueltig_von"])
+    end_iso = _parse_date_to_iso(c["gueltig_bis"])
+    barcode_b64 = c["barcode_b64"]
+
+    ticket_obj = {
+        "ticket": barcode_b64,
+        "mediaTyp": "BARCODE",
+        "rawBarcode": {
+            "typ": "MOBILE_PLUS",
+            "data": barcode_b64,
+        },
+    }
+
+    reise_info = {
+        "angebotsname": c["product_label"],
+        "materialisierungsart": "MOB",
+        "klasse": "KLASSE_2" if c["klasse"] == "2" else "KLASSE_1",
+        "teilpreis": False,
+        "ticketStatus": "GUELTIG",
+        "reisendenInformation": [{
+            "anzahl": 1,
+            "typ": "ERWACHSENER",
+            "ermaessigungen": [],
+        }],
+        "fahrtrichtung": "einfacheFahrt",
+        "reservierungen": [],
+        "istVerknuepft": False,
+        "upgradeAuftrag": False,
+        "resStatus": "KEINE_RESERVIERUNG",
+        "fahrradResStatus": "KEINE_RESERVIERUNG",
+        "geraetebindungStatus": "GLEICHE_DEVICEID",
+        "raeumlicheGueltigkeit": None,
+        "ticket": ticket_obj,
+        "verbundInformationen": None,
+        "kciTicketRefId": None,
+        "cityInfotext": None,
+        "verbindung": None,
+        "reiseDetails": None,
+        "reisendenProfil": None,
+        "fgrInfo": None,
+        "upgradePosition": None,
+        "mobilitaetseingeschraenktereisendeInfo": None,
+        "optionsbuchung": None,
+        "ausgebendeBahnCode": None,
+        "basisAuftragsnummer": None,
+    }
+
+    standard_infos = {
+        "buchungsdatum": c["now_iso"],
+        "letzterGeltungszeitpunkt": end_iso,
+        "auftragsnummer": c["auftragsnummer"],
+        "anonymeBuchung": True,
+        "zeitlicheGueltigkeit": {
+            "ersterGeltungszeitpunkt": start_iso,
+            "letzterGeltungszeitpunkt": end_iso,
+        },
+        "kundenwunschId": c["kw_id"],
+        "identifikationsperson": {
+            "anrede": "",
+            "vorname": c["vorname"],
+            "nachname": c["nachname"],
+            "abweichenderReisender": False,
+        },
+        "aenderungsDatum": c["now_iso"],
+        "privaterKundenkontobezug": False,
+        "rechnungsausstellung": False,
+        "status": None,
+        "statusErsatzerstattung": None,
+    }
+
+    return {
+        "anonymerZugriff": {
+            "accessToken": str(_uuid.uuid4()),
+        },
+        "auftragsbezogeneReisen": [{
+            "reise": {
+                "standardInfos": standard_infos,
+                "reiseInfos": reise_info,
+            },
+        }],
+    }
+
+
+async def _validate_manuell_laden(
+    auftragsnummer: str, request: Request
+) -> tuple:
+    """Shared validation for both manuellLaden endpoints.
+    Returns (ticket, error_response) – error_response is None on success."""
     try:
         body = await request.json()
     except Exception:
@@ -2591,7 +2685,7 @@ async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
     _load_ticket_store()
     ticket = TICKET_STORE.get(auftragsnummer)
     if ticket is None:
-        return JSONResponse(
+        return None, JSONResponse(
             {"error": "Auftrag nicht gefunden"},
             status_code=404,
             media_type="application/x.db.vendo.mob.auftraege.v11+json",
@@ -2608,15 +2702,37 @@ async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
             or query in stored_nachname.strip().lower()
         )
         if not match:
-            return JSONResponse(
+            return None, JSONResponse(
                 {"error": "Nachname stimmt nicht überein"},
                 status_code=403,
                 media_type="application/x.db.vendo.mob.auftraege.v11+json",
             )
 
-    result = _ticket_to_manuell_geladen(ticket)
+    return ticket, None
+
+
+@app.post("/mob/auftrag/{auftragsnummer}/manuellLaden/nvs")
+async def mob_auftrag_manuell_laden_nvs(
+    auftragsnummer: str, request: Request
+):
+    """DB Navigator NVS: load order → ManuellGeladenerNVSAuftragModel."""
+    ticket, err = await _validate_manuell_laden(auftragsnummer, request)
+    if err:
+        return err
     return JSONResponse(
-        result,
+        _ticket_to_manuell_geladen_nvs(ticket),
+        media_type="application/x.db.vendo.mob.auftraege.v11+json",
+    )
+
+
+@app.post("/mob/auftrag/{auftragsnummer}/manuellLaden")
+async def mob_auftrag_manuell_laden(auftragsnummer: str, request: Request):
+    """DB Navigator regular: load order → ManuellGeladenerAuftragModel."""
+    ticket, err = await _validate_manuell_laden(auftragsnummer, request)
+    if err:
+        return err
+    return JSONResponse(
+        _ticket_to_manuell_geladen_regular(ticket),
         media_type="application/x.db.vendo.mob.auftraege.v11+json",
     )
 
