@@ -2505,15 +2505,41 @@ async def mob_reisen_alternativen(reise_id: str, request: Request):
     return await mob_reisen_detail(reise_id)
 
 
+_PASSAGIER_LABELS = {
+    "ERWACHSENER": "1 Erwachsener",
+    "JUGENDLICHER": "1 Jugendlicher (12-27 J.)",
+    "KIND": "1 Kind (6-14 J.)",
+}
+
+_KONDITIONEN_MAP = {
+    "grp_consecutive": "Freie Zugwahl",
+    "grp_flexi": "Freie Zugwahl",
+    "eurail_global": "Freie Zugwahl",
+    "db_sparpreis": "Zugbindung",
+    "deutschlandticket": "Freie Zugwahl Nahverkehr",
+}
+
+_FAHRKARTE_TYP_MAP = {
+    "grp_consecutive": "Fahrkarte (Consecutive Days)",
+    "grp_flexi": "Fahrkarte (Flexi Days)",
+    "eurail_global": "Fahrkarte (Global Pass)",
+    "db_sparpreis": "Fahrkarte (Einfache Fahrt)",
+    "deutschlandticket": "Abo (Deutschlandticket)",
+}
+
+
 def _ticket_common_fields(ticket: dict) -> dict:
     """Extract common fields used by both NVS and regular manuellLaden."""
     gueltig_von = ticket.get("gueltig_von", "")
     gueltig_bis = ticket.get("gueltig_bis", "")
+    product = ticket.get("product", "")
+    passagier_typ = ticket.get("passagier_typ", "ERWACHSENER")
     return {
         "auftragsnummer": ticket.get("auftragsnummer", ""),
         "nachname": ticket.get("nachname", ""),
         "vorname": ticket.get("vorname", ""),
         "klasse": ticket.get("klasse", "2"),
+        "product": product,
         "product_label": ticket.get(
             "ticket_type_label", ticket.get("product", "Fahrkarte")
         ),
@@ -2524,6 +2550,16 @@ def _ticket_common_fields(ticket: dict) -> dict:
         "barcode_raw_b64": ticket.get("barcode_raw_base64", ""),
         "kw_id": str(_uuid.uuid4()),
         "now_iso": datetime.now().strftime("%Y-%m-%dT%H:%M:%S+02:00"),
+        "preis": ticket.get("preis", ""),
+        "passagier_typ": passagier_typ,
+        "passagier_label": _PASSAGIER_LABELS.get(passagier_typ, "1 Erwachsener"),
+        "created_at": ticket.get("created_at", ""),
+        "ticket_id": ticket.get("ticket_id", ""),
+        "geburtsdatum": ticket.get("geburtsdatum", ""),
+        "station_from": ticket.get("station_from", ""),
+        "station_to": ticket.get("station_to", ""),
+        "fahrkarte_typ": _FAHRKARTE_TYP_MAP.get(product, "Fahrkarte"),
+        "konditionen": _KONDITIONEN_MAP.get(product, "Freie Zugwahl"),
     }
 
 
@@ -2594,6 +2630,90 @@ def _barcode_to_svg(png_b64: str) -> str:
     return svg
 
 
+def _build_ticket_html(c: dict) -> str:
+    """Build the full ticket HTML matching real DB Navigator layout."""
+    svg = _barcode_to_svg(c["barcode_b64"])
+    full_name = f'{c["vorname"]} {c["nachname"]}'
+    klasse_text = f'{c["klasse"]}. Klasse'
+
+    verbindung_html = ""
+    if c["station_from"] and c["station_to"]:
+        verbindung_html = (
+            "<p class='section-title'>Verbindung</p>"
+            f"<p>{c['station_from']} - {c['station_to']}</p>"
+        )
+
+    return (
+        "<!DOCTYPE html><html><head>"
+        "<meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<meta name='color-scheme' content='light'>"
+        "<style>"
+        "html,body{color-scheme:light;-webkit-color-scheme:light;"
+        "margin:0;padding:0;background:#fff;color:#000;"
+        "font-family:-apple-system,Roboto,Helvetica,Arial,sans-serif;"
+        "font-size:15px;line-height:1.45;}"
+        "@media(prefers-color-scheme:dark){html,body{"
+        "background:#fff!important;color:#000!important}}"
+        ".container{padding:16px;}"
+        ".barcode-wrap{text-align:center;padding:8px 0 0;}"
+        ".barcode-wrap svg{width:100%;max-width:400px;height:auto;}"
+        "hr{border:none;border-top:1px solid #ccc;margin:18px 0;}"
+        ".name{font-size:16px;margin:12px 0 2px;}"
+        ".civ{font-weight:bold;font-size:15px;margin:0 0 14px;}"
+        ".section-title{font-weight:bold;font-size:15px;margin:16px 0 4px;}"
+        "p{margin:2px 0;}"
+        ".legal{font-size:13px;color:#333;margin-top:12px;line-height:1.4;}"
+        ".ticketcode{margin-top:14px;font-size:14px;}"
+        ".ticket-graphic{margin-top:8px;background:#e8e8e8;"
+        "border-radius:8px;padding:20px;text-align:center;"
+        "position:relative;overflow:hidden;}"
+        ".ticket-graphic .big-nr{font-size:28px;font-weight:bold;"
+        "letter-spacing:2px;color:#555;}"
+        ".ticket-graphic .tg-name{font-size:20px;font-weight:bold;"
+        "margin-top:6px;color:#333;}"
+        ".ticket-graphic .tg-date{font-size:36px;font-weight:bold;"
+        "margin-top:4px;color:#888;letter-spacing:6px;}"
+        "</style></head><body>"
+        "<div class='container'>"
+        f"<div class='barcode-wrap'>{svg}</div>"
+        "<hr>"
+        f"<p class='name'>{full_name}</p>"
+        "<p class='civ'>CIV 1080</p>"
+        "<p class='section-title'>G\u00fcltigkeit</p>"
+        f"<p>{c['fahrkarte_typ']}</p>"
+        f"<p>{c['product_label']}</p>"
+        f"<p>{klasse_text}</p>"
+        f"<p>{c['passagier_label']}</p>"
+        f"<p>Von: {c['gueltig_von']}, 00:00 Uhr</p>"
+        f"<p>Bis: {c['gueltig_bis']}, 03:00 Uhr</p>"
+        f"{verbindung_html}"
+        "<p class='section-title'>Buchungsdetails</p>"
+        f"<p>Gebucht am: {c['created_at']} Uhr</p>"
+        f"<p>Auftrags-Nr: {c['auftragsnummer']}</p>"
+        f"<p>Gesamtpreis: {c['preis']}</p>"
+        "<p class='section-title'>Konditionen</p>"
+        f"<p>{c['konditionen']}</p>"
+        "<p class='legal'>"
+        "Nur g\u00fcltig mit amtlichen Lichtbildausweis. "
+        "Dieser ist bei der Kontrolle vorzuzeigen.<br>"
+        "Es gelten die nationalen und internationalen "
+        "Bef\u00f6rderungsbedingungen der DB AG. Innerhalb von "
+        "Verkehrsverb\u00fcnden und Tarifgemeinschaften gelten "
+        "deren Bestimmungen. Alle Bedingungen finden Sie "
+        "unter www.bahn.de/agb und www.diebefoerderer.de."
+        "</p>"
+        f"<p class='ticketcode'>Ticketcode: {c['ticket_id']}</p>"
+        "<hr>"
+        "<div class='ticket-graphic'>"
+        f"<div class='big-nr'>{c['auftragsnummer']}</div>"
+        f"<div class='tg-name'>{full_name}</div>"
+        f"<div class='tg-date'>{c['gueltig_von'][:5] if c['gueltig_von'] else ''}</div>"
+        "</div>"
+        "</div></body></html>"
+    )
+
+
 def _build_ticket_obj(c: dict, start_iso: str) -> dict:
     """Build the TicketModel object for manuellLaden responses.
 
@@ -2609,25 +2729,15 @@ def _build_ticket_obj(c: dict, start_iso: str) -> dict:
     converted to a UTF-8 string, and that string is what the WebView
     renders.
 
-    We embed the Aztec barcode as an inline SVG inside minimal HTML.
-    Inline SVG works inside ``loadData`` because it is part of the HTML
-    document itself – no ``data:`` URIs or network loads needed.
+    We embed the Aztec barcode as an inline SVG inside the full ticket
+    HTML document that mirrors the real DB Navigator ticket layout:
+    barcode, passenger name, validity, route, booking details,
+    conditions, and ticket graphic.
 
     ``rawBarcode`` still carries the raw UIC 918.3 data for scanning.
     """
-    png_b64 = c["barcode_b64"]
-    raw_b64 = c["barcode_raw_b64"] or png_b64
-    svg = _barcode_to_svg(png_b64)
-    html = (
-        "<html><head>"
-        "<meta name='color-scheme' content='light'>"
-        "<style>html,body{color-scheme:light;-webkit-color-scheme:light;}"
-        "@media(prefers-color-scheme:dark){html,body{background:#fff!important;color:#000!important}}"
-        "</style></head>"
-        "<body style='margin:0;padding:0;display:flex;"
-        "justify-content:center;align-items:center;height:100vh;"
-        f"background:#fff'>{svg}</body></html>"
-    )
+    raw_b64 = c["barcode_raw_b64"] or c["barcode_b64"]
+    html = _build_ticket_html(c)
     ticket_b64 = base64.b64encode(html.encode("utf-8")).decode("ascii")
     return {
         "ticket": ticket_b64,
