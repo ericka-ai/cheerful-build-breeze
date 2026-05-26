@@ -2619,7 +2619,12 @@ def _build_ticket_obj(c: dict, start_iso: str) -> dict:
     raw_b64 = c["barcode_raw_b64"] or png_b64
     svg = _barcode_to_svg(png_b64)
     html = (
-        "<html><body style='margin:0;padding:0;display:flex;"
+        "<html><head>"
+        "<meta name='color-scheme' content='light'>"
+        "<style>html,body{color-scheme:light;-webkit-color-scheme:light;}"
+        "@media(prefers-color-scheme:dark){html,body{background:#fff!important;color:#000!important}}"
+        "</style></head>"
+        "<body style='margin:0;padding:0;display:flex;"
         "justify-content:center;align-items:center;height:100vh;"
         f"background:#fff'>{svg}</body></html>"
     )
@@ -2778,7 +2783,7 @@ def _ticket_to_manuell_geladen_regular(ticket: dict) -> dict:
         "aenderungsDatum": c["now_iso"],
         "privaterKundenkontobezug": False,
         "rechnungsausstellung": False,
-        "status": None,
+        "status": "GUELTIG",
         "statusErsatzerstattung": None,
     }
 
