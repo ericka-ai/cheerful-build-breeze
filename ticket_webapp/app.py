@@ -2563,25 +2563,35 @@ def _ticket_common_fields(ticket: dict) -> dict:
     }
 
 
-def _barcode_to_svg(png_b64: str) -> str:
-    """Decode a barcode PNG and re-render it as an inline SVG.
+def _barcode_to_svg(png_b64: str, raw_b64: str = "") -> str:
+    """Generate a clean Aztec barcode SVG.
 
-    Android WebView blocks ``data:`` URIs and network loads when content
-    is loaded via ``loadData``.  An inline SVG built from the raw pixel
-    data avoids both restrictions.
-
-    Downsamples the barcode to module-level resolution (each module is
-    typically rendered as NxN pixels in the PNG) and uses row-based
-    run-length encoding to keep the SVG compact.
+    If raw UIC 918.3 data is available, re-generates the Aztec code from
+    the raw bytes using aztec_code_generator's native SVG output for a
+    crisp, clean barcode.  Falls back to PNG-based conversion only when
+    raw data is unavailable.
     """
+    if raw_b64:
+        try:
+            raw_data = base64.b64decode(raw_b64)
+            code = aztec.AztecCode(raw_data, ec_percent=50)
+            with tempfile.NamedTemporaryFile(
+                suffix=".svg", delete=False
+            ) as tmp:
+                svg_path = tmp.name
+            code.save_svg(svg_path, module_size=4, border=2)
+            with open(svg_path, "r") as f:
+                svg = f.read()
+            os.unlink(svg_path)
+            return svg
+        except Exception:
+            pass
+
     import io
     from PIL import Image
 
     img = Image.open(io.BytesIO(base64.b64decode(png_b64))).convert("1")
     w, h = img.size
-
-    # Detect module size by finding the smallest run of same-color pixels
-    # in the first rows that contain pattern data (skip quiet zone).
     pixels = img.load()
     min_run = w
     for y in range(h):
@@ -2597,15 +2607,12 @@ def _barcode_to_svg(png_b64: str) -> str:
         if min_run <= 6:
             break
     module = max(min_run, 1)
-
-    # Downsample to module grid
     mw = w // module
     mh = h // module
     rects: list[str] = []
     for my in range(mh):
         mx = 0
         while mx < mw:
-            # Sample the centre pixel of each module
             px = mx * module + module // 2
             py = my * module + module // 2
             if px < w and py < h and pixels[px, py] == 0:
@@ -2621,13 +2628,12 @@ def _barcode_to_svg(png_b64: str) -> str:
                 )
             else:
                 mx += 1
-    svg = (
+    return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {mw} {mh}" '
         f'shape-rendering="crispEdges">'
         f'<rect width="{mw}" height="{mh}" fill="#fff"/>'
         f'<g fill="#000">{"".join(rects)}</g></svg>'
     )
-    return svg
 
 
 def _build_security_graphic_svg(c: dict) -> str:
@@ -2776,7 +2782,7 @@ def _fix_euro(s: str) -> str:
 
 def _build_ticket_html(c: dict) -> str:
     """Build the full ticket HTML matching real DB Navigator layout."""
-    svg = _barcode_to_svg(c["barcode_b64"])
+    svg = _barcode_to_svg(c["barcode_b64"], c.get("barcode_raw_b64", ""))
     security_svg = _build_security_graphic_svg(c)
     full_name = f'{c["vorname"]} {c["nachname"]}'
     klasse_text = f'{c["klasse"]}. Klasse'
