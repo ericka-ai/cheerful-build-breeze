@@ -2563,76 +2563,32 @@ def _ticket_common_fields(ticket: dict) -> dict:
     }
 
 
-def _barcode_to_svg(png_b64: str, raw_b64: str = "") -> str:
-    """Generate a clean Aztec barcode SVG.
+def _barcode_to_html(png_b64: str, raw_b64: str = "") -> str:
+    """Generate a high-resolution Aztec barcode as an inline PNG image.
 
-    If raw UIC 918.3 data is available, re-generates the Aztec code from
-    the raw bytes using aztec_code_generator's native SVG output for a
-    crisp, clean barcode.  Falls back to PNG-based conversion only when
-    raw data is unavailable.
+    Re-generates the barcode from raw UIC 918.3 data at high resolution
+    (module_size=12) for pixel-perfect rendering.  Uses a ``data:`` URI
+    ``<img>`` tag with ``image-rendering: pixelated`` so modules stay
+    crisp at any display size — identical to a real DB Navigator ticket.
     """
+    import io
+
+    b64 = png_b64
     if raw_b64:
         try:
             raw_data = base64.b64decode(raw_b64)
             code = aztec.AztecCode(raw_data, ec_percent=50)
-            with tempfile.NamedTemporaryFile(
-                suffix=".svg", delete=False
-            ) as tmp:
-                svg_path = tmp.name
-            code.save_svg(svg_path, module_size=4, border=2)
-            with open(svg_path, "r") as f:
-                svg = f.read()
-            os.unlink(svg_path)
-            return svg
+            img = code.image(module_size=12, border=2)
+            buf = io.BytesIO()
+            img.save(buf, "PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
         except Exception:
             pass
-
-    import io
-    from PIL import Image
-
-    img = Image.open(io.BytesIO(base64.b64decode(png_b64))).convert("1")
-    w, h = img.size
-    pixels = img.load()
-    min_run = w
-    for y in range(h):
-        x = 0
-        while x < w:
-            val = pixels[x, y]
-            x0 = x
-            while x < w and pixels[x, y] == val:
-                x += 1
-            run = x - x0
-            if 1 < run < min_run:
-                min_run = run
-        if min_run <= 6:
-            break
-    module = max(min_run, 1)
-    mw = w // module
-    mh = h // module
-    rects: list[str] = []
-    for my in range(mh):
-        mx = 0
-        while mx < mw:
-            px = mx * module + module // 2
-            py = my * module + module // 2
-            if px < w and py < h and pixels[px, py] == 0:
-                mx0 = mx
-                while mx < mw:
-                    px2 = mx * module + module // 2
-                    if px2 < w and pixels[px2, py] == 0:
-                        mx += 1
-                    else:
-                        break
-                rects.append(
-                    f'<rect x="{mx0}" y="{my}" width="{mx - mx0}" height="1"/>'
-                )
-            else:
-                mx += 1
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {mw} {mh}" '
-        f'shape-rendering="crispEdges">'
-        f'<rect width="{mw}" height="{mh}" fill="#fff"/>'
-        f'<g fill="#000">{"".join(rects)}</g></svg>'
+        f'<img src="data:image/png;base64,{b64}" '
+        f'alt="Aztec Barcode" '
+        f'style="width:100%;max-width:500px;height:auto;'
+        f'image-rendering:pixelated;image-rendering:-webkit-optimize-contrast"/>'
     )
 
 
@@ -2782,7 +2738,7 @@ def _fix_euro(s: str) -> str:
 
 def _build_ticket_html(c: dict) -> str:
     """Build the full ticket HTML matching real DB Navigator layout."""
-    svg = _barcode_to_svg(c["barcode_b64"], c.get("barcode_raw_b64", ""))
+    barcode_img = _barcode_to_html(c["barcode_b64"], c.get("barcode_raw_b64", ""))
     security_svg = _build_security_graphic_svg(c)
     full_name = f'{c["vorname"]} {c["nachname"]}'
     klasse_text = f'{c["klasse"]}. Klasse'
@@ -2822,7 +2778,7 @@ def _build_ticket_html(c: dict) -> str:
         "background:#fff!important;color:#000!important}}"
         ".container{padding:16px;}"
         ".barcode-wrap{text-align:center;padding:8px 0 0;}"
-        ".barcode-wrap svg{width:100%;max-width:400px;height:auto;}"
+        ".barcode-wrap img{display:block;margin:0 auto;}"
         "hr{border:none;border-top:1px solid #ccc;margin:18px 0;}"
         ".name{font-size:16px;margin:12px 0 2px;}"
         ".civ{font-weight:bold;font-size:15px;margin:0 0 14px;}"
@@ -2834,7 +2790,7 @@ def _build_ticket_html(c: dict) -> str:
         ".security-wrap svg{width:100%;height:auto;}"
         "</style></head><body>"
         "<div class='container'>"
-        f"<div class='barcode-wrap'>{svg}</div>"
+        f"<div class='barcode-wrap'>{barcode_img}</div>"
         "<hr>"
         f"<p class='name'>{full_name}</p>"
         "<p class='civ'>CIV 1080</p>"
