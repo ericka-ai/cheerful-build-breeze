@@ -2764,6 +2764,16 @@ def _build_security_graphic_svg(c: dict) -> str:
     )
 
 
+def _fix_euro(s: str) -> str:
+    """Replace € (and its common mojibake variants) with HTML entity
+    and ensure space before €, matching real DB ticket format."""
+    if not s:
+        return ""
+    s = s.replace("\u20ac", "&#8364;").replace("\xe2\x82\xac", "&#8364;")
+    s = s.replace(",00&#8364;", ",00 &#8364;")
+    return s
+
+
 def _build_ticket_html(c: dict) -> str:
     """Build the full ticket HTML matching real DB Navigator layout."""
     svg = _barcode_to_svg(c["barcode_b64"])
@@ -2831,9 +2841,9 @@ def _build_ticket_html(c: dict) -> str:
         f"<p>Bis: {c['gueltig_bis']}, 03:00 Uhr</p>"
         f"{verbindung_html}"
         "<p class='section-title'>Buchungsdetails</p>"
-        f"<p>Gebucht am: {c['created_at']} Uhr</p>"
+        f"<p>Gebucht am: {c['created_at'].replace(' ', ' um ')} Uhr</p>"
         f"<p>Auftrags-Nr: {c['auftragsnummer']}</p>"
-        f"<p>Gesamtpreis: {c['preis']}</p>"
+        f"<p>Gesamtpreis: {_fix_euro(c['preis'])}</p>"
         "<p class='section-title'>Konditionen</p>"
         f"<p>{c['konditionen']}</p>"
         "<p class='legal'>"
@@ -2950,7 +2960,7 @@ def _ticket_to_manuell_geladen_nvs(ticket: dict) -> dict:
             "ersterGeltungszeitpunkt": start_iso,
             "letzterGeltungszeitpunkt": end_iso,
         },
-        "anonymeBuchung": True,
+        "anonymeBuchung": False,
         "istGesperrt": False,
         "aenderungsDatum": c["now_iso"],
         "identifikationsperson": {
@@ -3026,7 +3036,7 @@ def _ticket_to_manuell_geladen_regular(ticket: dict) -> dict:
         "buchungsdatum": c["now_iso"],
         "letzterGeltungszeitpunkt": end_iso,
         "auftragsnummer": c["auftragsnummer"],
-        "anonymeBuchung": True,
+        "anonymeBuchung": False,
         "zeitlicheGueltigkeit": {
             "ersterGeltungszeitpunkt": start_iso,
             "letzterGeltungszeitpunkt": end_iso,
