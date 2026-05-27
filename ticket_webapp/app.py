@@ -1,6 +1,7 @@
 """
 Web app for generating Deutsche Bahn Online-Tickets.
-Supports: German Rail Pass, Eurail Global Pass, DB Sparpreis & Deutschlandticket.
+Supports: German Rail Pass, Eurail Global Pass, Interrail Pass,
+DB Sparpreis, DB Flexpreis, Quer-durchs-Land-Ticket & Deutschlandticket.
 FastAPI backend with HTML frontend form.
 """
 
@@ -90,11 +91,34 @@ PRICES_EURAIL_GLOBAL = {
          ("1", "ERWACHSENER"): "747,00\u20ac", ("1", "JUGENDLICHER"): "597,00\u20ac"},
 }
 
+PRICES_INTERRAIL_GLOBAL = {
+    4: {("2", "ERWACHSENER"): "246,00\u20ac", ("2", "JUGENDLICHER"): "185,00\u20ac",
+        ("1", "ERWACHSENER"): "328,00\u20ac", ("1", "JUGENDLICHER"): "246,00\u20ac"},
+    5: {("2", "ERWACHSENER"): "281,00\u20ac", ("2", "JUGENDLICHER"): "211,00\u20ac",
+        ("1", "ERWACHSENER"): "375,00\u20ac", ("1", "JUGENDLICHER"): "281,00\u20ac"},
+    7: {("2", "ERWACHSENER"): "331,00\u20ac", ("2", "JUGENDLICHER"): "248,00\u20ac",
+        ("1", "ERWACHSENER"): "441,00\u20ac", ("1", "JUGENDLICHER"): "331,00\u20ac"},
+    10: {("2", "ERWACHSENER"): "393,00\u20ac", ("2", "JUGENDLICHER"): "295,00\u20ac",
+         ("1", "ERWACHSENER"): "524,00\u20ac", ("1", "JUGENDLICHER"): "393,00\u20ac"},
+    15: {("2", "ERWACHSENER"): "463,00\u20ac", ("2", "JUGENDLICHER"): "347,00\u20ac",
+         ("1", "ERWACHSENER"): "617,00\u20ac", ("1", "JUGENDLICHER"): "463,00\u20ac"},
+    22: {("2", "ERWACHSENER"): "424,00\u20ac", ("2", "JUGENDLICHER"): "318,00\u20ac",
+         ("1", "ERWACHSENER"): "565,00\u20ac", ("1", "JUGENDLICHER"): "424,00\u20ac"},
+    31: {("2", "ERWACHSENER"): "530,00\u20ac", ("2", "JUGENDLICHER"): "398,00\u20ac",
+         ("1", "ERWACHSENER"): "707,00\u20ac", ("1", "JUGENDLICHER"): "530,00\u20ac"},
+}
+
+PRICES_QDLT = {
+    1: {("2", "ERWACHSENER"): "51,00\u20ac"},
+}
+
 ALL_PRICES = {
     "grp_consecutive": PRICES_GRP_CONSECUTIVE,
     "grp_flexi": PRICES_GRP_FLEXI,
     "eurail_global": PRICES_EURAIL_GLOBAL,
+    "interrail_global": PRICES_INTERRAIL_GLOBAL,
     "deutschlandticket": {1: {("2", "ERWACHSENER"): "63,00\u20ac"}},
+    "quer_durchs_land": PRICES_QDLT,
 }
 
 # DB station codes for Sparpreis (common stations)
@@ -1044,6 +1068,257 @@ def _build_dt_flex(cfg):
             fcb_bytes)
 
 
+def _build_interrail_tlay(cfg):
+    """Build U_TLAY block for Interrail Global Pass (mirrors Eurail format)."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+    vs, ve = cfg['validity_start'], cfg['validity_end']
+    birth = cfg['birth']
+    klasse_num = "1" if cfg['klasse'] == "1" else "2"
+    ptype = "YOUTH" if cfg['passenger_type'] == "JUGENDLICHER" else "ADULT"
+    ref = cfg.get('eurail_ref', cfg['ticket_id'])
+    passport_masked = "*****" + cfg.get('passport_tail', ref[-3:])
+
+    fields = [
+        _uic_field(0, 19, 1, 19, 0, "INTERRAIL"),
+        _uic_field(0, 39, 1, 4, 0, "NAME"),
+        _uic_field(0, 53, 1, 19, 0, f"{first[0]}. {last}"),
+        _uic_field(1, 19, 1, 19, 0, ""),
+        _uic_field(1, 39, 1, 9, 0, "RESIDENCE"),
+        _uic_field(1, 53, 1, 19, 0, cfg.get('residence', 'Germany')),
+        _uic_field(2, 2, 1, 3, 0, "CIV"),
+        _uic_field(2, 6, 1, 4, 0, "9901"),
+        _uic_field(2, 39, 1, 12, 0, "PASS-/ID"),
+        _uic_field(2, 53, 1, 19, 0, passport_masked),
+        _uic_field(3, 2, 1, 5, 0, "VALID"),
+        _uic_field(3, 9, 1, 23, 0, f"{vs} - {ve}"),
+        _uic_field(3, 39, 1, 13, 0, "DATE OF BIRTH"),
+        _uic_field(3, 53, 1, 10, 0, birth),
+        _uic_field(6, 14, 1, 26, 0, "INTERRAIL GLOBAL PASS"),
+        _uic_field(6, 67, 1, 1, 0, klasse_num),
+        _uic_field(13, 2, 1, 6, 0, ptype),
+        _uic_field(13, 15, 1, 37, 0, "ONLY VALID WITH PASS/ID"),
+        _uic_field(15, 38, 1, 6, 0, ref[:6]),
+    ]
+
+    fields_blob = b"".join(fields)
+    tlay_inner = b"RCT2" + f"{len(fields):04d}".encode('ascii') + fields_blob
+    tlay_len = 12 + len(tlay_inner)
+    return b"U_TLAY01" + f"{tlay_len:04d}".encode('ascii') + tlay_inner
+
+
+def _build_interrail_flex(cfg):
+    """Build U_FLEX block with UIC 918.9 FCB data for Interrail Global Pass."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+
+    now = datetime.now()
+    issuing_day = now.timetuple().tm_yday
+    issuing_year = now.year
+    issuing_time = now.hour * 60 + now.minute
+
+    vs = cfg['validity_start']
+    try:
+        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
+    except ValueError:
+        vs_dt = datetime(2026, 1, 1)
+
+    birth = cfg['birth']
+    try:
+        birth_dt = datetime.strptime(birth, "%d.%m.%Y")
+    except ValueError:
+        birth_dt = datetime(2000, 1, 1)
+    birth_day = birth_dt.timetuple().tm_yday
+    birth_year = birth_dt.year
+
+    days_int = int(cfg['days'])
+    class_code = 'first' if cfg['klasse'] == '1' else 'second'
+    ptype = 'youth' if cfg['passenger_type'] == 'JUGENDLICHER' else 'adult'
+
+    ref_ia5 = cfg.get('eurail_ref', f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
+    passport_masked = "*****" + cfg.get('passport_tail', ref_ia5[-3:])
+
+    valid_until = days_int - 1
+    activated = list(range(min(days_int, 1)))
+
+    fcb_data = {
+        'issuingDetail': {
+            'securityProviderNum': 9901,
+            'issuingYear': issuing_year,
+            'issuingDay': issuing_day,
+            'issuingTime': issuing_time,
+            'issuerName': 'Eurail B.V.',
+            'specimen': True,
+            'securePaperTicket': False,
+            'activated': True,
+            'currency': 'EUR',
+            'currencyFract': 2,
+        },
+        'travelerDetail': {
+            'traveler': [{
+                'firstName': first,
+                'lastName': last,
+                'passportId': passport_masked,
+                'yearOfBirth': birth_year,
+                'dayOfBirth': birth_day,
+                'ticketHolder': True,
+                'passengerType': ptype,
+                'countryOfResidence': cfg.get('residence_code', 276),
+            }]
+        },
+        'transportDocument': [{
+            'ticket': ('pass', {
+                'referenceIA5': ref_ia5[:20],
+                'productOwnerNum': 9901,
+                'productIdIA5': '30431000000222',
+                'passType': 1,
+                'passDescription': 'Interrail Global Pass',
+                'classCode': class_code,
+                'validFromDay': 0,
+                'validUntilDay': valid_until,
+                'validUntilTime': 1439,
+                'activatedDay': activated,
+                'countries': EURAIL_COUNTRIES,
+            })
+        }],
+        'controlDetail': {
+            'identificationByIdCard': False,
+            'identificationByPassportId': False,
+            'passportValidationRequired': True,
+            'onlineValidationRequired': False,
+            'ageCheckRequired': False,
+            'reductionCardCheckRequired': False,
+            'infoText': ('Ticket is valid on a direct night train on the next '
+                         'day; the day after the ticket was valid'),
+        }
+    }
+
+    fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
+    flex_inner_len = 12 + len(fcb_bytes)
+    return (b"U_FLEX13" +
+            f"{flex_inner_len:04d}".encode('ascii') +
+            fcb_bytes)
+
+
+def _build_qdlt_tlay(cfg):
+    """Build U_TLAY block for Quer-durchs-Land-Ticket (RCT2 format)."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+    vs, ve = cfg['validity_start'], cfg['validity_end']
+    price_raw = cfg['price'].replace('\u20ac', '').strip()
+    persons = cfg.get('qdlt_persons', '1')
+
+    fields = [
+        _uic_field(0, 18, 1, 33, 2, "Fahrkarte"),
+        _uic_field(0, 52, 1, 9, 0, last),
+        _uic_field(0, 62, 1, 9, 0, first),
+        _uic_field(1, 18, 1, 33, 1, "Quer-durchs-Land-Ticket"),
+        _uic_field(1, 52, 1, 2, 0, persons),
+        _uic_field(1, 55, 1, 16, 0, "Person(en)"),
+        _uic_field(3, 1, 1, 4, 0, vs[6:10]),
+        _uic_field(6, 1, 1, 5, 0, vs[:5]),
+        _uic_field(6, 7, 1, 5, 0, "09.00"),
+        _uic_field(6, 52, 1, 5, 0, ve[:5]),
+        _uic_field(6, 58, 1, 5, 0, "03.00"),
+        _uic_field(6, 66, 1, 5, 0, "2"),
+        _uic_field(12, 1, 2, 50, 2,
+                   f"G\u00fcltig am {vs} von 09:00 bis 03:00 (+1)"),
+        _uic_field(13, 52, 1, 3, 0, "EUR"),
+        _uic_field(13, 56, 1, 15, 0, price_raw),
+    ]
+
+    fields_blob = b"".join(fields)
+    tlay_inner = b"RCT2" + f"{len(fields):04d}".encode('ascii') + fields_blob
+    tlay_len = 12 + len(tlay_inner)
+    return b"U_TLAY01" + f"{tlay_len:04d}".encode('ascii') + tlay_inner
+
+
+def _build_qdlt_flex(cfg):
+    """Build U_FLEX block for Quer-durchs-Land-Ticket (UIC 918.9 openTicket)."""
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+
+    now = datetime.now()
+    issuing_day = now.timetuple().tm_yday
+    issuing_year = now.year
+    issuing_time = now.hour * 60 + now.minute
+
+    vs = cfg['validity_start']
+    try:
+        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
+    except ValueError:
+        vs_dt = datetime(2026, 1, 1)
+
+    ref = cfg.get('qdlt_ref', cfg['order_number'][:8].upper())
+
+    price_raw = cfg['price'].replace('\u20ac', '').replace('.', '').replace(',', '.').strip()
+    try:
+        price_cents = int(float(price_raw) * 100)
+    except ValueError:
+        price_cents = 5100
+
+    is_summer = vs_dt.month >= 4 and vs_dt.month <= 10
+    utc_offset = -8 if is_summer else -4
+
+    vs_abs_day = (vs_dt - datetime(issuing_year, 1, 1)).days
+    valid_from_day = vs_abs_day - issuing_day
+    if valid_from_day < 0:
+        valid_from_day = 0
+
+    persons = int(cfg.get('qdlt_persons', '1'))
+
+    fcb_data = {
+        'issuingDetail': {
+            'securityProviderNum': 1080,
+            'issuerNum': 1080,
+            'issuerName': 'DB AG',
+            'issuingYear': issuing_year,
+            'issuingDay': issuing_day,
+            'issuingTime': issuing_time,
+            'specimen': False,
+            'securePaperTicket': False,
+            'activated': True,
+            'currency': 'EUR',
+            'currencyFract': 2,
+        },
+        'travelerDetail': {
+            'traveler': [{
+                'firstName': first,
+                'lastName': last,
+                'ticketHolder': True,
+            }]
+        },
+        'transportDocument': [{
+            'ticket': ('openTicket', {
+                'referenceIA5': ref,
+                'productOwnerNum': 1080,
+                'productIdNum': 2000,
+                'productIdIA5': 'Quer-durchs-Land-Ticket',
+                'returnIncluded': False,
+                'validFromDay': valid_from_day,
+                'validFromTime': 540,
+                'validFromUTCOffset': utc_offset,
+                'validUntilDay': 1,
+                'validUntilTime': 180,
+                'classCode': 'second',
+                'price': price_cents,
+                'tariffs': [{
+                    'numberOfPassengers': persons,
+                    'passengerType': 'adult',
+                    'restrictedToCountryOfResidence': False,
+                    'tariffDesc': 'Quer-durchs-Land-Ticket',
+                }],
+            })
+        }],
+    }
+
+    fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
+    flex_inner_len = 12 + len(fcb_bytes)
+    return (b"U_FLEX13" +
+            f"{flex_inner_len:04d}".encode('ascii') +
+            fcb_bytes)
+
+
 def generate_aztec_barcode(cfg, output_path):
     """Generate a UIC 918.3 (+ 918.9 for Eurail/Sparpreis/DT) Aztec barcode image."""
     product = cfg.get('product', 'grp_consecutive')
@@ -1059,7 +1334,16 @@ def generate_aztec_barcode(cfg, output_path):
         tlay = _build_eurail_tlay(cfg)
         flex = _build_eurail_flex(cfg)
         payload = head + tlay + flex
-    elif product == 'db_sparpreis':
+    elif product == 'interrail_global':
+        ref = cfg.get('eurail_ref',
+                      f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
+        head = (b"U_HEAD010053" + b"9901" +
+                ref[:20].ljust(20).encode('ascii') +
+                creation.encode('ascii') + b"5EN  ")
+        tlay = _build_interrail_tlay(cfg)
+        flex = _build_interrail_flex(cfg)
+        payload = head + tlay + flex
+    elif product in ('db_sparpreis', 'db_flexpreis'):
         flex = _build_sparpreis_flex(cfg)
         payload = flex
     elif product == 'deutschlandticket':
@@ -1069,14 +1353,22 @@ def generate_aztec_barcode(cfg, output_path):
         tlay = _build_dt_tlay(cfg)
         flex = _build_dt_flex(cfg)
         payload = head + tlay + flex
+    elif product == 'quer_durchs_land':
+        head = (b"U_HEAD010053" + b"1080" +
+                cfg['order_number'][:20].ljust(20).encode('ascii') +
+                creation.encode('ascii') + b"0DE  ")
+        tlay = _build_qdlt_tlay(cfg)
+        flex = _build_qdlt_flex(cfg)
+        payload = head + tlay + flex
     else:
         payload = _build_uic918_payload(cfg)
 
     compressed = zlib.compress(payload)
 
-    if product == 'eurail_global':
+    if product in ('eurail_global', 'interrail_global'):
         outer_hdr = _build_918_header(rics='9901', key_id='TTEU1', fmt='UT01')
-    elif product in ('db_sparpreis', 'deutschlandticket'):
+    elif product in ('db_sparpreis', 'db_flexpreis', 'deutschlandticket',
+                     'quer_durchs_land'):
         outer_hdr = _build_918_header(rics='1080', key_id='00008', fmt='UT02')
     else:
         outer_hdr = _build_918_header(rics='9994', key_id='00001', fmt='UT01')
@@ -1388,7 +1680,7 @@ def _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode
 def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
     product = cfg.get('product', 'grp_consecutive')
 
-    if product == 'db_sparpreis':
+    if product in ('db_sparpreis', 'db_flexpreis'):
         _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img)
         return
 
@@ -1429,10 +1721,18 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
             pass_title += " FLEXI"
         else:
             pass_title += " CONTINUOUS"
+    elif product == 'interrail_global':
+        pass_title = f"INTERRAIL GLOBAL PASS {cfg['days']} days"
+        if int(cfg['days']) <= 15:
+            pass_title += " FLEXI"
+        else:
+            pass_title += " CONTINUOUS"
     elif product == 'grp_flexi':
         pass_title = f"GERMAN RAIL PASS {cfg['days']} days FLEXI"
     elif product == 'deutschlandticket':
         pass_title = "Deutschlandticket"
+    elif product == 'quer_durchs_land':
+        pass_title = "Quer-durchs-Land-Ticket"
     else:
         pass_title = f"GERMAN RAIL PASS {cfg['days']} days CONSECUTIVE"
     txt(page, (39.69, 225.17), pass_title, font="F1", size=10)
@@ -1440,6 +1740,10 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
     if product == 'deutschlandticket':
         txt(page, (39.69, 239.83), "G\u00fcltig in allen Nahverkehrsz\u00fcgen in ganz Deutschland", font="F0", size=9)
         txt(page, (39.69, 252.57), f"Klasse: 2   1 Person(en)", font="F0", size=9)
+    elif product == 'quer_durchs_land':
+        persons = cfg.get('qdlt_persons', '1')
+        txt(page, (39.69, 239.83), "G\u00fcltig in allen Z\u00fcgen des Nahverkehrs (RE, RB, S-Bahn) deutschlandweit", font="F0", size=8)
+        txt(page, (39.69, 252.57), f"Klasse: 2   {persons} Person(en)", font="F0", size=9)
     else:
         txt(page, (39.69, 239.83), f"Klasse: {cfg['klasse']}", font="F0", size=10)
         txt(page, (39.69, 254.57), f"Person(en): 1    {cfg['passenger_type']}", font="F0", size=10)
@@ -1499,6 +1803,26 @@ def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
             "- Travel with this pass is carried out according to the existing public regulations and the general and specific",
             "transportation regulations of the participating railway companies.",
             "- For detailed conditions of use and participating countries please refer to www.eurail.com",
+        ]
+    elif product == 'interrail_global':
+        pass_type_text = "FLEXI" if int(cfg['days']) <= 15 else "CONTINUOUS"
+        conditions = [
+            f"- Valid {cfg['days']} days from {cfg['validity_start']} to {cfg['validity_end']}, {cfg['klasse_ordinal']} class {cfg['passenger_type']}.",
+            f"- The Interrail Global Pass ({pass_type_text}) is valid in 33 European countries.",
+            "- The ticket must be printed on white A4 paper (letter).",
+            "- The Interrail Global Pass is strictly personal, non-transferable and only valid in conjunction with the passenger\u2019s valid passport.",
+            "- Travel with this pass is carried out according to the existing public regulations and the general and specific",
+            "transportation regulations of the participating railway companies.",
+            "- For detailed conditions of use and participating countries please refer to www.interrail.eu",
+        ]
+    elif product == 'quer_durchs_land':
+        conditions = [
+            f"- G\u00fcltig am {cfg['validity_start']} von 09:00 Uhr bis 03:00 Uhr des Folgetages.",
+            "- G\u00fcltig in allen Z\u00fcgen des Nahverkehrs (IRE, RE, RB, S-Bahn) deutschlandweit.",
+            "- Nicht g\u00fcltig im Fernverkehr (ICE, IC/EC).",
+            "- Personengebunden und nicht \u00fcbertragbar.",
+            "- Bis zu 3 Kinder (6-14 Jahre) fahren in Begleitung eines Erwachsenen kostenfrei mit.",
+            "- Gilt nur in der 2. Klasse.",
         ]
     elif product == 'deutschlandticket':
         conditions = [
@@ -1841,11 +2165,11 @@ def build_page2(doc, cfg=None):
                       filename=asset("img_xref14.jpeg"))
 
     product = cfg.get('product', 'grp_consecutive') if cfg else 'grp_consecutive'
-    if product == 'eurail_global':
+    if product in ('eurail_global', 'interrail_global'):
         _build_page2_eurail(page, SZ)
-    elif product == 'db_sparpreis':
+    elif product in ('db_sparpreis', 'db_flexpreis'):
         _build_page2_sparpreis(page, SZ)
-    elif product == 'deutschlandticket':
+    elif product in ('deutschlandticket', 'quer_durchs_land'):
         _build_page2_deutschlandticket(page, SZ)
     else:
         _build_page2_grp(page, SZ)
@@ -1900,8 +2224,11 @@ PRODUCT_LABELS = {
     "grp_consecutive": "German Rail Pass",
     "grp_flexi": "German Rail Pass",
     "eurail_global": "Eurail Global Pass",
+    "interrail_global": "Interrail Global Pass",
     "db_sparpreis": "Super Sparpreis",
+    "db_flexpreis": "Flexpreis",
     "deutschlandticket": "Deutschlandticket",
+    "quer_durchs_land": "Quer-durchs-Land-Ticket",
 }
 
 
@@ -1953,11 +2280,21 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
         klasse = "2"
         if not price or price == "0,00\u20ac":
             price = "63,00\u20ac"
+    elif product == 'quer_durchs_land':
+        passenger_type = "ERWACHSENER"
+        klasse = "2"
+        if not price or price == "0,00\u20ac":
+            price = "51,00\u20ac"
     elif not passenger_type or passenger_type == "AUTO":
         passenger_type = _detect_passenger_type(birth_date, validity_start)
 
     if not fare_name:
-        fare_name = "Super Sparpreis" if product == "db_sparpreis" else ""
+        if product == 'db_sparpreis':
+            fare_name = 'Super Sparpreis'
+        elif product == 'db_flexpreis':
+            fare_name = 'Flexpreis'
+        else:
+            fare_name = ''
 
     klasse_ordinal = "1st" if klasse == "1" else "2nd"
     mwst7 = _calc_mwst7(price)
@@ -1984,7 +2321,7 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
         "residence_code": RESIDENCE_CODES.get(residence, 276),
     }
 
-    if product == 'db_sparpreis':
+    if product in ('db_sparpreis', 'db_flexpreis'):
         cfg['station_from'] = station_from or 'Berlin Hbf'
         cfg['station_to'] = station_to or 'M\u00fcnchen Hbf'
         cfg['zugtyp'] = zugtyp or 'ICE'
@@ -2072,7 +2409,7 @@ async def generate(
         "barcode_raw_base64": barcode_raw_b64,
         "watermark_base64": watermark_b64,
     }
-    if product in ("db_sparpreis", "deutschlandticket"):
+    if product in ("db_sparpreis", "db_flexpreis", "deutschlandticket"):
         ticket_entry["station_from"] = cfg.get("station_from", "")
         ticket_entry["station_to"] = cfg.get("station_to", "")
         ticket_entry["zugtyp"] = cfg.get("zugtyp", "ICE")
@@ -2172,7 +2509,7 @@ async def api_generate(
         "barcode_raw_base64": barcode_raw_b64,
         "watermark_base64": watermark_b64,
     }
-    if product in ("db_sparpreis", "deutschlandticket"):
+    if product in ("db_sparpreis", "db_flexpreis", "deutschlandticket"):
         ticket_data["station_from"] = cfg.get("station_from", "")
         ticket_data["station_to"] = cfg.get("station_to", "")
         ticket_data["zugtyp"] = cfg.get("zugtyp", "ICE")
@@ -2515,16 +2852,22 @@ _KONDITIONEN_MAP = {
     "grp_consecutive": "Freie Zugwahl",
     "grp_flexi": "Freie Zugwahl",
     "eurail_global": "Freie Zugwahl",
+    "interrail_global": "Freie Zugwahl",
     "db_sparpreis": "Zugbindung",
+    "db_flexpreis": "Freie Zugwahl",
     "deutschlandticket": "Freie Zugwahl Nahverkehr",
+    "quer_durchs_land": "Freie Zugwahl Nahverkehr",
 }
 
 _FAHRKARTE_TYP_MAP = {
     "grp_consecutive": "Fahrkarte (Consecutive Days)",
     "grp_flexi": "Fahrkarte (Flexi Days)",
     "eurail_global": "Fahrkarte (Global Pass)",
+    "interrail_global": "Fahrkarte (Global Pass)",
     "db_sparpreis": "Fahrkarte (Einfache Fahrt)",
+    "db_flexpreis": "Fahrkarte (Einfache Fahrt)",
     "deutschlandticket": "Abo (Deutschlandticket)",
+    "quer_durchs_land": "Fahrkarte (Tagesticket)",
 }
 
 
@@ -3863,8 +4206,11 @@ button:disabled { background: #ccc; cursor: wait; }
         <option value="grp_consecutive" selected>German Rail Pass - Consecutive</option>
         <option value="grp_flexi">German Rail Pass - Flexi</option>
         <option value="eurail_global">Eurail Global Pass</option>
+        <option value="interrail_global">Interrail Global Pass</option>
         <option value="db_sparpreis">DB Sparpreis / Super Sparpreis</option>
+        <option value="db_flexpreis">DB Flexpreis</option>
         <option value="deutschlandticket">Deutschlandticket (63&euro;)</option>
+        <option value="quer_durchs_land">Quer-durchs-Land-Ticket (51&euro;)</option>
       </select>
     </div>
 
@@ -4119,7 +4465,8 @@ button:disabled { background: #ccc; cursor: wait; }
     <strong>Optional:</strong> <code>validity_end</code>, <code>price</code>,
     <code>ticket_id</code>, <code>order_number</code>, <code>payment_method</code><br>
     <strong>Produkt-Werte:</strong> <code>grp_consecutive</code>, <code>grp_flexi</code>, <code>eurail_global</code>,
-    <code>db_sparpreis</code>, <code>deutschlandticket</code><br>
+    <code>interrail_global</code>, <code>db_sparpreis</code>, <code>db_flexpreis</code>,
+    <code>deutschlandticket</code>, <code>quer_durchs_land</code><br>
     <strong>Sparpreis extra:</strong> <code>station_from</code>, <code>station_to</code>, <code>zugtyp</code>, <code>fare_name</code>
   </div>
 </div>
@@ -4172,8 +4519,27 @@ var ALL_PRICES = {
     "31": {"2": {"ERWACHSENER": "560,00\u20ac", "JUGENDLICHER": "448,00\u20ac"},
            "1": {"ERWACHSENER": "747,00\u20ac", "JUGENDLICHER": "597,00\u20ac"}}
   },
+  "interrail_global": {
+    "4":  {"2": {"ERWACHSENER": "246,00\u20ac", "JUGENDLICHER": "185,00\u20ac"},
+           "1": {"ERWACHSENER": "328,00\u20ac", "JUGENDLICHER": "246,00\u20ac"}},
+    "5":  {"2": {"ERWACHSENER": "281,00\u20ac", "JUGENDLICHER": "211,00\u20ac"},
+           "1": {"ERWACHSENER": "375,00\u20ac", "JUGENDLICHER": "281,00\u20ac"}},
+    "7":  {"2": {"ERWACHSENER": "331,00\u20ac", "JUGENDLICHER": "248,00\u20ac"},
+           "1": {"ERWACHSENER": "441,00\u20ac", "JUGENDLICHER": "331,00\u20ac"}},
+    "10": {"2": {"ERWACHSENER": "393,00\u20ac", "JUGENDLICHER": "295,00\u20ac"},
+           "1": {"ERWACHSENER": "524,00\u20ac", "JUGENDLICHER": "393,00\u20ac"}},
+    "15": {"2": {"ERWACHSENER": "463,00\u20ac", "JUGENDLICHER": "347,00\u20ac"},
+           "1": {"ERWACHSENER": "617,00\u20ac", "JUGENDLICHER": "463,00\u20ac"}},
+    "22": {"2": {"ERWACHSENER": "424,00\u20ac", "JUGENDLICHER": "318,00\u20ac"},
+           "1": {"ERWACHSENER": "565,00\u20ac", "JUGENDLICHER": "424,00\u20ac"}},
+    "31": {"2": {"ERWACHSENER": "530,00\u20ac", "JUGENDLICHER": "398,00\u20ac"},
+           "1": {"ERWACHSENER": "707,00\u20ac", "JUGENDLICHER": "530,00\u20ac"}}
+  },
   "deutschlandticket": {
     "1": {"2": {"ERWACHSENER": "63,00\u20ac"}}
+  },
+  "quer_durchs_land": {
+    "1": {"2": {"ERWACHSENER": "51,00\u20ac"}}
   }
 };
 
@@ -4181,8 +4547,11 @@ var DAY_OPTIONS = {
   "grp_consecutive": [3, 4, 5, 7, 10, 15],
   "grp_flexi": [3, 4, 5, 7, 10, 15],
   "eurail_global": [4, 5, 7, 10, 15, 22, 31],
+  "interrail_global": [4, 5, 7, 10, 15, 22, 31],
   "db_sparpreis": [1],
-  "deutschlandticket": [1]
+  "db_flexpreis": [1],
+  "deutschlandticket": [1],
+  "quer_durchs_land": [1]
 };
 
 function updateDaysOptions() {
@@ -4238,7 +4607,11 @@ function updatePrice() {
     document.getElementById('priceInput').value = "63,00\u20ac";
     return;
   }
-  if (product === 'db_sparpreis') {
+  if (product === 'quer_durchs_land') {
+    document.getElementById('priceInput').value = "51,00\u20ac";
+    return;
+  }
+  if (product === 'db_sparpreis' || product === 'db_flexpreis') {
     return;
   }
   var days = document.getElementById('daysSelect').value;
@@ -4262,9 +4635,11 @@ function updateValidityEnd() {
   var dt = new Date(y, m, d);
   if (product === 'deutschlandticket') {
     dt = new Date(y, m + 1, 0);
-  } else if (product === 'db_sparpreis') {
+  } else if (product === 'quer_durchs_land') {
     dt.setDate(dt.getDate() + 1);
-  } else if (product === 'grp_flexi' || (product === 'eurail_global' && days <= 15)) {
+  } else if (product === 'db_sparpreis' || product === 'db_flexpreis') {
+    dt.setDate(dt.getDate() + 1);
+  } else if (product === 'grp_flexi' || (product === 'eurail_global' && days <= 15) || (product === 'interrail_global' && days <= 15)) {
     dt.setDate(dt.getDate() + 29);
   } else {
     dt.setDate(dt.getDate() + days - 1);
@@ -4282,18 +4657,22 @@ function toggleProductFields() {
   var residenceGrp = document.getElementById('residenceSelect').closest('.form-group');
   var passengerGrp = document.getElementById('passengerSelect').closest('.row');
 
-  spFields.style.display = (product === 'db_sparpreis') ? 'block' : 'none';
+  spFields.style.display = (product === 'db_sparpreis' || product === 'db_flexpreis') ? 'block' : 'none';
 
-  if (product === 'db_sparpreis' || product === 'deutschlandticket') {
+  if (product === 'db_sparpreis' || product === 'db_flexpreis' || product === 'deutschlandticket' || product === 'quer_durchs_land') {
     daysRow.style.display = 'none';
   } else {
     daysRow.style.display = 'flex';
   }
 
-  if (product === 'deutschlandticket') {
+  if (product === 'deutschlandticket' || product === 'quer_durchs_land') {
     document.getElementById('klasseSelect').value = '2';
     document.getElementById('klasseSelect').disabled = true;
-    document.getElementById('priceInput').value = "63,00\u20ac";
+    if (product === 'deutschlandticket') {
+      document.getElementById('priceInput').value = "63,00\u20ac";
+    } else {
+      document.getElementById('priceInput').value = "51,00\u20ac";
+    }
     document.getElementById('priceInput').readOnly = true;
     document.getElementById('passengerSelect').value = 'ERWACHSENER';
   } else {
@@ -4301,7 +4680,7 @@ function toggleProductFields() {
     document.getElementById('priceInput').readOnly = false;
   }
 
-  if (product === 'eurail_global') {
+  if (product === 'eurail_global' || product === 'interrail_global') {
     residenceGrp.style.display = 'block';
   } else {
     residenceGrp.style.display = 'none';
