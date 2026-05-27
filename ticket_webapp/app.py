@@ -1,7 +1,7 @@
 """
 Web app for generating Deutsche Bahn Online-Tickets.
 Supports: German Rail Pass, Eurail Global Pass, Interrail Pass,
-DB Sparpreis, Super Sparpreis Europa & Deutschlandticket.
+DB Sparpreis, DB Flexpreis, Super Sparpreis Europa & Deutschlandticket.
 FastAPI backend with HTML frontend form.
 """
 
@@ -916,6 +916,150 @@ def _build_sparpreis_flex(cfg):
             fcb_bytes)
 
 
+def _build_vdv_block():
+    """Build 0080VU01 block (VDV-KA City-Ticket) matching real DB Flexpreis."""
+    vdv_content = bytes.fromhex(
+        "0064000000010222b30def187407d0187646b000"
+        "0046b1180000000022b30def08dc060d18767a39"
+        "af22b30df0187407d0187646b0000046b1180000"
+        "000022b30df008dc060d18767a3965"
+    )
+    vdv_len = 12 + len(vdv_content)
+    return (b"0080VU01" +
+            f"{vdv_len:04d}".encode('ascii') +
+            vdv_content)
+
+
+def _build_flexpreis_flex(cfg):
+    """Build U_FLEX + 0080VU blocks for DB Flexpreis (with City-Ticket).
+
+    Key differences from Sparpreis:
+    - Station names have '+City' suffix
+    - validUntilDay = 2 (Flexpreis valid 2 days)
+    - tariffDesc = 'Flexpreis'
+    - Includes 0080VU01 VDV-KA block for City-Ticket
+    """
+    parts = cfg['name'].split(' ', 1)
+    first, last = parts[0], (parts[1] if len(parts) == 2 else "")
+
+    now = datetime.now()
+    issuing_day = now.timetuple().tm_yday
+    issuing_year = now.year
+    issuing_time = now.hour * 60 + now.minute
+
+    vs = cfg['validity_start']
+    try:
+        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
+    except ValueError:
+        vs_dt = datetime(2026, 1, 1)
+
+    class_code = 'first' if cfg['klasse'] == '1' else 'second'
+    fare_name = cfg.get('fare_name', 'Flexpreis')
+    ref = cfg.get('sparpreis_ref', cfg['order_number'][:8].upper())
+    zugtyp = cfg.get('zugtyp', 'IC/EC')
+    von = cfg.get('station_from', 'Berlin Hbf')
+    nach = cfg.get('station_to', 'München Hbf')
+
+    from_code = DB_STATIONS.get(von, 8011160)
+    to_code = DB_STATIONS.get(nach, 8000261)
+
+    von_city = von + '+City'
+    nach_city = nach + '+City'
+
+    price_raw = cfg['price'].replace('\u20ac', '').replace('.', '').replace(',', '.').strip()
+    try:
+        price_cents = int(float(price_raw) * 100)
+    except ValueError:
+        price_cents = 0
+
+    is_summer = vs_dt.month >= 4 and vs_dt.month <= 10
+    utc_offset = -8 if is_summer else -4
+
+    vs_day_of_year = (vs_dt - datetime(issuing_year, 1, 1)).days
+    valid_from_day = vs_day_of_year - issuing_day
+    if valid_from_day < 0:
+        valid_from_day = 0
+
+    dep_hour = cfg.get('departure_hour', 13)
+    dep_min = cfg.get('departure_minute', 30)
+    dep_time = int(dep_hour) * 60 + int(dep_min)
+
+    train_id = f"{zugtyp}{cfg.get('train_number', '919')}"
+    travel_day = valid_from_day
+
+    via_text = cfg.get('via_text', '')
+    if not via_text:
+        via_text = _get_via_route(von, nach)
+
+    ticketcode = cfg.get('sparpreis_ref', cfg['order_number'][:8].upper())
+
+    open_ticket = {
+        'referenceIA5': ref,
+        'productIdIA5': f"{zugtyp} Fahrkarte",
+        'returnIncluded': False,
+        'stationCodeTable': 'stationUIC',
+        'fromStationNum': from_code,
+        'toStationNum': to_code,
+        'fromStationNameUTF8': von_city,
+        'toStationNameUTF8': nach_city,
+        'validRegionDesc': via_text if via_text else f"Via: <1080>{von}*{nach}",
+        'validRegion': [('trainLink', {
+            'trainIA5': train_id,
+            'travelDate': travel_day,
+            'departureTime': dep_time,
+            'departureUTCOffset': utc_offset,
+        })],
+        'validFromDay': valid_from_day,
+        'validFromTime': 0,
+        'validFromUTCOffset': utc_offset,
+        'validUntilDay': 2,
+        'validUntilTime': 180,
+        'classCode': class_code,
+        'tariffs': [{
+            'numberOfPassengers': 1,
+            'passengerType': 'adult',
+            'restrictedToCountryOfResidence': False,
+            'tariffDesc': fare_name,
+        }],
+    }
+
+    fcb_data = {
+        'issuingDetail': {
+            'securityProviderNum': 1080,
+            'issuerNum': 1080,
+            'issuingYear': issuing_year,
+            'issuingDay': issuing_day,
+            'issuingTime': issuing_time,
+            'issuerName': 'DB AG',
+            'specimen': False,
+            'securePaperTicket': False,
+            'activated': True,
+            'currency': 'EUR',
+            'currencyFract': 2,
+            'issuerPNR': ticketcode,
+        },
+        'travelerDetail': {
+            'traveler': [{
+                'firstName': first,
+                'lastName': last,
+                'ticketHolder': True,
+            }]
+        },
+        'transportDocument': [{
+            'ticket': ('openTicket', open_ticket)
+        }],
+    }
+
+    fcb_bytes = FCB_SCHEMA.encode('UicRailTicketData', fcb_data)
+    flex_len = 12 + len(fcb_bytes)
+    u_flex = (b"U_FLEX13" +
+              f"{flex_len:04d}".encode('ascii') +
+              fcb_bytes)
+
+    vdv = _build_vdv_block()
+    return u_flex + vdv
+
+
 def _build_dt_tlay(cfg):
     """Build U_TLAY block for Deutschlandticket (RCT2 format)."""
     parts = cfg['name'].split(' ', 1)
@@ -1222,6 +1366,8 @@ def generate_aztec_barcode(cfg, output_path):
     elif product in ('db_sparpreis', 'db_sparpreis_europa'):
         flex = _build_sparpreis_flex(cfg)
         payload = flex
+    elif product == 'db_flexpreis':
+        payload = _build_flexpreis_flex(cfg)
     elif product == 'deutschlandticket':
         head = (b"U_HEAD010053" + b"1080" +
                 cfg['order_number'][:20].ljust(20).encode('ascii') +
@@ -1236,7 +1382,8 @@ def generate_aztec_barcode(cfg, output_path):
 
     if product in ('eurail_global', 'interrail_global'):
         outer_hdr = _build_918_header(rics='9901', key_id='TTEU1', fmt='UT01')
-    elif product in ('db_sparpreis', 'db_sparpreis_europa', 'deutschlandticket'):
+    elif product in ('db_sparpreis', 'db_flexpreis', 'db_sparpreis_europa',
+                     'deutschlandticket'):
         outer_hdr = _build_918_header(rics='1080', key_id='00008', fmt='UT02')
     else:
         outer_hdr = _build_918_header(rics='9994', key_id='00001', fmt='UT01')
@@ -1548,7 +1695,7 @@ def _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode
 def build_page1(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img):
     product = cfg.get('product', 'grp_consecutive')
 
-    if product in ('db_sparpreis', 'db_sparpreis_europa'):
+    if product in ('db_sparpreis', 'db_flexpreis', 'db_sparpreis_europa'):
         _build_page1_sparpreis(doc, cfg, wm_main, wm_bottom, ticket_num_img, barcode_img)
         return
 
@@ -2020,7 +2167,7 @@ def build_page2(doc, cfg=None):
     product = cfg.get('product', 'grp_consecutive') if cfg else 'grp_consecutive'
     if product in ('eurail_global', 'interrail_global'):
         _build_page2_eurail(page, SZ)
-    elif product in ('db_sparpreis', 'db_sparpreis_europa'):
+    elif product in ('db_sparpreis', 'db_flexpreis', 'db_sparpreis_europa'):
         _build_page2_sparpreis(page, SZ)
     elif product == 'deutschlandticket':
         _build_page2_deutschlandticket(page, SZ)
@@ -2079,6 +2226,7 @@ PRODUCT_LABELS = {
     "eurail_global": "Eurail Global Pass",
     "interrail_global": "Interrail Global Pass",
     "db_sparpreis": "Super Sparpreis",
+    "db_flexpreis": "Flexpreis",
     "db_sparpreis_europa": "Super Sparpreis Europa",
     "deutschlandticket": "Deutschlandticket",
 }
@@ -2138,6 +2286,8 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
     if not fare_name:
         if product == 'db_sparpreis':
             fare_name = 'Super Sparpreis'
+        elif product == 'db_flexpreis':
+            fare_name = 'Flexpreis'
         elif product == 'db_sparpreis_europa':
             fare_name = 'Super Sparpreis Europa'
         else:
@@ -2168,7 +2318,7 @@ def _build_cfg(name, birth_date, validity_start, validity_end, ticket_id,
         "residence_code": RESIDENCE_CODES.get(residence, 276),
     }
 
-    if product in ('db_sparpreis', 'db_sparpreis_europa'):
+    if product in ('db_sparpreis', 'db_flexpreis', 'db_sparpreis_europa'):
         cfg['station_from'] = station_from or 'Berlin Hbf'
         cfg['station_to'] = station_to or 'M\u00fcnchen Hbf'
         cfg['zugtyp'] = zugtyp or 'ICE'
@@ -2256,7 +2406,7 @@ async def generate(
         "barcode_raw_base64": barcode_raw_b64,
         "watermark_base64": watermark_b64,
     }
-    if product in ("db_sparpreis", "db_sparpreis_europa", "deutschlandticket"):
+    if product in ("db_sparpreis", "db_flexpreis", "db_sparpreis_europa", "deutschlandticket"):
         ticket_entry["station_from"] = cfg.get("station_from", "")
         ticket_entry["station_to"] = cfg.get("station_to", "")
         ticket_entry["zugtyp"] = cfg.get("zugtyp", "ICE")
@@ -2356,7 +2506,7 @@ async def api_generate(
         "barcode_raw_base64": barcode_raw_b64,
         "watermark_base64": watermark_b64,
     }
-    if product in ("db_sparpreis", "db_sparpreis_europa", "deutschlandticket"):
+    if product in ("db_sparpreis", "db_flexpreis", "db_sparpreis_europa", "deutschlandticket"):
         ticket_data["station_from"] = cfg.get("station_from", "")
         ticket_data["station_to"] = cfg.get("station_to", "")
         ticket_data["zugtyp"] = cfg.get("zugtyp", "ICE")
@@ -2701,6 +2851,7 @@ _KONDITIONEN_MAP = {
     "eurail_global": "Freie Zugwahl",
     "interrail_global": "Freie Zugwahl",
     "db_sparpreis": "Zugbindung",
+    "db_flexpreis": "Freie Zugwahl",
     "db_sparpreis_europa": "Zugbindung",
     "deutschlandticket": "Freie Zugwahl Nahverkehr",
 }
@@ -2711,6 +2862,7 @@ _FAHRKARTE_TYP_MAP = {
     "eurail_global": "Fahrkarte (Global Pass)",
     "interrail_global": "Fahrkarte (Global Pass)",
     "db_sparpreis": "Fahrkarte (Einfache Fahrt)",
+    "db_flexpreis": "Fahrkarte (Einfache Fahrt)",
     "db_sparpreis_europa": "Fahrkarte (Einfache Fahrt)",
     "deutschlandticket": "Abo (Deutschlandticket)",
 }
@@ -4053,6 +4205,7 @@ button:disabled { background: #ccc; cursor: wait; }
         <option value="eurail_global">Eurail Global Pass</option>
         <option value="interrail_global">Interrail Global Pass</option>
         <option value="db_sparpreis">DB Sparpreis / Super Sparpreis</option>
+        <option value="db_flexpreis">DB Flexpreis (+City)</option>
         <option value="db_sparpreis_europa">Super Sparpreis Europa</option>
         <option value="deutschlandticket">Deutschlandticket (63&euro;)</option>
       </select>
@@ -4127,6 +4280,7 @@ button:disabled { background: #ccc; cursor: wait; }
           <select name="fare_name" id="fareNameSelect">
             <option value="Super Sparpreis" selected>Super Sparpreis</option>
             <option value="Sparpreis">Sparpreis</option>
+            <option value="Flexpreis">Flexpreis</option>
             <option value="Super Sparpreis Europa">Super Sparpreis Europa</option>
             <option value="Super Sparpreis Europa Young">Super Sparpreis Europa Young</option>
           </select>
@@ -4310,8 +4464,8 @@ button:disabled { background: #ccc; cursor: wait; }
     <strong>Optional:</strong> <code>validity_end</code>, <code>price</code>,
     <code>ticket_id</code>, <code>order_number</code>, <code>payment_method</code><br>
     <strong>Produkt-Werte:</strong> <code>grp_consecutive</code>, <code>grp_flexi</code>, <code>eurail_global</code>,
-    <code>interrail_global</code>, <code>db_sparpreis</code>, <code>db_sparpreis_europa</code>,
-    <code>deutschlandticket</code><br>
+    <code>interrail_global</code>, <code>db_sparpreis</code>, <code>db_flexpreis</code>,
+    <code>db_sparpreis_europa</code>, <code>deutschlandticket</code><br>
     <strong>Sparpreis extra:</strong> <code>station_from</code>, <code>station_to</code>, <code>zugtyp</code>, <code>fare_name</code>
   </div>
 </div>
@@ -4391,6 +4545,7 @@ var DAY_OPTIONS = {
   "eurail_global": [4, 5, 7, 10, 15, 22, 31],
   "interrail_global": [4, 5, 7, 10, 15, 22, 31],
   "db_sparpreis": [1],
+  "db_flexpreis": [1],
   "db_sparpreis_europa": [1],
   "deutschlandticket": [1]
 };
@@ -4448,7 +4603,7 @@ function updatePrice() {
     document.getElementById('priceInput').value = "63,00\u20ac";
     return;
   }
-  if (product === 'db_sparpreis' || product === 'db_sparpreis_europa') {
+  if (product === 'db_sparpreis' || product === 'db_flexpreis' || product === 'db_sparpreis_europa') {
     return;
   }
   var days = document.getElementById('daysSelect').value;
@@ -4472,6 +4627,8 @@ function updateValidityEnd() {
   var dt = new Date(y, m, d);
   if (product === 'deutschlandticket') {
     dt = new Date(y, m + 1, 0);
+  } else if (product === 'db_flexpreis') {
+    dt.setDate(dt.getDate() + 2);
   } else if (product === 'db_sparpreis' || product === 'db_sparpreis_europa') {
     dt.setDate(dt.getDate() + 1);
   } else if (product === 'grp_flexi' || (product === 'eurail_global' && days <= 15) || (product === 'interrail_global' && days <= 15)) {
@@ -4492,9 +4649,9 @@ function toggleProductFields() {
   var residenceGrp = document.getElementById('residenceSelect').closest('.form-group');
   var passengerGrp = document.getElementById('passengerSelect').closest('.row');
 
-  spFields.style.display = (product === 'db_sparpreis' || product === 'db_sparpreis_europa') ? 'block' : 'none';
+  spFields.style.display = (product === 'db_sparpreis' || product === 'db_flexpreis' || product === 'db_sparpreis_europa') ? 'block' : 'none';
 
-  if (product === 'db_sparpreis' || product === 'db_sparpreis_europa' || product === 'deutschlandticket') {
+  if (product === 'db_sparpreis' || product === 'db_flexpreis' || product === 'db_sparpreis_europa' || product === 'deutschlandticket') {
     daysRow.style.display = 'none';
   } else {
     daysRow.style.display = 'flex';
