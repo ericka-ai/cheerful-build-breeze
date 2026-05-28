@@ -11,6 +11,7 @@ import json
 import math
 import os
 import random
+import struct
 import tempfile
 import io
 import time
@@ -916,18 +917,83 @@ def _build_sparpreis_flex(cfg):
             fcb_bytes)
 
 
-def _build_vdv_block():
-    """Build 0080VU01 block (VDV-KA City-Ticket) matching real DB Flexpreis."""
-    vdv_content = bytes.fromhex(
-        "0064000000010222b30def187407d0187646b000"
-        "0046b1180000000022b30def08dc060d18767a39"
-        "af22b30df0187407d0187646b0000046b1180000"
-        "000022b30df008dc060d18767a3965"
-    )
-    vdv_len = 12 + len(vdv_content)
+VDV_STATIONS = {
+    "Berlin Hbf": 8011160, "Hamburg Hbf": 8002549, "München Hbf": 8000261,
+    "Köln Hbf": 8000207, "Frankfurt(Main)Hbf": 8000105, "Stuttgart Hbf": 8000096,
+    "Düsseldorf Hbf": 8000085, "Hannover Hbf": 8000152, "Leipzig Hbf": 8010205,
+    "Dresden Hbf": 8010085, "Nürnberg Hbf": 8000284, "Bremen Hbf": 8000050,
+    "Dortmund Hbf": 8000080, "Essen Hbf": 8000098, "Mannheim Hbf": 8000244,
+    "Karlsruhe Hbf": 8000191, "Augsburg Hbf": 8000013, "Freiburg(Brsg)Hbf": 8000107,
+    "Erfurt Hbf": 8010101, "Rostock Hbf": 8010304,
+    "Köln Messe/Deutz": 8003368,
+}
+
+
+def _encode_dtc(year, month, day, hour=0, minute=0, second=0):
+    """Encode a date/time as VDV-KA DateTimeCompact (4 bytes big-endian)."""
+    day_word = ((year - 1990) << 9) | (month << 5) | day
+    time_word = (hour << 11) | (minute << 5) | second
+    return struct.pack('>HH', day_word, time_word)
+
+
+def _build_vdv_block(cfg):
+    """Build dynamic 0080VU01 block (VDV-KA City-Ticket) for DB Flexpreis.
+
+    Generates EFS entries per station based on ticket data (stations, dates,
+    passenger count). Uses the VDV-KA format as parsed by onlineticket.
+    """
+    von = cfg.get('station_from', 'Berlin Hbf')
+    nach = cfg.get('station_to', 'München Hbf')
+    from_code = VDV_STATIONS.get(von, 8011160)
+    to_code = VDV_STATIONS.get(nach, 8000261)
+
+    vs = cfg.get('validity_start', '01.01.2026')
+    try:
+        vs_dt = datetime.strptime(vs, "%d.%m.%Y")
+    except ValueError:
+        vs_dt = datetime(2026, 1, 1)
+
+    order_hash = 0
+    for ch in cfg.get('order_number', '000000')[:8]:
+        order_hash = (order_hash * 31 + ord(ch)) & 0xFFFFFFFF
+    if order_hash == 0:
+        order_hash = 0x22B30DEF
+
+    valid_from = _encode_dtc(vs_dt.year, vs_dt.month, vs_dt.day, 0, 0, 0)
+    next_day = vs_dt + timedelta(days=1)
+    valid_to = _encode_dtc(next_day.year, next_day.month, next_day.day, 3, 0, 0)
+
+    kvp_org = 0x0080
+    pv_org = 0x0080
+    produkt_nr = 0x07D0
+
+    content = b''
+    content += struct.pack('>H', 100)       # terminal_id
+    content += b'\x00\x00\x00'              # sam_id
+    content += bytes([1])                   # personen_anzahl
+    content += bytes([2])                   # efs_anzahl (departure + arrival)
+
+    for i, station_code in enumerate((from_code, to_code)):
+        ber_nr = (order_hash + i) & 0xFFFFFFFF
+        content += struct.pack('>I', ber_nr)
+        content += struct.pack('>H', kvp_org)
+        content += struct.pack('>H', produkt_nr)
+        content += struct.pack('>H', pv_org)
+        content += valid_from
+        content += valid_to
+        content += b'\x00\x00\x00'          # preis = 0 (included in ticket)
+        content += struct.pack('>I', ber_nr) # sam_seqno = berechtigungs_nr
+        station_bytes = station_code.to_bytes(3, 'big')
+        tag_data = bytes([0xDC, 0x06, 0x0D])
+        tag_data += struct.pack('>H', pv_org)
+        tag_data += station_bytes
+        content += bytes([len(tag_data)])   # list_length
+        content += tag_data
+
+    vdv_len = 12 + len(content)
     return (b"0080VU01" +
             f"{vdv_len:04d}".encode('ascii') +
-            vdv_content)
+            content)
 
 
 def _build_flexpreis_flex(cfg):
@@ -1056,7 +1122,7 @@ def _build_flexpreis_flex(cfg):
               f"{flex_len:04d}".encode('ascii') +
               fcb_bytes)
 
-    vdv = _build_vdv_block()
+    vdv = _build_vdv_block(cfg)
     return u_flex + vdv
 
 
