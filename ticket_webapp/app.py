@@ -184,7 +184,7 @@ DB_STATIONS = {
     'Görlitz': 8010131, 'Göttingen': 8000128,
     'Günzburg': 8000139, 'Güstrow': 8010153,
     'Gütersloh Hbf': 8002461, 'Hagen Hbf': 8000142,
-    'Halberstadt': 8010157, 'Halle(Saale)Hbf': 8010159,
+    'Halberstadt': 8010157, 'Halle(Saale)Hbf': 8023002,
     'Hamburg Dammtor': 8002548, 'Hamburg Hbf': 8001071,
     'Hamburg-Altona': 8002553, 'Hamburg-Harburg': 8000147,
     'Hameln': 8000148, 'Hamm(Westf)Hbf': 8000149,
