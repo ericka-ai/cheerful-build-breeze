@@ -146,37 +146,72 @@ _EURAIL_HEADER = bytes.fromhex(
 )
 
 DB_STATIONS = {
-    'Aachen Hbf': 8000001, 'Augsburg Hbf': 8000013,
-    'Berlin Hbf': 8065969, 'Bielefeld Hbf': 8000036,
+    'Aachen Hbf': 8000001, 'Aschaffenburg Hbf': 8000010,
+    'Augsburg Hbf': 8000013, 'Baden-Baden': 8000774,
+    'Bamberg': 8000025, 'Berlin Hbf': 8065969,
+    'Berlin Ostbahnhof': 8010255, 'Berlin S\u00fcdkreuz': 8011113,
+    'Berlin-Spandau': 8010404, 'Bielefeld Hbf': 8000036,
     'Bochum Hbf': 8000041, 'Bonn Hbf': 8000044,
     'Braunschweig Hbf': 8000049, 'Bremen Hbf': 8013751,
-    'Chemnitz Hbf': 8010184, 'Darmstadt Hbf': 8000068,
+    'Celle': 8000064, 'Chemnitz Hbf': 8010184,
+    'Coburg': 8001338, 'Cottbus Hbf': 8010073,
+    'Darmstadt Hbf': 8000068, 'Dessau Hbf': 8010077,
     'Dortmund Hbf': 8010053, 'Dresden Hbf': 8006050,
     'Duisburg Hbf': 8000086, 'D\u00fcsseldorf Hbf': 8008094,
-    'Erfurt Hbf': 8016043, 'Essen Hbf': 8010184,
-    'Frankfurt(Main)Hbf': 8011068, 'Freiburg(Brsg)Hbf': 8014350,
+    'Emden Hbf': 8001768, 'Erfurt Hbf': 8016043,
+    'Erlangen': 8001844, 'Essen Hbf': 8010184,
+    'Flensburg': 8000103, 'Frankfurt(Main)Hbf': 8011068,
+    'Frankfurt(Main)S\u00fcd': 8002051, 'Frankfurt(Oder)': 8010113,
+    'Freiburg(Brsg)Hbf': 8014350, 'Friedrichshafen Stadt': 8000112,
     'Fulda': 8000115, 'Gelsenkirchen Hbf': 8000118,
-    'G\u00f6ttingen': 8000128, 'Hagen Hbf': 8000142,
-    'Halle(Saale)Hbf': 8010159, 'Hamburg Hbf': 8001071,
-    'Hamm(Westf)Hbf': 8000149, 'Hannover Hbf': 8013552,
-    'Heidelberg Hbf': 8000156, 'Ingolstadt Hbf': 8000183,
-    'Jena Paradies': 8011956, 'Karlsruhe Hbf': 8014228,
-    'Kassel-Wilhelmsh\u00f6he': 8003200, 'Kiel Hbf': 8000199,
+    'Gera Hbf': 8010125, 'Gie\u00dfen': 8000124,
+    'Greifswald': 8010139, 'G\u00f6rlitz': 8010131,
+    'G\u00f6ttingen': 8000128, 'G\u00fctersloh Hbf': 8002461,
+    'Hagen Hbf': 8000142, 'Halle(Saale)Hbf': 8010159,
+    'Hamburg Hbf': 8001071, 'Hamburg-Altona': 8002553,
+    'Hamburg-Harburg': 8000147, 'Hamm(Westf)Hbf': 8000149,
+    'Hannover Hbf': 8013552, 'Heidelberg Hbf': 8000156,
+    'Heilbronn Hbf': 8000157, 'Hildesheim Hbf': 8000169,
+    'Ingolstadt Hbf': 8000183, 'Itzehoe': 8003102,
+    'Jena Paradies': 8011956, 'Jena West': 8011957,
+    'Kaiserslautern Hbf': 8000189, 'Karlsruhe Hbf': 8014228,
+    'Kassel Hbf': 8000193, 'Kassel-Wilhelmsh\u00f6he': 8003200,
+    'Kempten(Allg\u00e4u)Hbf': 8000197, 'Kiel Hbf': 8000199,
     'Koblenz Hbf': 8000206, 'Konstanz': 8003400,
-    'K\u00f6ln Hbf': 8015458, 'K\u00f6ln Messe/Deutz': 8015561,
-    'Leipzig Hbf': 8023179, 'L\u00fcbeck Hbf': 8000237,
-    'Magdeburg Hbf': 8010224, 'Mainz Hbf': 8000240,
-    'Mannheim Hbf': 8014008, 'M\u00f6nchengladbach Hbf': 8000253,
+    'Krefeld Hbf': 8000211, 'K\u00f6ln Hbf': 8015458,
+    'K\u00f6ln Messe/Deutz': 8015561, 'Landshut(Bay)Hbf': 8000217,
+    'Leer(Ostfriesl)': 8000225, 'Leipzig Hbf': 8023179,
+    'Lichtenfels': 8000228, 'Lindau-Insel': 8000230,
+    'Ludwigshafen(Rh)Hbf': 8000236, 'L\u00fcbeck Hbf': 8000237,
+    'L\u00fcneburg': 8000238, 'Magdeburg Hbf': 8010224,
+    'Mainz Hbf': 8000240, 'Mannheim Hbf': 8014008,
+    'Marburg(Lahn)': 8003856, 'Minden(Westf)': 8000252,
+    'M\u00f6nchengladbach Hbf': 8000253, 'M\u00fclheim(Ruhr)Hbf': 8000259,
     'M\u00fcnchen Hbf': 8020347, 'M\u00fcnster(Westf)Hbf': 8000263,
+    'Neum\u00fcnster': 8000271, 'Neuss Hbf': 8000274,
+    'Norddeich Mole': 8007768, 'Nordhausen': 8010256,
     'N\u00fcrnberg Hbf': 8022193, 'Oberhausen Hbf': 8000286,
+    'Offenbach(Main)Hbf': 8000349, 'Offenburg': 8000290,
     'Oldenburg(Oldb)Hbf': 8000291, 'Osnabr\u00fcck Hbf': 8000294,
-    'Passau Hbf': 8000298, 'Potsdam Hbf': 8012666,
-    'Regensburg Hbf': 8000309, 'Rostock Hbf': 8027089,
+    'Paderborn Hbf': 8000297, 'Passau Hbf': 8000298,
+    'Pforzheim Hbf': 8000299, 'Plattling': 8000301,
+    'Plauen(Vogtl) ob Bf': 8012646, 'Potsdam Hbf': 8012666,
+    'Recklinghausen Hbf': 8000307, 'Regensburg Hbf': 8000309,
+    'Remscheid Hbf': 8005033, 'Rendsburg': 8000312,
+    'Rosenheim': 8000320, 'Rostock Hbf': 8027089,
     'Saarbr\u00fccken Hbf': 8000323, 'Schwerin Hbf': 8010324,
-    'Stralsund Hbf': 8010338, 'Stuttgart Hbf': 8029034,
-    'Ulm Hbf': 8000170, 'Weimar': 8010366,
-    'Wiesbaden Hbf': 8000250, 'Wolfsburg Hbf': 8006552,
+    'Siegen Hbf': 8000046, 'Singen(Hohentwiel)': 8012998,
+    'Solingen Hbf': 8000087, 'Speyer Hbf': 8005628,
+    'Stendal Hbf': 8010334, 'Stralsund Hbf': 8010338,
+    'Stuttgart Hbf': 8029034, 'Treuchtlingen': 8000122,
+    'Trier Hbf': 8000134, 'T\u00fcbingen Hbf': 8000141,
+    'Ulm Hbf': 8000170, 'Villingen(Schwarzw)': 8000366,
+    'Weiden(Oberpf)': 8006258, 'Weimar': 8010366,
+    'Wiesbaden Hbf': 8000250, 'Wilhelmshaven': 8006445,
+    'Wismar': 8010381, 'Wittenberge': 8010382,
+    'Wolfsburg Hbf': 8006552, 'Worms Hbf': 8000257,
     'Wuppertal Hbf': 8000266, 'W\u00fcrzburg Hbf': 8000260,
+    'Zwickau(Sachs)Hbf': 8010397,
 }
 
 # DS100 Betriebsstellenkürzel for via route generation
@@ -938,37 +973,72 @@ def _build_sparpreis_flex(cfg):
 
 
 VDV_STATIONS = {
-    "Aachen Hbf": 8000001, "Augsburg Hbf": 8000013,
-    "Berlin Hbf": 8011160, "Bielefeld Hbf": 8000036,
+    "Aachen Hbf": 8000001, "Aschaffenburg Hbf": 8000010,
+    "Augsburg Hbf": 8000013, "Baden-Baden": 8000774,
+    "Bamberg": 8000025, "Berlin Hbf": 8011160,
+    "Berlin Ostbahnhof": 8010255, "Berlin Südkreuz": 8011113,
+    "Berlin-Spandau": 8010404, "Bielefeld Hbf": 8000036,
     "Bochum Hbf": 8000041, "Bonn Hbf": 8000044,
     "Braunschweig Hbf": 8000049, "Bremen Hbf": 8000050,
-    "Chemnitz Hbf": 8010053, "Darmstadt Hbf": 8000068,
+    "Celle": 8000064, "Chemnitz Hbf": 8010053,
+    "Coburg": 8001338, "Cottbus Hbf": 8010073,
+    "Darmstadt Hbf": 8000068, "Dessau Hbf": 8010077,
     "Dortmund Hbf": 8000080, "Dresden Hbf": 8010085,
     "Duisburg Hbf": 8000086, "Düsseldorf Hbf": 8000085,
-    "Erfurt Hbf": 8010101, "Essen Hbf": 8000098,
-    "Frankfurt(Main)Hbf": 8000105, "Freiburg(Brsg)Hbf": 8000107,
+    "Emden Hbf": 8001768, "Erfurt Hbf": 8010101,
+    "Erlangen": 8001844, "Essen Hbf": 8000098,
+    "Flensburg": 8000103, "Frankfurt(Main)Hbf": 8000105,
+    "Frankfurt(Main)Süd": 8002051, "Frankfurt(Oder)": 8010113,
+    "Freiburg(Brsg)Hbf": 8000107, "Friedrichshafen Stadt": 8000112,
     "Fulda": 8000115, "Gelsenkirchen Hbf": 8000118,
-    "Göttingen": 8000128, "Hagen Hbf": 8000142,
-    "Halle(Saale)Hbf": 8010159, "Hamburg Hbf": 8002549,
-    "Hamm(Westf)Hbf": 8000149, "Hannover Hbf": 8000152,
-    "Heidelberg Hbf": 8000156, "Ingolstadt Hbf": 8000183,
-    "Jena Paradies": 8011956, "Karlsruhe Hbf": 8000191,
-    "Kassel-Wilhelmshöhe": 8003200, "Kiel Hbf": 8000199,
+    "Gera Hbf": 8010125, "Gießen": 8000124,
+    "Greifswald": 8010139, "Görlitz": 8010131,
+    "Göttingen": 8000128, "Gütersloh Hbf": 8002461,
+    "Hagen Hbf": 8000142, "Halle(Saale)Hbf": 8010159,
+    "Hamburg Hbf": 8002549, "Hamburg-Altona": 8002553,
+    "Hamburg-Harburg": 8000147, "Hamm(Westf)Hbf": 8000149,
+    "Hannover Hbf": 8000152, "Heidelberg Hbf": 8000156,
+    "Heilbronn Hbf": 8000157, "Hildesheim Hbf": 8000169,
+    "Ingolstadt Hbf": 8000183, "Itzehoe": 8003102,
+    "Jena Paradies": 8011956, "Jena West": 8011957,
+    "Kaiserslautern Hbf": 8000189, "Karlsruhe Hbf": 8000191,
+    "Kassel Hbf": 8000193, "Kassel-Wilhelmshöhe": 8003200,
+    "Kempten(Allgäu)Hbf": 8000197, "Kiel Hbf": 8000199,
     "Koblenz Hbf": 8000206, "Konstanz": 8003400,
-    "Köln Hbf": 8000207, "Köln Messe/Deutz": 8003368,
-    "Leipzig Hbf": 8010205, "Lübeck Hbf": 8000237,
-    "Magdeburg Hbf": 8010224, "Mainz Hbf": 8000240,
-    "Mannheim Hbf": 8000244, "Mönchengladbach Hbf": 8000253,
+    "Krefeld Hbf": 8000211, "Köln Hbf": 8000207,
+    "Köln Messe/Deutz": 8003368, "Landshut(Bay)Hbf": 8000217,
+    "Leer(Ostfriesl)": 8000225, "Leipzig Hbf": 8010205,
+    "Lichtenfels": 8000228, "Lindau-Insel": 8000230,
+    "Ludwigshafen(Rh)Hbf": 8000236, "Lübeck Hbf": 8000237,
+    "Lüneburg": 8000238, "Magdeburg Hbf": 8010224,
+    "Mainz Hbf": 8000240, "Mannheim Hbf": 8000244,
+    "Marburg(Lahn)": 8003856, "Minden(Westf)": 8000252,
+    "Mönchengladbach Hbf": 8000253, "Mülheim(Ruhr)Hbf": 8000259,
     "München Hbf": 8000261, "Münster(Westf)Hbf": 8000263,
+    "Neumünster": 8000271, "Neuss Hbf": 8000274,
+    "Norddeich Mole": 8007768, "Nordhausen": 8010256,
     "Nürnberg Hbf": 8000284, "Oberhausen Hbf": 8000286,
+    "Offenbach(Main)Hbf": 8000349, "Offenburg": 8000290,
     "Oldenburg(Oldb)Hbf": 8000291, "Osnabrück Hbf": 8000294,
-    "Passau Hbf": 8000298, "Potsdam Hbf": 8012666,
-    "Regensburg Hbf": 8000309, "Rostock Hbf": 8010304,
+    "Paderborn Hbf": 8000297, "Passau Hbf": 8000298,
+    "Pforzheim Hbf": 8000299, "Plattling": 8000301,
+    "Plauen(Vogtl) ob Bf": 8012646, "Potsdam Hbf": 8012666,
+    "Recklinghausen Hbf": 8000307, "Regensburg Hbf": 8000309,
+    "Remscheid Hbf": 8005033, "Rendsburg": 8000312,
+    "Rosenheim": 8000320, "Rostock Hbf": 8010304,
     "Saarbrücken Hbf": 8000323, "Schwerin Hbf": 8010324,
-    "Stralsund Hbf": 8010338, "Stuttgart Hbf": 8000096,
-    "Ulm Hbf": 8000170, "Weimar": 8010366,
-    "Wiesbaden Hbf": 8000250, "Wolfsburg Hbf": 8006552,
+    "Siegen Hbf": 8000046, "Singen(Hohentwiel)": 8012998,
+    "Solingen Hbf": 8000087, "Speyer Hbf": 8005628,
+    "Stendal Hbf": 8010334, "Stralsund Hbf": 8010338,
+    "Stuttgart Hbf": 8000096, "Treuchtlingen": 8000122,
+    "Trier Hbf": 8000134, "Tübingen Hbf": 8000141,
+    "Ulm Hbf": 8000170, "Villingen(Schwarzw)": 8000366,
+    "Weiden(Oberpf)": 8006258, "Weimar": 8010366,
+    "Wiesbaden Hbf": 8000250, "Wilhelmshaven": 8006445,
+    "Wismar": 8010381, "Wittenberge": 8010382,
+    "Wolfsburg Hbf": 8006552, "Worms Hbf": 8000257,
     "Wuppertal Hbf": 8000266, "Würzburg Hbf": 8000260,
+    "Zwickau(Sachs)Hbf": 8010397,
 }
 
 
@@ -4313,134 +4383,272 @@ button:disabled { background: #ccc; cursor: wait; }
           <label>Von (Abfahrt)</label>
           <select name="station_from" id="stationFrom">
             <option value="Aachen Hbf">Aachen Hbf</option>
+            <option value="Aschaffenburg Hbf">Aschaffenburg Hbf</option>
             <option value="Augsburg Hbf">Augsburg Hbf</option>
+            <option value="Baden-Baden">Baden-Baden</option>
+            <option value="Bamberg">Bamberg</option>
             <option value="Berlin Hbf" selected>Berlin Hbf</option>
+            <option value="Berlin Ostbahnhof">Berlin Ostbahnhof</option>
+            <option value="Berlin S&uuml;dkreuz">Berlin S&uuml;dkreuz</option>
+            <option value="Berlin-Spandau">Berlin-Spandau</option>
             <option value="Bielefeld Hbf">Bielefeld Hbf</option>
             <option value="Bochum Hbf">Bochum Hbf</option>
             <option value="Bonn Hbf">Bonn Hbf</option>
             <option value="Braunschweig Hbf">Braunschweig Hbf</option>
             <option value="Bremen Hbf">Bremen Hbf</option>
+            <option value="Celle">Celle</option>
             <option value="Chemnitz Hbf">Chemnitz Hbf</option>
+            <option value="Coburg">Coburg</option>
+            <option value="Cottbus Hbf">Cottbus Hbf</option>
             <option value="Darmstadt Hbf">Darmstadt Hbf</option>
+            <option value="Dessau Hbf">Dessau Hbf</option>
             <option value="Dortmund Hbf">Dortmund Hbf</option>
             <option value="Dresden Hbf">Dresden Hbf</option>
             <option value="Duisburg Hbf">Duisburg Hbf</option>
             <option value="D&uuml;sseldorf Hbf">D&uuml;sseldorf Hbf</option>
+            <option value="Emden Hbf">Emden Hbf</option>
             <option value="Erfurt Hbf">Erfurt Hbf</option>
+            <option value="Erlangen">Erlangen</option>
             <option value="Essen Hbf">Essen Hbf</option>
+            <option value="Flensburg">Flensburg</option>
             <option value="Frankfurt(Main)Hbf">Frankfurt(Main)Hbf</option>
+            <option value="Frankfurt(Main)S&uuml;d">Frankfurt(Main)S&uuml;d</option>
+            <option value="Frankfurt(Oder)">Frankfurt(Oder)</option>
             <option value="Freiburg(Brsg)Hbf">Freiburg(Brsg)Hbf</option>
+            <option value="Friedrichshafen Stadt">Friedrichshafen Stadt</option>
             <option value="Fulda">Fulda</option>
             <option value="Gelsenkirchen Hbf">Gelsenkirchen Hbf</option>
+            <option value="Gera Hbf">Gera Hbf</option>
+            <option value="Gie&szlig;en">Gie&szlig;en</option>
+            <option value="Greifswald">Greifswald</option>
+            <option value="G&ouml;rlitz">G&ouml;rlitz</option>
             <option value="G&ouml;ttingen">G&ouml;ttingen</option>
+            <option value="G&uuml;tersloh Hbf">G&uuml;tersloh Hbf</option>
             <option value="Hagen Hbf">Hagen Hbf</option>
             <option value="Halle(Saale)Hbf">Halle(Saale)Hbf</option>
             <option value="Hamburg Hbf">Hamburg Hbf</option>
+            <option value="Hamburg-Altona">Hamburg-Altona</option>
+            <option value="Hamburg-Harburg">Hamburg-Harburg</option>
             <option value="Hamm(Westf)Hbf">Hamm(Westf)Hbf</option>
             <option value="Hannover Hbf">Hannover Hbf</option>
             <option value="Heidelberg Hbf">Heidelberg Hbf</option>
+            <option value="Heilbronn Hbf">Heilbronn Hbf</option>
+            <option value="Hildesheim Hbf">Hildesheim Hbf</option>
             <option value="Ingolstadt Hbf">Ingolstadt Hbf</option>
+            <option value="Itzehoe">Itzehoe</option>
             <option value="Jena Paradies">Jena Paradies</option>
+            <option value="Jena West">Jena West</option>
+            <option value="Kaiserslautern Hbf">Kaiserslautern Hbf</option>
             <option value="Karlsruhe Hbf">Karlsruhe Hbf</option>
+            <option value="Kassel Hbf">Kassel Hbf</option>
             <option value="Kassel-Wilhelmsh&ouml;he">Kassel-Wilhelmsh&ouml;he</option>
+            <option value="Kempten(Allg&auml;u)Hbf">Kempten(Allg&auml;u)Hbf</option>
             <option value="Kiel Hbf">Kiel Hbf</option>
             <option value="Koblenz Hbf">Koblenz Hbf</option>
             <option value="Konstanz">Konstanz</option>
+            <option value="Krefeld Hbf">Krefeld Hbf</option>
             <option value="K&ouml;ln Hbf">K&ouml;ln Hbf</option>
             <option value="K&ouml;ln Messe/Deutz">K&ouml;ln Messe/Deutz</option>
+            <option value="Landshut(Bay)Hbf">Landshut(Bay)Hbf</option>
+            <option value="Leer(Ostfriesl)">Leer(Ostfriesl)</option>
             <option value="Leipzig Hbf">Leipzig Hbf</option>
+            <option value="Lichtenfels">Lichtenfels</option>
+            <option value="Lindau-Insel">Lindau-Insel</option>
+            <option value="Ludwigshafen(Rh)Hbf">Ludwigshafen(Rh)Hbf</option>
             <option value="L&uuml;beck Hbf">L&uuml;beck Hbf</option>
+            <option value="L&uuml;neburg">L&uuml;neburg</option>
             <option value="Magdeburg Hbf">Magdeburg Hbf</option>
             <option value="Mainz Hbf">Mainz Hbf</option>
             <option value="Mannheim Hbf">Mannheim Hbf</option>
+            <option value="Marburg(Lahn)">Marburg(Lahn)</option>
+            <option value="Minden(Westf)">Minden(Westf)</option>
             <option value="M&ouml;nchengladbach Hbf">M&ouml;nchengladbach Hbf</option>
+            <option value="M&uuml;lheim(Ruhr)Hbf">M&uuml;lheim(Ruhr)Hbf</option>
             <option value="M&uuml;nchen Hbf">M&uuml;nchen Hbf</option>
             <option value="M&uuml;nster(Westf)Hbf">M&uuml;nster(Westf)Hbf</option>
+            <option value="Neum&uuml;nster">Neum&uuml;nster</option>
+            <option value="Neuss Hbf">Neuss Hbf</option>
+            <option value="Norddeich Mole">Norddeich Mole</option>
+            <option value="Nordhausen">Nordhausen</option>
             <option value="N&uuml;rnberg Hbf">N&uuml;rnberg Hbf</option>
             <option value="Oberhausen Hbf">Oberhausen Hbf</option>
+            <option value="Offenbach(Main)Hbf">Offenbach(Main)Hbf</option>
+            <option value="Offenburg">Offenburg</option>
             <option value="Oldenburg(Oldb)Hbf">Oldenburg(Oldb)Hbf</option>
             <option value="Osnabr&uuml;ck Hbf">Osnabr&uuml;ck Hbf</option>
+            <option value="Paderborn Hbf">Paderborn Hbf</option>
             <option value="Passau Hbf">Passau Hbf</option>
+            <option value="Pforzheim Hbf">Pforzheim Hbf</option>
+            <option value="Plattling">Plattling</option>
+            <option value="Plauen(Vogtl) ob Bf">Plauen(Vogtl) ob Bf</option>
             <option value="Potsdam Hbf">Potsdam Hbf</option>
+            <option value="Recklinghausen Hbf">Recklinghausen Hbf</option>
             <option value="Regensburg Hbf">Regensburg Hbf</option>
+            <option value="Remscheid Hbf">Remscheid Hbf</option>
+            <option value="Rendsburg">Rendsburg</option>
+            <option value="Rosenheim">Rosenheim</option>
             <option value="Rostock Hbf">Rostock Hbf</option>
             <option value="Saarbr&uuml;cken Hbf">Saarbr&uuml;cken Hbf</option>
             <option value="Schwerin Hbf">Schwerin Hbf</option>
+            <option value="Siegen Hbf">Siegen Hbf</option>
+            <option value="Singen(Hohentwiel)">Singen(Hohentwiel)</option>
+            <option value="Solingen Hbf">Solingen Hbf</option>
+            <option value="Speyer Hbf">Speyer Hbf</option>
+            <option value="Stendal Hbf">Stendal Hbf</option>
             <option value="Stralsund Hbf">Stralsund Hbf</option>
             <option value="Stuttgart Hbf">Stuttgart Hbf</option>
+            <option value="Treuchtlingen">Treuchtlingen</option>
+            <option value="Trier Hbf">Trier Hbf</option>
+            <option value="T&uuml;bingen Hbf">T&uuml;bingen Hbf</option>
             <option value="Ulm Hbf">Ulm Hbf</option>
+            <option value="Villingen(Schwarzw)">Villingen(Schwarzw)</option>
+            <option value="Weiden(Oberpf)">Weiden(Oberpf)</option>
             <option value="Weimar">Weimar</option>
             <option value="Wiesbaden Hbf">Wiesbaden Hbf</option>
+            <option value="Wilhelmshaven">Wilhelmshaven</option>
+            <option value="Wismar">Wismar</option>
+            <option value="Wittenberge">Wittenberge</option>
             <option value="Wolfsburg Hbf">Wolfsburg Hbf</option>
+            <option value="Worms Hbf">Worms Hbf</option>
             <option value="Wuppertal Hbf">Wuppertal Hbf</option>
             <option value="W&uuml;rzburg Hbf">W&uuml;rzburg Hbf</option>
+            <option value="Zwickau(Sachs)Hbf">Zwickau(Sachs)Hbf</option>
           </select>
         </div>
         <div class="form-group">
           <label>Nach (Ankunft)</label>
           <select name="station_to" id="stationTo">
             <option value="Aachen Hbf">Aachen Hbf</option>
+            <option value="Aschaffenburg Hbf">Aschaffenburg Hbf</option>
             <option value="Augsburg Hbf">Augsburg Hbf</option>
+            <option value="Baden-Baden">Baden-Baden</option>
+            <option value="Bamberg">Bamberg</option>
             <option value="Berlin Hbf">Berlin Hbf</option>
+            <option value="Berlin Ostbahnhof">Berlin Ostbahnhof</option>
+            <option value="Berlin S&uuml;dkreuz">Berlin S&uuml;dkreuz</option>
+            <option value="Berlin-Spandau">Berlin-Spandau</option>
             <option value="Bielefeld Hbf">Bielefeld Hbf</option>
             <option value="Bochum Hbf">Bochum Hbf</option>
             <option value="Bonn Hbf">Bonn Hbf</option>
             <option value="Braunschweig Hbf">Braunschweig Hbf</option>
             <option value="Bremen Hbf">Bremen Hbf</option>
+            <option value="Celle">Celle</option>
             <option value="Chemnitz Hbf">Chemnitz Hbf</option>
+            <option value="Coburg">Coburg</option>
+            <option value="Cottbus Hbf">Cottbus Hbf</option>
             <option value="Darmstadt Hbf">Darmstadt Hbf</option>
+            <option value="Dessau Hbf">Dessau Hbf</option>
             <option value="Dortmund Hbf">Dortmund Hbf</option>
             <option value="Dresden Hbf">Dresden Hbf</option>
             <option value="Duisburg Hbf">Duisburg Hbf</option>
             <option value="D&uuml;sseldorf Hbf">D&uuml;sseldorf Hbf</option>
+            <option value="Emden Hbf">Emden Hbf</option>
             <option value="Erfurt Hbf">Erfurt Hbf</option>
+            <option value="Erlangen">Erlangen</option>
             <option value="Essen Hbf">Essen Hbf</option>
+            <option value="Flensburg">Flensburg</option>
             <option value="Frankfurt(Main)Hbf">Frankfurt(Main)Hbf</option>
+            <option value="Frankfurt(Main)S&uuml;d">Frankfurt(Main)S&uuml;d</option>
+            <option value="Frankfurt(Oder)">Frankfurt(Oder)</option>
             <option value="Freiburg(Brsg)Hbf">Freiburg(Brsg)Hbf</option>
+            <option value="Friedrichshafen Stadt">Friedrichshafen Stadt</option>
             <option value="Fulda">Fulda</option>
             <option value="Gelsenkirchen Hbf">Gelsenkirchen Hbf</option>
+            <option value="Gera Hbf">Gera Hbf</option>
+            <option value="Gie&szlig;en">Gie&szlig;en</option>
+            <option value="Greifswald">Greifswald</option>
+            <option value="G&ouml;rlitz">G&ouml;rlitz</option>
             <option value="G&ouml;ttingen">G&ouml;ttingen</option>
+            <option value="G&uuml;tersloh Hbf">G&uuml;tersloh Hbf</option>
             <option value="Hagen Hbf">Hagen Hbf</option>
             <option value="Halle(Saale)Hbf">Halle(Saale)Hbf</option>
             <option value="Hamburg Hbf">Hamburg Hbf</option>
+            <option value="Hamburg-Altona">Hamburg-Altona</option>
+            <option value="Hamburg-Harburg">Hamburg-Harburg</option>
             <option value="Hamm(Westf)Hbf">Hamm(Westf)Hbf</option>
             <option value="Hannover Hbf">Hannover Hbf</option>
             <option value="Heidelberg Hbf">Heidelberg Hbf</option>
+            <option value="Heilbronn Hbf">Heilbronn Hbf</option>
+            <option value="Hildesheim Hbf">Hildesheim Hbf</option>
             <option value="Ingolstadt Hbf">Ingolstadt Hbf</option>
+            <option value="Itzehoe">Itzehoe</option>
             <option value="Jena Paradies">Jena Paradies</option>
+            <option value="Jena West">Jena West</option>
+            <option value="Kaiserslautern Hbf">Kaiserslautern Hbf</option>
             <option value="Karlsruhe Hbf">Karlsruhe Hbf</option>
+            <option value="Kassel Hbf">Kassel Hbf</option>
             <option value="Kassel-Wilhelmsh&ouml;he">Kassel-Wilhelmsh&ouml;he</option>
+            <option value="Kempten(Allg&auml;u)Hbf">Kempten(Allg&auml;u)Hbf</option>
             <option value="Kiel Hbf">Kiel Hbf</option>
             <option value="Koblenz Hbf">Koblenz Hbf</option>
             <option value="Konstanz">Konstanz</option>
+            <option value="Krefeld Hbf">Krefeld Hbf</option>
             <option value="K&ouml;ln Hbf">K&ouml;ln Hbf</option>
             <option value="K&ouml;ln Messe/Deutz">K&ouml;ln Messe/Deutz</option>
+            <option value="Landshut(Bay)Hbf">Landshut(Bay)Hbf</option>
+            <option value="Leer(Ostfriesl)">Leer(Ostfriesl)</option>
             <option value="Leipzig Hbf">Leipzig Hbf</option>
+            <option value="Lichtenfels">Lichtenfels</option>
+            <option value="Lindau-Insel">Lindau-Insel</option>
+            <option value="Ludwigshafen(Rh)Hbf">Ludwigshafen(Rh)Hbf</option>
             <option value="L&uuml;beck Hbf">L&uuml;beck Hbf</option>
+            <option value="L&uuml;neburg">L&uuml;neburg</option>
             <option value="Magdeburg Hbf">Magdeburg Hbf</option>
             <option value="Mainz Hbf">Mainz Hbf</option>
             <option value="Mannheim Hbf">Mannheim Hbf</option>
+            <option value="Marburg(Lahn)">Marburg(Lahn)</option>
+            <option value="Minden(Westf)">Minden(Westf)</option>
             <option value="M&ouml;nchengladbach Hbf">M&ouml;nchengladbach Hbf</option>
+            <option value="M&uuml;lheim(Ruhr)Hbf">M&uuml;lheim(Ruhr)Hbf</option>
             <option value="M&uuml;nchen Hbf" selected>M&uuml;nchen Hbf</option>
             <option value="M&uuml;nster(Westf)Hbf">M&uuml;nster(Westf)Hbf</option>
+            <option value="Neum&uuml;nster">Neum&uuml;nster</option>
+            <option value="Neuss Hbf">Neuss Hbf</option>
+            <option value="Norddeich Mole">Norddeich Mole</option>
+            <option value="Nordhausen">Nordhausen</option>
             <option value="N&uuml;rnberg Hbf">N&uuml;rnberg Hbf</option>
             <option value="Oberhausen Hbf">Oberhausen Hbf</option>
+            <option value="Offenbach(Main)Hbf">Offenbach(Main)Hbf</option>
+            <option value="Offenburg">Offenburg</option>
             <option value="Oldenburg(Oldb)Hbf">Oldenburg(Oldb)Hbf</option>
             <option value="Osnabr&uuml;ck Hbf">Osnabr&uuml;ck Hbf</option>
+            <option value="Paderborn Hbf">Paderborn Hbf</option>
             <option value="Passau Hbf">Passau Hbf</option>
+            <option value="Pforzheim Hbf">Pforzheim Hbf</option>
+            <option value="Plattling">Plattling</option>
+            <option value="Plauen(Vogtl) ob Bf">Plauen(Vogtl) ob Bf</option>
             <option value="Potsdam Hbf">Potsdam Hbf</option>
+            <option value="Recklinghausen Hbf">Recklinghausen Hbf</option>
             <option value="Regensburg Hbf">Regensburg Hbf</option>
+            <option value="Remscheid Hbf">Remscheid Hbf</option>
+            <option value="Rendsburg">Rendsburg</option>
+            <option value="Rosenheim">Rosenheim</option>
             <option value="Rostock Hbf">Rostock Hbf</option>
             <option value="Saarbr&uuml;cken Hbf">Saarbr&uuml;cken Hbf</option>
             <option value="Schwerin Hbf">Schwerin Hbf</option>
+            <option value="Siegen Hbf">Siegen Hbf</option>
+            <option value="Singen(Hohentwiel)">Singen(Hohentwiel)</option>
+            <option value="Solingen Hbf">Solingen Hbf</option>
+            <option value="Speyer Hbf">Speyer Hbf</option>
+            <option value="Stendal Hbf">Stendal Hbf</option>
             <option value="Stralsund Hbf">Stralsund Hbf</option>
             <option value="Stuttgart Hbf">Stuttgart Hbf</option>
+            <option value="Treuchtlingen">Treuchtlingen</option>
+            <option value="Trier Hbf">Trier Hbf</option>
+            <option value="T&uuml;bingen Hbf">T&uuml;bingen Hbf</option>
             <option value="Ulm Hbf">Ulm Hbf</option>
+            <option value="Villingen(Schwarzw)">Villingen(Schwarzw)</option>
+            <option value="Weiden(Oberpf)">Weiden(Oberpf)</option>
             <option value="Weimar">Weimar</option>
             <option value="Wiesbaden Hbf">Wiesbaden Hbf</option>
+            <option value="Wilhelmshaven">Wilhelmshaven</option>
+            <option value="Wismar">Wismar</option>
+            <option value="Wittenberge">Wittenberge</option>
             <option value="Wolfsburg Hbf">Wolfsburg Hbf</option>
+            <option value="Worms Hbf">Worms Hbf</option>
             <option value="Wuppertal Hbf">Wuppertal Hbf</option>
             <option value="W&uuml;rzburg Hbf">W&uuml;rzburg Hbf</option>
+            <option value="Zwickau(Sachs)Hbf">Zwickau(Sachs)Hbf</option>
           </select>
         </div>
       </div>
