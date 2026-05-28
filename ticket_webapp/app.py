@@ -963,8 +963,8 @@ def _build_vdv_block(cfg):
     next_day = vs_dt + timedelta(days=1)
     valid_to = _encode_dtc(next_day.year, next_day.month, next_day.day, 3, 0, 0)
 
-    kvp_org = 0x0080
-    pv_org = 0x0080
+    kvp_org = 6260   # DB Vertrieb GmbH (VDV org 0x1874)
+    pv_org = 6262    # DB Vertrieb GmbH (VDV org 0x1876)
     produkt_nr = 0x07D0
 
     content = b''
