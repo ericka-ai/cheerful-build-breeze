@@ -1046,13 +1046,6 @@ def _build_flexpreis_flex(cfg):
     if valid_from_day < 0:
         valid_from_day = 0
 
-    dep_hour = cfg.get('departure_hour', 13)
-    dep_min = cfg.get('departure_minute', 30)
-    dep_time = int(dep_hour) * 60 + int(dep_min)
-
-    train_id = f"{zugtyp}{cfg.get('train_number', '919')}"
-    travel_day = valid_from_day
-
     via_text = cfg.get('via_text', '')
     if not via_text:
         via_text = _get_via_route(von, nach)
@@ -1069,12 +1062,6 @@ def _build_flexpreis_flex(cfg):
         'fromStationNameUTF8': von_city,
         'toStationNameUTF8': nach_city,
         'validRegionDesc': via_text if via_text else f"Via: <1080>{von}*{nach}",
-        'validRegion': [('trainLink', {
-            'trainIA5': train_id,
-            'travelDate': travel_day,
-            'departureTime': dep_time,
-            'departureUTCOffset': utc_offset,
-        })],
         'validFromDay': valid_from_day,
         'validFromTime': 0,
         'validFromUTCOffset': utc_offset,
