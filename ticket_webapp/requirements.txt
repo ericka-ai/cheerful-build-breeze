@@ -9,3 +9,4 @@ aztec_code_generator>=0.12
 asn1tools>=0.165.0
 psycopg2-binary>=2.9.9
 httpx>=0.27.0
+zxingcpp>=2.2.0

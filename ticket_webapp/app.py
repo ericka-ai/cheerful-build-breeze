@@ -4108,6 +4108,321 @@ async def api_barcode(
     )
 
 
+# ─── VDV-KA BARCODE DECODER ──────────────────────────────────────────────────
+
+# Known Sub-CA public keys from VDV LDAP (ldaps://ldap-vdv-ion.telesec.de:636)
+_VDV_SUB_CA_KEYS = {
+    "4445564456110621": {
+        "n": int("f2cc41f045fd844ca5637dc297d685e4b296e9f024dbd813130bd9086a68f3c3"
+                 "c3be23e8e428bb30aac39fc8ba7772fad1540b6188609281747fd9ec0c077e86"
+                 "d2d749167f83197a2e6ce0a2fa12149a773dbbb7619c63583555b8ab53bb420b"
+                 "e00fb3dd6c48d6020ec59c8499b00e86cb32ab07bef987307b650ba130af0247"
+                 "ba1b9b97b46ed8f7f014eac405e0af0725f6eaf4c9b79fcf42fe24476aa6bc24"
+                 "2231dee4f50b1a886b466d849bc558b2f13f369ea228fc65b71f941133504f1b", 16),
+        "e": 65537,
+        "bits": 1536,
+    },
+}
+
+# Known Root CA public key
+_VDV_ROOT_CA_KEY = {
+    "n": int("d10233657d02ab2f61dd6201ac7ede714273a54443c5bef72ea39db302554f68"
+             "5c55a8cdd9b5152f1a9271985e980a75394a0f5cc9e026d6c2161a6287b65b9b"
+             "37f40ac1855fc2e67ab67bcdd47d0c6141849b6b721844766e97747262838ab3"
+             "11626de758c09bca7c24434e00a33c052025fdfae24a3058ac57d786dfcf2fdc"
+             "482c348083dac417a91b67651b338fbcb3d74fe6977d1f8e621f97a5fa06116e"
+             "b57b34a34ad0cda551950319e5b754fa465f24c269d322021b8b03823ae730d0"
+             "cb5af1d4eb59b575d191e7e6bcc8e9c63ff9a4a65c96ac69c4c03b93cedef3b4"
+             "77096108834c31a2b7b5bb0f815b495ceb6116232c65df7d", 16),
+    "e": 65537,
+    "bits": 1984,
+}
+
+
+def _vdv_parse_barcode(raw: bytes) -> dict:
+    """Parse raw VDV-KA barcode bytes into components."""
+    if len(raw) < 10 or raw[0] != 0x9E:
+        raise ValueError("Kein VDV-KA Barcode (Tag 0x9E fehlt)")
+
+    p = 1
+    if raw[p] == 0x81:
+        sig_len = raw[p + 1]
+        p += 2
+    elif raw[p] == 0x82:
+        sig_len = (raw[p + 1] << 8) | raw[p + 2]
+        p += 3
+    else:
+        sig_len = raw[p]
+        p += 1
+
+    signature = raw[p:p + sig_len]
+    p += sig_len
+
+    # Remainder (tag 0x9A)
+    remainder = b""
+    if p < len(raw) and raw[p] == 0x9A:
+        rem_len = raw[p + 1]
+        remainder = raw[p + 2:p + 2 + rem_len]
+        p += 2 + rem_len
+
+    # Certificate (tag 0x7F21)
+    certificate = b""
+    if p < len(raw) - 1 and raw[p] == 0x7F and raw[p + 1] == 0x21:
+        p += 2
+        if raw[p] == 0x81:
+            cert_len = raw[p + 1]
+            p += 2
+        elif raw[p] == 0x82:
+            cert_len = (raw[p + 1] << 8) | raw[p + 2]
+            p += 3
+        else:
+            cert_len = raw[p]
+            p += 1
+        certificate = raw[p:p + cert_len]
+        p += cert_len
+
+    # CA Reference (tag 0x42)
+    ca_reference = b""
+    if p < len(raw) and raw[p] == 0x42:
+        ca_ref_len = raw[p + 1]
+        ca_reference = raw[p + 2:p + 2 + ca_ref_len]
+
+    return {
+        "signature": signature,
+        "remainder": remainder,
+        "certificate": certificate,
+        "ca_reference": ca_reference,
+    }
+
+
+def _vdv_decrypt_cert(cert_bytes: bytes, ca_ref: bytes) -> dict:
+    """Decrypt envelope certificate using Sub-CA key to extract public key."""
+    ca_ref_str = ca_ref.hex()
+
+    # Parse cert TLV: 5F37 [sig] 5F38 [rem]
+    cert_sig = b""
+    cert_rem = b""
+    p = 0
+    while p < len(cert_bytes):
+        if p + 1 < len(cert_bytes) and cert_bytes[p] == 0x5F and cert_bytes[p + 1] == 0x37:
+            p += 2
+            if cert_bytes[p] == 0x81:
+                l = cert_bytes[p + 1]
+                p += 2
+            else:
+                l = cert_bytes[p]
+                p += 1
+            cert_sig = cert_bytes[p:p + l]
+            p += l
+        elif p + 1 < len(cert_bytes) and cert_bytes[p] == 0x5F and cert_bytes[p + 1] == 0x38:
+            p += 2
+            l = cert_bytes[p]
+            p += 1
+            cert_rem = cert_bytes[p:p + l]
+            p += l
+        else:
+            p += 1
+
+    if not cert_sig:
+        return {"error": "Zertifikat-Signatur nicht gefunden"}
+
+    # Find matching Sub-CA key
+    sub_ca = _VDV_SUB_CA_KEYS.get(ca_ref_str)
+    if not sub_ca:
+        return {"error": f"Sub-CA '{ca_ref_str}' nicht bekannt"}
+
+    key_bytes = (sub_ca["bits"] + 7) // 8
+    if len(cert_sig) != key_bytes:
+        return {"error": f"Signaturlaenge {len(cert_sig)} != Key {key_bytes}"}
+
+    sig_int = int.from_bytes(cert_sig, "big")
+    recovered = pow(sig_int, sub_ca["e"], sub_ca["n"]).to_bytes(key_bytes, "big")
+
+    if recovered[0] != 0x6A or recovered[-1] != 0xBC:
+        return {"error": "ISO 9796-2 Header/Trailer ungueltig"}
+
+    msg = recovered[1:-21]
+    full_content = msg + cert_rem
+
+    # Find exponent 0x40000081 (common VDV exponent)
+    exp_patterns = [
+        (1073741953).to_bytes(4, "big"),  # 0x40000081
+        (65537).to_bytes(4, "big"),       # 0x00010001
+        (65537).to_bytes(3, "big"),       # 0x010001
+    ]
+
+    for exp_bytes in exp_patterns:
+        exp_pos = full_content.find(exp_bytes)
+        if exp_pos >= 0:
+            exp_val = int.from_bytes(exp_bytes, "big")
+            modulus = full_content[exp_pos - 128:exp_pos]
+            if len(modulus) == 128:
+                return {
+                    "n": int.from_bytes(modulus, "big"),
+                    "e": exp_val,
+                    "bits": 1024,
+                }
+
+    return {"error": "Public Key nicht im Zertifikat gefunden"}
+
+
+def _vdv_recover_ticket(signature: bytes, remainder: bytes, pub_key: dict) -> dict:
+    """Recover ticket data from ISO 9796-2 signature."""
+    n = pub_key["n"]
+    e = pub_key["e"]
+    key_bytes = (pub_key["bits"] + 7) // 8
+
+    if len(signature) != key_bytes:
+        return {"error": f"Signatur {len(signature)}B != Key {key_bytes}B"}
+
+    sig_int = int.from_bytes(signature, "big")
+    recovered = pow(sig_int, e, n).to_bytes(key_bytes, "big")
+
+    if recovered[0] != 0x6A or recovered[-1] != 0xBC:
+        return {"error": "ISO 9796-2 Entschluesselung fehlgeschlagen", "header": f"0x{recovered[0]:02x}"}
+
+    msg = recovered[1:-21]
+    sha1_hash = recovered[-21:-1]
+    full_ticket = msg + remainder
+
+    computed_hash = hashlib.sha1(full_ticket).digest()
+    hash_ok = sha1_hash == computed_hash
+
+    return {
+        "ticket_data": full_ticket,
+        "hash_ok": hash_ok,
+        "sha1_stored": sha1_hash.hex(),
+        "sha1_computed": computed_hash.hex(),
+    }
+
+
+def _vdv_parse_ticket_data(data: bytes) -> dict:
+    """Parse VDV ticket data fields."""
+    result = {}
+    if len(data) < 18:
+        return {"error": "Ticket-Daten zu kurz"}
+
+    result["raw_hex"] = data.hex()
+    result["length"] = len(data)
+
+    # Common VDV STB (Statische Berechtigung) fields
+    if len(data) >= 8:
+        result["org_id"] = struct.unpack(">H", data[4:6])[0]
+        result["produkt_nr"] = struct.unpack(">H", data[6:8])[0]
+
+    if len(data) >= 10:
+        result["pv_org"] = struct.unpack(">H", data[8:10])[0]
+
+    # Validity dates (VDV date-time encoding)
+    def decode_vdv_datetime(b4):
+        if len(b4) < 4:
+            return None
+        day_word = (b4[0] << 8) | b4[1]
+        time_word = (b4[2] << 8) | b4[3]
+        year = ((day_word >> 9) & 0x7F) + 1990
+        month = (day_word >> 5) & 0x0F
+        day = day_word & 0x1F
+        hour = (time_word >> 11) & 0x1F
+        minute = (time_word >> 5) & 0x3F
+        return f"{day:02d}.{month:02d}.{year} {hour:02d}:{minute:02d}"
+
+    if len(data) >= 18:
+        result["gueltig_von"] = decode_vdv_datetime(data[10:14])
+        result["gueltig_bis"] = decode_vdv_datetime(data[14:18])
+
+    # Product name mapping
+    prod_names = {
+        9999: "Deutschlandticket",
+        0: "Einzelfahrschein",
+    }
+    if "produkt_nr" in result:
+        result["produkt_name"] = prod_names.get(result["produkt_nr"], f"Produkt {result['produkt_nr']}")
+
+    # Org name mapping
+    org_names = {
+        36: "Rhein-Main-Verkehrsverbund (RMV)",
+        3000: "Deutsche Bahn",
+    }
+    if "org_id" in result:
+        result["org_name"] = org_names.get(result["org_id"], f"Org {result['org_id']}")
+
+    return result
+
+
+@app.post("/api/vdv-decode")
+async def api_vdv_decode(image: UploadFile = File(...)):
+    """Decode a VDV-KA barcode from an uploaded image. Returns ticket data as JSON."""
+    try:
+        import zxingcpp
+    except ImportError:
+        return JSONResponse({"error": "zxingcpp nicht installiert"}, status_code=500)
+
+    # Read and decode image
+    img_bytes = await image.read()
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse({"error": "Bild konnte nicht gelesen werden"}, status_code=400)
+
+    # Convert to PIL for zxingcpp
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(img_rgb)
+
+    results = zxingcpp.read_barcodes(pil_img)
+    if not results:
+        return JSONResponse({"error": "Kein Barcode im Bild gefunden"}, status_code=400)
+
+    raw = results[0].bytes
+    barcode_format = str(results[0].format)
+
+    # Parse VDV structure
+    try:
+        components = _vdv_parse_barcode(raw)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    ca_ref_hex = components["ca_reference"].hex()
+    ca_ref_ascii = components["ca_reference"].decode("ascii", errors="replace")
+
+    response = {
+        "format": "VDV-KA",
+        "barcode_format": barcode_format,
+        "raw_length": len(raw),
+        "ca_reference": ca_ref_ascii,
+        "ca_reference_hex": ca_ref_hex,
+        "signature_hex": components["signature"].hex(),
+        "remainder_hex": components["remainder"].hex(),
+    }
+
+    # Decrypt envelope certificate
+    cert_result = _vdv_decrypt_cert(components["certificate"], components["ca_reference"])
+    if "error" in cert_result:
+        response["cert_error"] = cert_result["error"]
+        return JSONResponse(response)
+
+    response["envelope_key"] = {
+        "bits": cert_result["bits"],
+        "e": cert_result["e"],
+    }
+
+    # Recover ticket data
+    ticket_result = _vdv_recover_ticket(
+        components["signature"], components["remainder"], cert_result
+    )
+    if "error" in ticket_result:
+        response["ticket_error"] = ticket_result["error"]
+        return JSONResponse(response)
+
+    response["hash_valid"] = ticket_result["hash_ok"]
+    response["sha1"] = ticket_result["sha1_stored"]
+
+    # Parse ticket fields
+    ticket_fields = _vdv_parse_ticket_data(ticket_result["ticket_data"])
+    response["ticket"] = ticket_fields
+
+    return JSONResponse(response)
+
+
 @app.post("/api/watermark")
 async def api_watermark(
     nachname: str = Form(...),
