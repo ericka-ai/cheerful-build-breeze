@@ -783,7 +783,6 @@ def _build_eurail_tlay(cfg):
     klasse_num = "1" if cfg['klasse'] == "1" else "2"
     ptype = "YOUTH" if cfg['passenger_type'] == "JUGENDLICHER" else "ADULT"
     ref = cfg.get('eurail_ref', cfg['ticket_id'])
-    passport_masked = "*****" + cfg.get('passport_tail', "***")
 
     fields = [
         _uic_field(0, 19, 1, 19, 0, "EURAIL"),
@@ -795,7 +794,7 @@ def _build_eurail_tlay(cfg):
         _uic_field(2, 2, 1, 3, 0, "CIV"),
         _uic_field(2, 6, 1, 4, 0, "9901"),
         _uic_field(2, 39, 1, 12, 0, "PASS-/ID"),
-        _uic_field(2, 53, 1, 19, 0, passport_masked),
+        _uic_field(2, 53, 1, 19, 0, ""),
         _uic_field(3, 2, 1, 5, 0, "VALID"),
         _uic_field(3, 9, 1, 23, 0, f"{vs} - {ve}"),
         _uic_field(3, 39, 1, 13, 0, "DATE OF BIRTH"),
@@ -846,7 +845,6 @@ def _build_eurail_flex(cfg):
     ptype = 'youth' if cfg['passenger_type'] == 'JUGENDLICHER' else 'adult'
 
     ref_ia5 = cfg.get('eurail_ref', f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
-    passport_masked = "*****" + cfg.get('passport_tail', "***")
 
     valid_until = days_int - 1
     activated = list(range(min(days_int, 1)))
@@ -868,7 +866,6 @@ def _build_eurail_flex(cfg):
             'traveler': [{
                 'firstName': first,
                 'lastName': last,
-                'passportId': passport_masked,
                 'yearOfBirth': birth_year,
                 'dayOfBirth': birth_day,
                 'ticketHolder': True,
@@ -1525,7 +1522,6 @@ def _build_interrail_tlay(cfg):
     klasse_num = "1" if cfg['klasse'] == "1" else "2"
     ptype = "YOUTH" if cfg['passenger_type'] == "JUGENDLICHER" else "ADULT"
     ref = cfg.get('eurail_ref', cfg['ticket_id'])
-    passport_masked = "*****" + cfg.get('passport_tail', "***")
 
     fields = [
         _uic_field(0, 19, 1, 19, 0, "INTERRAIL"),
@@ -1537,7 +1533,7 @@ def _build_interrail_tlay(cfg):
         _uic_field(2, 2, 1, 3, 0, "CIV"),
         _uic_field(2, 6, 1, 4, 0, "9901"),
         _uic_field(2, 39, 1, 12, 0, "PASS-/ID"),
-        _uic_field(2, 53, 1, 19, 0, passport_masked),
+        _uic_field(2, 53, 1, 19, 0, ""),
         _uic_field(3, 2, 1, 5, 0, "VALID"),
         _uic_field(3, 9, 1, 23, 0, f"{vs} - {ve}"),
         _uic_field(3, 39, 1, 13, 0, "DATE OF BIRTH"),
@@ -1584,7 +1580,6 @@ def _build_interrail_flex(cfg):
     ptype = 'youth' if cfg['passenger_type'] == 'JUGENDLICHER' else 'adult'
 
     ref_ia5 = cfg.get('eurail_ref', f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
-    passport_masked = "*****" + cfg.get('passport_tail', "***")
 
     valid_until = days_int - 1
     activated = list(range(min(days_int, 1)))
@@ -1606,7 +1601,6 @@ def _build_interrail_flex(cfg):
             'traveler': [{
                 'firstName': first,
                 'lastName': last,
-                'passportId': passport_masked,
                 'yearOfBirth': birth_year,
                 'dayOfBirth': birth_day,
                 'ticketHolder': True,
