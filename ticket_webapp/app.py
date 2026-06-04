@@ -4423,6 +4423,358 @@ async def api_vdv_decode(image: UploadFile = File(...)):
     return JSONResponse(response)
 
 
+# ─── UIC 918.3 / 918.9 BARCODE DECODER ───────────────────────────────────────
+
+def _uic_parse_header(raw: bytes) -> dict:
+    """Parse UIC 918.3 outer envelope (header + signature + compressed payload)."""
+    if len(raw) < 12:
+        raise ValueError("Daten zu kurz fuer UIC Header")
+
+    if not raw[:3] == b'#UT':
+        raise ValueError("Kein UIC 918.3 Barcode (#UT Header fehlt)")
+
+    version = raw[3:5].decode('ascii')
+    rics = raw[5:9].decode('ascii')
+    key_id = raw[9:14].decode('ascii')
+
+    p = 14
+    if version == '01':
+        # DER signature: variable length
+        if raw[p:p+1] == b'\x30':
+            # DER SEQUENCE
+            if raw[p+1] & 0x80:
+                len_bytes = raw[p+1] & 0x7f
+                sig_len = int.from_bytes(raw[p+2:p+2+len_bytes], 'big') + 2 + len_bytes
+            else:
+                sig_len = raw[p+1] + 2
+            signature = raw[p:p+sig_len]
+            p += sig_len
+        else:
+            # Fallback: read 46 bytes (typical ECDSA P-160)
+            signature = raw[p:p+46]
+            p += 46
+        # 4 bytes message length (unused in UT01)
+        p += 4
+    elif version == '02':
+        # Raw 64-byte signature (r||s)
+        signature = raw[p:p+64]
+        p += 64
+    else:
+        signature = b""
+
+    # Compressed data length (4 bytes ASCII)
+    comp_len_str = raw[p:p+4]
+    try:
+        comp_len = int(comp_len_str)
+    except (ValueError, UnicodeDecodeError):
+        comp_len = len(raw) - p - 4
+    p += 4
+
+    compressed = raw[p:p+comp_len]
+
+    return {
+        "version": version,
+        "rics": rics,
+        "key_id": key_id,
+        "signature": signature,
+        "compressed": compressed,
+        "comp_len": comp_len,
+    }
+
+
+def _uic_parse_payload_blocks(payload: bytes) -> list:
+    """Parse decompressed UIC payload into U_* blocks."""
+    blocks = []
+    p = 0
+    while p < len(payload):
+        if p + 12 > len(payload):
+            break
+        block_id = payload[p:p+6].decode('ascii', errors='replace')
+        block_ver = payload[p+6:p+8].decode('ascii', errors='replace')
+        try:
+            block_len = int(payload[p+8:p+12])
+        except ValueError:
+            break
+        block_data = payload[p+12:p+block_len]
+        blocks.append({
+            "id": block_id,
+            "version": block_ver,
+            "length": block_len,
+            "data": block_data,
+        })
+        p += block_len
+    return blocks
+
+
+def _uic_parse_tlay(data: bytes) -> dict:
+    """Parse U_TLAY (RCT2 layout) block into fields."""
+    result = {"fields": []}
+    if len(data) < 8:
+        return result
+
+    layout_std = data[:4].decode('ascii', errors='replace')
+    try:
+        num_fields = int(data[4:8])
+    except ValueError:
+        return result
+
+    result["standard"] = layout_std
+    result["num_fields"] = num_fields
+
+    p = 8
+    for _ in range(num_fields):
+        if p + 13 > len(data):
+            break
+        try:
+            line = int(data[p:p+2])
+            col = int(data[p+2:p+4])
+            height = int(data[p+4:p+6])
+            width = int(data[p+6:p+8])
+            fmt = int(data[p+8:p+9])
+            text_len = int(data[p+9:p+13])
+        except ValueError:
+            break
+        p += 13
+        text = data[p:p+text_len].decode('utf-8', errors='replace')
+        p += text_len
+        result["fields"].append({
+            "line": line, "col": col, "height": height,
+            "width": width, "format": fmt, "text": text,
+        })
+
+    return result
+
+
+def _uic_parse_head(data: bytes) -> dict:
+    """Parse U_HEAD block."""
+    result = {}
+    if len(data) >= 4:
+        result["rics"] = data[:4].decode('ascii', errors='replace')
+    if len(data) >= 24:
+        result["ticket_id"] = data[4:24].decode('ascii', errors='replace').strip()
+    if len(data) >= 36:
+        result["creation"] = data[24:36].decode('ascii', errors='replace')
+    if len(data) >= 37:
+        result["flags"] = data[36:].decode('ascii', errors='replace').strip()
+    return result
+
+
+def _uic_parse_flex(data: bytes) -> dict:
+    """Parse U_FLEX block (FCB / UIC 918.9) using ASN.1 UPER decoding."""
+    try:
+        decoded = FCB_SCHEMA.decode('UicRailTicketData', data)
+        return _fcb_to_json(decoded)
+    except Exception as e:
+        return {"error": f"FCB Dekodierung fehlgeschlagen: {str(e)}", "raw_hex": data[:64].hex()}
+
+
+def _fcb_to_json(obj):
+    """Recursively convert ASN.1 decoded object to JSON-serializable dict."""
+    if isinstance(obj, dict):
+        return {k: _fcb_to_json(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        if isinstance(obj, tuple) and len(obj) == 2 and isinstance(obj[0], str):
+            return {"_choice": obj[0], "_value": _fcb_to_json(obj[1])}
+        return [_fcb_to_json(i) for i in obj]
+    elif isinstance(obj, bytes):
+        return obj.hex()
+    elif isinstance(obj, (int, float, str, bool)):
+        return obj
+    else:
+        return str(obj)
+
+
+@app.post("/api/uic-decode")
+async def api_uic_decode(image: UploadFile = File(...)):
+    """Decode a UIC 918.3/918.9 barcode from an uploaded image. Returns ticket data as JSON."""
+    try:
+        import zxingcpp
+    except ImportError:
+        return JSONResponse({"error": "zxingcpp nicht installiert"}, status_code=500)
+
+    img_bytes = await image.read()
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse({"error": "Bild konnte nicht gelesen werden"}, status_code=400)
+
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(img_rgb)
+
+    results = zxingcpp.read_barcodes(pil_img)
+    if not results:
+        return JSONResponse({"error": "Kein Barcode im Bild gefunden"}, status_code=400)
+
+    raw = results[0].bytes
+    barcode_format = str(results[0].format)
+
+    # Auto-detect: VDV starts with 0x9E, UIC starts with #UT
+    if raw[:1] == b'\x9e':
+        return JSONResponse({"error": "VDV-KA Barcode erkannt. Bitte /api/vdv-decode verwenden.",
+                             "detected_format": "VDV-KA"}, status_code=400)
+
+    try:
+        header = _uic_parse_header(raw)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+    response = {
+        "format": "UIC 918.3",
+        "barcode_format": barcode_format,
+        "raw_length": len(raw),
+        "uic_version": f"UT{header['version']}",
+        "rics": header["rics"],
+        "key_id": header["key_id"],
+        "signature_hex": header["signature"].hex(),
+        "compressed_length": header["comp_len"],
+    }
+
+    # Decompress payload
+    try:
+        payload = zlib.decompress(header["compressed"])
+    except zlib.error as e:
+        response["error"] = f"Dekomprimierung fehlgeschlagen: {str(e)}"
+        return JSONResponse(response)
+
+    response["payload_length"] = len(payload)
+
+    # Parse blocks
+    blocks = _uic_parse_payload_blocks(payload)
+    response["blocks"] = []
+
+    for block in blocks:
+        block_info = {
+            "id": block["id"],
+            "version": block["version"],
+            "length": block["length"],
+        }
+
+        if block["id"] == "U_HEAD":
+            block_info["parsed"] = _uic_parse_head(block["data"])
+        elif block["id"] == "U_TLAY":
+            block_info["parsed"] = _uic_parse_tlay(block["data"])
+        elif block["id"] == "U_FLEX":
+            block_info["parsed"] = _uic_parse_flex(block["data"])
+        else:
+            block_info["raw_hex"] = block["data"][:128].hex()
+
+        response["blocks"].append(block_info)
+
+    return JSONResponse(response)
+
+
+@app.post("/api/barcode-decode")
+async def api_barcode_decode(image: UploadFile = File(...)):
+    """Universal barcode decoder: auto-detects VDV-KA or UIC 918.3/918.9 format."""
+    try:
+        import zxingcpp
+    except ImportError:
+        return JSONResponse({"error": "zxingcpp nicht installiert"}, status_code=500)
+
+    img_bytes = await image.read()
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse({"error": "Bild konnte nicht gelesen werden"}, status_code=400)
+
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(img_rgb)
+
+    results = zxingcpp.read_barcodes(pil_img)
+    if not results:
+        return JSONResponse({"error": "Kein Barcode im Bild gefunden"}, status_code=400)
+
+    raw = results[0].bytes
+
+    # Route to appropriate decoder
+    if raw[:1] == b'\x9e':
+        # VDV-KA format
+        try:
+            components = _vdv_parse_barcode(raw)
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+        ca_ref_hex = components["ca_reference"].hex()
+        ca_ref_ascii = components["ca_reference"].decode("ascii", errors="replace")
+
+        response = {
+            "format": "VDV-KA",
+            "barcode_format": str(results[0].format),
+            "raw_length": len(raw),
+            "ca_reference": ca_ref_ascii,
+            "ca_reference_hex": ca_ref_hex,
+            "signature_hex": components["signature"].hex(),
+            "remainder_hex": components["remainder"].hex(),
+        }
+
+        cert_result = _vdv_decrypt_cert(components["certificate"], components["ca_reference"])
+        if "error" in cert_result:
+            response["cert_error"] = cert_result["error"]
+            return JSONResponse(response)
+
+        response["envelope_key"] = {"bits": cert_result["bits"], "e": cert_result["e"]}
+
+        ticket_result = _vdv_recover_ticket(
+            components["signature"], components["remainder"], cert_result
+        )
+        if "error" in ticket_result:
+            response["ticket_error"] = ticket_result["error"]
+            return JSONResponse(response)
+
+        response["hash_valid"] = ticket_result["hash_ok"]
+        response["sha1"] = ticket_result["sha1_stored"]
+        response["ticket"] = _vdv_parse_ticket_data(ticket_result["ticket_data"])
+        return JSONResponse(response)
+
+    elif raw[:3] == b'#UT':
+        # UIC 918.3 format
+        try:
+            header = _uic_parse_header(raw)
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+        response = {
+            "format": "UIC 918.3",
+            "barcode_format": str(results[0].format),
+            "raw_length": len(raw),
+            "uic_version": f"UT{header['version']}",
+            "rics": header["rics"],
+            "key_id": header["key_id"],
+            "signature_hex": header["signature"].hex(),
+            "compressed_length": header["comp_len"],
+        }
+
+        try:
+            payload = zlib.decompress(header["compressed"])
+        except zlib.error as e:
+            response["error"] = f"Dekomprimierung fehlgeschlagen: {str(e)}"
+            return JSONResponse(response)
+
+        response["payload_length"] = len(payload)
+        blocks = _uic_parse_payload_blocks(payload)
+        response["blocks"] = []
+
+        for block in blocks:
+            block_info = {"id": block["id"], "version": block["version"], "length": block["length"]}
+            if block["id"] == "U_HEAD":
+                block_info["parsed"] = _uic_parse_head(block["data"])
+            elif block["id"] == "U_TLAY":
+                block_info["parsed"] = _uic_parse_tlay(block["data"])
+            elif block["id"] == "U_FLEX":
+                block_info["parsed"] = _uic_parse_flex(block["data"])
+            else:
+                block_info["raw_hex"] = block["data"][:128].hex()
+            response["blocks"].append(block_info)
+
+        return JSONResponse(response)
+
+    else:
+        return JSONResponse({
+            "error": "Unbekanntes Barcode-Format (weder VDV-KA noch UIC 918.3)",
+            "first_bytes_hex": raw[:16].hex(),
+        }, status_code=400)
+
+
 @app.post("/api/watermark")
 async def api_watermark(
     nachname: str = Form(...),
