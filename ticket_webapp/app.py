@@ -783,7 +783,7 @@ def _build_eurail_tlay(cfg):
     klasse_num = "1" if cfg['klasse'] == "1" else "2"
     ptype = "YOUTH" if cfg['passenger_type'] == "JUGENDLICHER" else "ADULT"
     ref = cfg.get('eurail_ref', cfg['ticket_id'])
-    passport_masked = "*****" + cfg.get('passport_tail', ref[-3:])
+    passport_masked = "*****" + cfg.get('passport_tail', "***")
 
     fields = [
         _uic_field(0, 19, 1, 19, 0, "EURAIL"),
@@ -846,7 +846,7 @@ def _build_eurail_flex(cfg):
     ptype = 'youth' if cfg['passenger_type'] == 'JUGENDLICHER' else 'adult'
 
     ref_ia5 = cfg.get('eurail_ref', f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
-    passport_masked = "*****" + cfg.get('passport_tail', ref_ia5[-3:])
+    passport_masked = "*****" + cfg.get('passport_tail', "***")
 
     valid_until = days_int - 1
     activated = list(range(min(days_int, 1)))
@@ -1525,7 +1525,7 @@ def _build_interrail_tlay(cfg):
     klasse_num = "1" if cfg['klasse'] == "1" else "2"
     ptype = "YOUTH" if cfg['passenger_type'] == "JUGENDLICHER" else "ADULT"
     ref = cfg.get('eurail_ref', cfg['ticket_id'])
-    passport_masked = "*****" + cfg.get('passport_tail', ref[-3:])
+    passport_masked = "*****" + cfg.get('passport_tail', "***")
 
     fields = [
         _uic_field(0, 19, 1, 19, 0, "INTERRAIL"),
@@ -1584,7 +1584,7 @@ def _build_interrail_flex(cfg):
     ptype = 'youth' if cfg['passenger_type'] == 'JUGENDLICHER' else 'adult'
 
     ref_ia5 = cfg.get('eurail_ref', f"1{cfg['ticket_id']}-0001-{cfg['order_number'][:8]}")
-    passport_masked = "*****" + cfg.get('passport_tail', ref_ia5[-3:])
+    passport_masked = "*****" + cfg.get('passport_tail', "***")
 
     valid_until = days_int - 1
     activated = list(range(min(days_int, 1)))
