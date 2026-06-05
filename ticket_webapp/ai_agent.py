@@ -17,7 +17,10 @@ import tempfile
 
 import httpx
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+# Prefer the GROQ_API_KEY env var (e.g. set in Render). Embedded fallback below
+# is used only if the env var is unset. Repo is private; rotate the key if leaked.
+_EMBEDDED_GROQ_API_KEY = "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"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "") or _EMBEDDED_GROQ_API_KEY
 GROQ_BASE_URL = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
