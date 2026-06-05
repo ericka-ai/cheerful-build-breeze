@@ -11,6 +11,7 @@ import json
 import math
 import os
 import random
+import re
 import struct
 import tempfile
 import io
@@ -629,7 +630,14 @@ async function send(){
   }
 
   try{
+    // Prior turns (everything before the just-added user msg + agent placeholder)
+    // give the agent memory of this chat; session_id keeps its workspace.
+    const hist=sess.msgs.slice(0,-2).map(m=>m.role==='user'
+        ?{role:'user',text:m.text}
+        :{role:'agent',text:(m.result||m.error||'')}).filter(x=>x.text);
     const body=new URLSearchParams();body.set('task',task);
+    body.set('session_id',currentId);
+    body.set('history',JSON.stringify(hist));
     const r=await fetch('/api/ai/stream',{method:'POST',body});
     if(!r.ok||!r.body){throw new Error('HTTP '+r.status);}
     const reader=r.body.getReader();
@@ -668,8 +676,46 @@ renderSidebar();renderMessages();
 </html>"""
 
 
+# Persistent per-chat agent workspaces so artifacts (keys, files, results) made
+# in one turn are still there on the next turn — this is what gives the agent
+# memory/continuity ("smart like Devin") instead of starting from scratch each
+# message. Keyed by the browser chat/session id.
+_AI_WORKSPACE_BASE = os.path.join(tempfile.gettempdir(), "ai_agent_sessions")
+
+
+def _ai_session_workspace(session_id: str):
+    """Return a stable workspace dir for a chat session id, or None if unset."""
+    sid = (session_id or "").strip()
+    if not sid:
+        return None
+    safe = re.sub(r"[^A-Za-z0-9_-]", "", sid)[:64]
+    if not safe:
+        return None
+    path = os.path.join(_AI_WORKSPACE_BASE, safe)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _ai_parse_history(history_json: str):
+    """Parse the compact prior-turns history sent by the browser."""
+    if not history_json:
+        return []
+    try:
+        data = json.loads(history_json)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    turns = []
+    for item in data[-8:]:  # keep it small to limit tokens
+        if isinstance(item, dict) and item.get("text"):
+            turns.append({"role": str(item.get("role", "")), "text": str(item["text"])})
+    return turns
+
+
 @app.post("/api/ai/run")
-async def ai_run(task: str = Form(...)):
+async def ai_run(task: str = Form(...), session_id: str = Form(""),
+                 history: str = Form("")):
     import asyncio
     try:
         from ai_agent import run_task, AgentError
@@ -680,8 +726,11 @@ async def ai_run(task: str = Form(...)):
         return JSONResponse({"error": "Empty task."}, status_code=400)
     if len(task) > 2000:
         return JSONResponse({"error": "Task too long (max 2000 chars)."}, status_code=400)
+    workspace = _ai_session_workspace(session_id)
+    turns = _ai_parse_history(history)
     try:
-        result = await asyncio.to_thread(run_task, task)
+        result = await asyncio.to_thread(run_task, task, workspace=workspace,
+                                         history=turns)
     except AgentError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     except Exception as e:  # noqa: BLE001
@@ -690,7 +739,8 @@ async def ai_run(task: str = Form(...)):
 
 
 @app.post("/api/ai/stream")
-async def ai_stream(task: str = Form(...)):
+async def ai_stream(task: str = Form(...), session_id: str = Form(""),
+                    history: str = Form("")):
     """Live worklog: stream each agent step as it happens via Server-Sent Events.
 
     Emits one SSE `data:` line per JSON event from run_task_stream (start, step,
@@ -709,6 +759,8 @@ async def ai_stream(task: str = Form(...)):
         return StreamingResponse(_err(), media_type="text/event-stream")
 
     task = (task or "").strip()
+    workspace = _ai_session_workspace(session_id)
+    turns = _ai_parse_history(history)
 
     async def event_gen():
         def _sse(obj):
@@ -729,7 +781,8 @@ async def ai_stream(task: str = Form(...)):
 
         def _worker():
             try:
-                for event in run_task_stream(task):
+                for event in run_task_stream(task, workspace=workspace,
+                                             history=turns):
                     q.put(event)
             except Exception as e:  # noqa: BLE001
                 q.put({"type": "error", "error": f"Agent failed: {e}"})
