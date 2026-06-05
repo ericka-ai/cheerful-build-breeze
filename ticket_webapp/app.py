@@ -623,7 +623,7 @@ async function send(){
     if(ev.type==='start'){agent.status='Agent plant';}
     else if(ev.type==='notice'){agent.steps.push({action:'notice',message:ev.message});agent.status='Warte auf Rate-Limit';}
     else if(ev.type==='step'){const s=Object.assign({},ev);delete s.type;agent.steps.push(s);agent.status=(s.action==='finish')?'Fertig':'Agent arbeitet';}
-    else if(ev.type==='done'){if(ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.streaming=false;}
+    else if(ev.type==='done'){if((!agent.steps||!agent.steps.length)&&ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.streaming=false;}
     else if(ev.type==='error'){agent.error=ev.error;agent.streaming=false;}
     if(sess.id===currentId)renderMessages();
   }
