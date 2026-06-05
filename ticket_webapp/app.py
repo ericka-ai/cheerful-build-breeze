@@ -131,6 +131,10 @@ DB_STATIONS = {
 # ─── FCB (UIC 918.9) SCHEMA ───────────────────────────────────────────────────
 FCB_SCHEMA = asn1tools.compile_files(
     os.path.join(ASSETS_DIR, 'uicRailTicketData_v1.3.5.asn'), 'uper')
+FCB_SCHEMA_V2 = asn1tools.compile_files(
+    os.path.join(ASSETS_DIR, 'uicRailTicketData_v2.0.3.asn'), 'uper')
+FCB_SCHEMA_V3 = asn1tools.compile_files(
+    os.path.join(ASSETS_DIR, 'uicRailTicketData_v3.0.3.asn'), 'uper')
 
 EURAIL_COUNTRIES = [
     65, 70, 71, 72, 73, 74, 10, 75, 76, 78, 79, 80, 81, 82, 83, 84,
@@ -4564,13 +4568,27 @@ def _uic_parse_head(data: bytes) -> dict:
     return result
 
 
-def _uic_parse_flex(data: bytes) -> dict:
+def _uic_parse_flex(data: bytes, version: str = "13") -> dict:
     """Parse U_FLEX block (FCB / UIC 918.9) using ASN.1 UPER decoding."""
-    try:
-        decoded = FCB_SCHEMA.decode('UicRailTicketData', data)
-        return _fcb_to_json(decoded)
-    except Exception as e:
-        return {"error": f"FCB Dekodierung fehlgeschlagen: {str(e)}", "raw_hex": data[:64].hex()}
+    # Select schema based on U_FLEX version
+    schemas_to_try = []
+    if version.startswith("03") or version == "3":
+        schemas_to_try = [FCB_SCHEMA_V3, FCB_SCHEMA_V2, FCB_SCHEMA]
+    elif version.startswith("02") or version == "2":
+        schemas_to_try = [FCB_SCHEMA_V2, FCB_SCHEMA_V3, FCB_SCHEMA]
+    else:
+        schemas_to_try = [FCB_SCHEMA, FCB_SCHEMA_V2, FCB_SCHEMA_V3]
+
+    last_error = None
+    for schema in schemas_to_try:
+        try:
+            decoded = schema.decode('UicRailTicketData', data)
+            return _fcb_to_json(decoded)
+        except Exception as e:
+            last_error = e
+            continue
+
+    return {"error": f"FCB Dekodierung fehlgeschlagen: {str(last_error)}", "raw_hex": data.hex()}
 
 
 def _fcb_to_json(obj):
@@ -4659,9 +4677,9 @@ async def api_uic_decode(image: UploadFile = File(...)):
         elif block["id"] == "U_TLAY":
             block_info["parsed"] = _uic_parse_tlay(block["data"])
         elif block["id"] == "U_FLEX":
-            block_info["parsed"] = _uic_parse_flex(block["data"])
+            block_info["parsed"] = _uic_parse_flex(block["data"], block["version"])
         else:
-            block_info["raw_hex"] = block["data"][:128].hex()
+            block_info["raw_hex"] = block["data"].hex()
 
         response["blocks"].append(block_info)
 
@@ -4766,9 +4784,9 @@ async def api_barcode_decode(image: UploadFile = File(...)):
             elif block["id"] == "U_TLAY":
                 block_info["parsed"] = _uic_parse_tlay(block["data"])
             elif block["id"] == "U_FLEX":
-                block_info["parsed"] = _uic_parse_flex(block["data"])
+                block_info["parsed"] = _uic_parse_flex(block["data"], block["version"])
             else:
-                block_info["raw_hex"] = block["data"][:128].hex()
+                block_info["raw_hex"] = block["data"].hex()
             response["blocks"].append(block_info)
 
         return JSONResponse(response)
@@ -4917,17 +4935,24 @@ function renderResult(data, ok) {
 }
 
 function renderVDV(d) {
-  let h = '<table>';
+  let h = '<p class="section-title">Ticket-Daten</p><table>';
   if (d.ticket) {
-    if (d.ticket.produkt_name) h += row('Produkt', d.ticket.produkt_name);
-    if (d.ticket.org_name) h += row('Herausgeber', d.ticket.org_name);
-    if (d.ticket.gueltig_von) h += row('Gueltig von', d.ticket.gueltig_von);
-    if (d.ticket.gueltig_bis) h += row('Gueltig bis', d.ticket.gueltig_bis);
+    Object.entries(d.ticket).forEach(([k,v]) => { h += row(k, v); });
   }
-  h += row('Hash gueltig', d.hash_valid ? 'Ja' : 'Nein');
-  h += row('CA Referenz', d.ca_reference || d.ca_reference_hex);
-  if (d.envelope_key) h += row('Schluessel', 'RSA-' + d.envelope_key.bits + ', e=' + d.envelope_key.e);
   h += '</table>';
+  h += '<p class="section-title">Signatur &amp; Zertifikat</p><table>';
+  if (d.hash_valid !== undefined) h += row('Hash gueltig', d.hash_valid ? 'Ja' : 'Nein');
+  if (d.sha1) h += row('SHA-1', d.sha1);
+  if (d.ca_reference) h += row('CA Referenz', d.ca_reference);
+  if (d.ca_reference_hex) h += row('CA Referenz (hex)', d.ca_reference_hex);
+  if (d.envelope_key) h += row('Schluessel', 'RSA-' + d.envelope_key.bits + ', e=' + d.envelope_key.e);
+  if (d.signature_hex) h += row('Signatur (hex)', d.signature_hex);
+  if (d.remainder_hex) h += row('Remainder (hex)', d.remainder_hex);
+  h += '</table>';
+  if (d.cert_error) h += '<p style="color:red">Cert Error: ' + d.cert_error + '</p>';
+  if (d.ticket_error) h += '<p style="color:red">Ticket Error: ' + d.ticket_error + '</p>';
+  h += '<p class="section-title">Komplette JSON-Antwort</p>';
+  h += '<pre style="font-size:11px;overflow-x:auto;background:#f0f0f0;padding:12px;border-radius:4px;max-height:400px;overflow-y:auto">' + JSON.stringify(d, null, 2) + '</pre>';
   return h;
 }
 
@@ -4936,30 +4961,42 @@ function renderUIC(d) {
   h += row('Version', d.uic_version);
   h += row('RICS', d.rics);
   h += row('Key ID', d.key_id);
+  h += row('Signatur (hex)', d.signature_hex);
+  if (d.compressed_length) h += row('Komprimiert', d.compressed_length + ' Bytes');
+  if (d.payload_length) h += row('Payload', d.payload_length + ' Bytes');
   h += '</table>';
 
   if (d.blocks) {
     d.blocks.forEach(b => {
-      h += '<p class="section-title">' + b.id + ' (v' + b.version + ')</p>';
+      h += '<p class="section-title">' + b.id + ' (v' + b.version + ', ' + b.length + ' Bytes)</p>';
       if (b.id === 'U_HEAD' && b.parsed) {
         h += '<table>';
-        if (b.parsed.rics) h += row('RICS', b.parsed.rics);
-        if (b.parsed.ticket_id) h += row('Ticket ID', b.parsed.ticket_id);
-        if (b.parsed.creation) h += row('Erstellt', b.parsed.creation);
+        Object.entries(b.parsed).forEach(([k,v]) => { h += row(k, v); });
         h += '</table>';
-      } else if (b.id === 'U_TLAY' && b.parsed && b.parsed.fields) {
-        b.parsed.fields.forEach(f => {
-          if (f.text.trim()) h += '<div class="field-row">[' + f.line + ',' + f.col + '] ' + f.text + '</div>';
-        });
+      } else if (b.id === 'U_TLAY' && b.parsed) {
+        h += '<table>';
+        h += row('Standard', b.parsed.standard || '');
+        h += row('Felder', b.parsed.num_fields || 0);
+        h += '</table>';
+        if (b.parsed.fields) {
+          b.parsed.fields.forEach(f => {
+            h += '<div class="field-row">[' + f.line + ',' + f.col + ' ' + f.height + 'x' + f.width + ' fmt=' + f.format + '] ' + f.text + '</div>';
+          });
+        }
       } else if (b.id === 'U_FLEX' && b.parsed) {
-        h += '<pre style="font-size:12px;overflow-x:auto;background:#f9f9f9;padding:12px;border-radius:4px">' + JSON.stringify(b.parsed, null, 2) + '</pre>';
+        h += '<pre style="font-size:11px;overflow-x:auto;background:#f9f9f9;padding:12px;border-radius:4px;max-height:600px;overflow-y:auto">' + JSON.stringify(b.parsed, null, 2) + '</pre>';
+      } else if (b.raw_hex) {
+        h += '<div class="field-row" style="word-break:break-all">' + b.raw_hex + '</div>';
       }
     });
   }
+  if (d.error) h += '<p style="color:red;margin-top:12px">Fehler: ' + d.error + '</p>';
+  h += '<p class="section-title">Komplette JSON-Antwort</p>';
+  h += '<pre style="font-size:11px;overflow-x:auto;background:#f0f0f0;padding:12px;border-radius:4px;max-height:400px;overflow-y:auto">' + JSON.stringify(d, null, 2) + '</pre>';
   return h;
 }
 
-function row(k, v) { return '<tr><th>' + k + '</th><td>' + v + '</td></tr>'; }
+function row(k, v) { return '<tr><th>' + k + '</th><td>' + (typeof v === 'object' ? JSON.stringify(v) : v) + '</td></tr>'; }
 </script>
 </body>
 </html>"""
