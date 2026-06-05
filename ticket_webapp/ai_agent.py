@@ -32,10 +32,11 @@ import httpx
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "OpenRouter")
 AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api/v1")
 AI_MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-120b:free")
-# Embedded free OpenRouter key so the agent works out of the box. The env var
-# wins if set. Repo is private; rotate the key at openrouter.ai/keys if leaked.
-_EMBEDDED_AI_API_KEY = "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"
-AI_API_KEY = os.environ.get("AI_API_KEY", "") or _EMBEDDED_AI_API_KEY
+# API key for the OpenAI-compatible backend. Never hard-code a key here (it leaks
+# in source control); configure it via the environment instead. AI_API_KEY wins,
+# OPENAI_API_KEY is accepted as a fallback. Leave empty only for keyless
+# providers (e.g. Pollinations).
+AI_API_KEY = os.environ.get("AI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
 
 MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "25"))
 CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "120"))
@@ -257,6 +258,13 @@ def _llm_chat(messages, on_retry=None, model=None, json_mode=None,
                     )
                 time.sleep(delay)
                 continue
+            # Auth failures: give an actionable hint instead of a raw 401.
+            if resp.status_code in (401, 403):
+                raise AgentError(
+                    f"LLM auth failed (HTTP {resp.status_code}). Set a valid "
+                    f"AI_API_KEY (or OPENAI_API_KEY) for {AI_PROVIDER}, or switch "
+                    f"to Devin mode. Details: {resp.text[:200]}"
+                )
             # Non-retryable, or out of retries: surface a clear error.
             raise AgentError(
                 f"LLM request failed (HTTP {resp.status_code}): {resp.text[:300]}"
@@ -327,6 +335,57 @@ def _safe_path(workspace, path):
     if not (abspath == workspace or abspath.startswith(workspace + os.sep)):
         raise AgentError(f"path escapes the workspace: {path}")
     return abspath
+
+
+# Files the agent itself produces are the deliverables we hand back to the user.
+# We hide internal/noise entries so the download list only shows real artifacts.
+_IGNORED_FILE_NAMES = {".gitignore"}
+
+# Extensions that represent runnable code. Writing one of these without ever
+# running anything triggers the "you must test before finishing" guard.
+_RUNNABLE_EXTS = {
+    ".py", ".sh", ".bash", ".js", ".mjs", ".cjs", ".ts", ".rb", ".pl",
+    ".php", ".go", ".rs", ".java", ".c", ".cpp", ".cc", ".cs", ".lua",
+}
+
+
+def list_workspace_files(workspace):
+    """Return the artifacts in a workspace as [{path, size}], newest first.
+
+    Walks the whole workspace (not just the top level) so files the agent
+    creates in sub-directories are delivered too. Hidden files/dirs and a few
+    internal names are skipped. Paths are relative to the workspace root.
+    """
+    if not workspace or not os.path.isdir(workspace):
+        return []
+    items = []
+    for root, dirs, files in os.walk(workspace):
+        # Don't descend into hidden or virtualenv-style dirs.
+        dirs[:] = [d for d in dirs if not d.startswith(".")
+                   and d not in ("__pycache__", "node_modules")]
+        for name in files:
+            if name.startswith(".") or name in _IGNORED_FILE_NAMES:
+                continue
+            abspath = os.path.join(root, name)
+            try:
+                st = os.stat(abspath)
+            except OSError:
+                continue
+            rel = os.path.relpath(abspath, workspace)
+            items.append({"path": rel, "size": st.st_size, "mtime": st.st_mtime})
+    items.sort(key=lambda it: it["mtime"], reverse=True)
+    for it in items:
+        it.pop("mtime", None)
+    return items
+
+
+def _format_file_list(files):
+    """Human-readable bullet list of produced files for the finish summary."""
+    if not files:
+        return ""
+    lines = [f"  - {f['path']} ({f['size']} bytes)" for f in files[:50]]
+    more = "" if len(files) <= 50 else f"\n  - ... (+{len(files) - 50} more)"
+    return "Files produced (downloadable):\n" + "\n".join(lines) + more
 
 
 def _write_file(workspace, params):
@@ -467,6 +526,14 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
     messages.append({"role": "user", "content": f"TASK: {task}"})
     tools = {"write_file": _write_file, "read_file": _read_file, "run_bash": _run_bash}
 
+    # Track whether the agent actually exercised its work. We refuse the first
+    # `finish` that comes after writing code without ever running it, so the
+    # agent can't claim success without testing (a common failure of weaker
+    # free models). `wrote_code` only counts runnable artifacts.
+    wrote_code = False
+    ran_bash = False
+    forced_test_nudges = 0
+
     for step in range(1, max_steps + 1):
         if cancel and cancel.is_set():
             yield {"type": "done", "task": task, "backend": backend,
@@ -503,10 +570,29 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
         thought = action.get("thought", "")
 
         if name == "finish":
+            # Don't let the agent declare success on code it never ran. Push
+            # back once (or twice) and make it actually execute its work first.
+            if wrote_code and not ran_bash and forced_test_nudges < 2:
+                forced_test_nudges += 1
+                nudge = (
+                    "You called finish but you have NOT run your code yet. "
+                    "Do not finish until you have actually executed it with a "
+                    "run_bash action and read the real output. Run it now, fix "
+                    "any errors, and only finish once it verifiably works."
+                )
+                entry = {"step": step, "action": "notice", "message": nudge}
+                steps.append(entry)
+                yield {"type": "notice", "message": nudge}
+                messages.append({"role": "assistant", "content": json.dumps(action)})
+                messages.append({"role": "user", "content": nudge})
+                continue
             result = params.get("message", "(done)")
+            files = list_workspace_files(workspace)
+            file_summary = _format_file_list(files)
+            observation = result if not file_summary else f"{result}\n\n{file_summary}"
             entry = {"step": step, "action": "finish",
                      "thought": thought, "reasoning": reasoning[:600],
-                     "observation": result}
+                     "observation": observation}
             steps.append(entry)
             yield {"type": "step", **entry}
             break
@@ -552,6 +638,14 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
         else:
             observation = tool(workspace, params)
 
+        if name == "run_bash":
+            ran_bash = True
+        elif name == "write_file":
+            path = (params.get("path") or "").lower()
+            _, ext = os.path.splitext(path)
+            if ext in _RUNNABLE_EXTS:
+                wrote_code = True
+
         entry = {
             "step": step,
             "action": name,
@@ -572,6 +666,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
         "steps": steps,
         "result": result,
         "finished": result is not None,
+        "files": list_workspace_files(workspace),
     }
 
 
@@ -603,4 +698,5 @@ def run_task(task, max_steps=MAX_STEPS, workspace=None, history=None):
         "steps": final["steps"],
         "result": final["result"],
         "finished": final["finished"],
+        "files": final.get("files", []),
     }
