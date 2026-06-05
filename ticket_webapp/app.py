@@ -4448,22 +4448,20 @@ def _uic_parse_header(raw: bytes) -> dict:
 
     p = 14
     if version == '01':
-        # DER signature: variable length
-        if raw[p:p+1] == b'\x30':
-            # DER SEQUENCE
-            if raw[p+1] & 0x80:
-                len_bytes = raw[p+1] & 0x7f
-                sig_len = int.from_bytes(raw[p+2:p+2+len_bytes], 'big') + 2 + len_bytes
+        # UT01: fixed 50-byte signature field (DER ECDSA, zero-padded to 50).
+        # The 4-char ASCII compressed length follows immediately after.
+        sig_field = raw[p:p+50]
+        p += 50
+        # Extract the actual DER signature for display (strip the zero padding).
+        signature = sig_field
+        if sig_field[:1] == b'\x30':
+            if sig_field[1] & 0x80:
+                len_bytes = sig_field[1] & 0x7f
+                der_len = int.from_bytes(sig_field[2:2+len_bytes], 'big') + 2 + len_bytes
             else:
-                sig_len = raw[p+1] + 2
-            signature = raw[p:p+sig_len]
-            p += sig_len
-        else:
-            # Fallback: read 46 bytes (typical ECDSA P-160)
-            signature = raw[p:p+46]
-            p += 46
-        # 4 bytes message length (unused in UT01)
-        p += 4
+                der_len = sig_field[1] + 2
+            if 0 < der_len <= 50:
+                signature = sig_field[:der_len]
     elif version == '02':
         # Raw 64-byte signature (r||s)
         signature = raw[p:p+64]
