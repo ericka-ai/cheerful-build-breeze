@@ -37,9 +37,9 @@ AI_MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-120b:free")
 _EMBEDDED_AI_API_KEY = "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"
 AI_API_KEY = os.environ.get("AI_API_KEY", "") or _EMBEDDED_AI_API_KEY
 
-MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "18"))
-CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "30"))
-MAX_OUTPUT_CHARS = 3000
+MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "25"))
+CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "120"))
+MAX_OUTPUT_CHARS = 6000
 
 # Automatic retry/backoff for transient errors (rate limits, 5xx, network).
 # Free public endpoints can briefly return HTTP 429 under load; it usually
@@ -108,6 +108,14 @@ How to work (like Devin):
   - You may create multiple files and install packages with pip as needed.
   - Write clean, correct, general-purpose code. No placeholders, no "...".
   - Use only relative paths inside the current workspace directory.
+  - BE THOROUGH AND PRECISE. Read the task carefully and address EVERY part of
+    it. Re-read what the user actually asked before finishing — do not solve a
+    simpler or different problem than the one requested. If the task has several
+    requirements, satisfy all of them and confirm each in your final summary.
+  - If a task is genuinely impossible or under-specified (e.g. it asks for
+    something mathematically infeasible, or needs information you weren't given),
+    do NOT silently fail or pretend. Explain clearly WHY in your thoughts, do the
+    closest correct thing you can, and state the limitation honestly in finish.
   - When everything works, "finish" with a clear summary that includes the
     verified result and how to use it. If the user asked for specific values,
     PUT THE ACTUAL VALUES in the finish message, not just "it worked".
@@ -163,18 +171,21 @@ class AgentError(Exception):
 
 
 def _extract_message_text(data):
-    """Pull the assistant text out of a chat-completions response.
+    """Pull the assistant text and optional reasoning out of a response.
 
-    Reasoning models (e.g. gpt-oss) keep their chain-of-thought in a separate
-    `reasoning` field and return clean JSON in `content`. As a defensive
-    fallback, if a model instead inlines a <think>...</think> block we drop it
-    and keep what follows.
+    Returns (content, reasoning). Reasoning models (e.g. gpt-oss) keep their
+    chain-of-thought in a separate `reasoning` field; if a model instead inlines
+    a <think>...</think> block we split it out.
     """
     msg = data["choices"][0]["message"]
     content = msg.get("content") or ""
+    reasoning = msg.get("reasoning") or ""
     if "</think>" in content:
-        content = content.rsplit("</think>", 1)[1]
-    return content.strip()
+        parts = content.rsplit("</think>", 1)
+        if not reasoning:
+            reasoning = parts[0].replace("<think>", "").strip()
+        content = parts[1]
+    return content.strip(), reasoning.strip()
 
 
 def _retry_after_seconds(resp, attempt):
@@ -227,7 +238,8 @@ def _llm_chat(messages, on_retry=None, model=None, json_mode=None,
             with httpx.Client(timeout=60) as client:
                 resp = client.post(url, headers=headers, json=payload)
             if resp.status_code == 200:
-                return _extract_message_text(resp.json())
+                content, reasoning = _extract_message_text(resp.json())
+                return content, reasoning
             if resp.status_code == 400 and use_json:
                 # Model likely rejected response_format; drop it and retry once
                 # without consuming a backoff attempt.
@@ -326,7 +338,13 @@ def _write_file(workspace, params):
     os.makedirs(os.path.dirname(abspath) or workspace, exist_ok=True)
     with open(abspath, "w") as f:
         f.write(content)
-    return f"Wrote {len(content)} bytes to {path}"
+    # Return content preview so the live worklog can show what was written.
+    lines = content.splitlines()
+    if len(lines) > 80:
+        preview = "\n".join(lines[:70]) + f"\n... ({len(lines) - 70} more lines)"
+    else:
+        preview = content
+    return f"Wrote {len(content)} bytes to {path}\n--- content ---\n{preview}"
 
 
 def _read_file(workspace, params):
@@ -380,8 +398,8 @@ def _research(query, on_retry=None):
         {"role": "user", "content": query},
     ]
     try:
-        answer = _llm_chat(messages, on_retry=on_retry, model=RESEARCH_MODEL,
-                           json_mode=False, max_tokens=RESEARCH_MAX_TOKENS)
+        answer, _ = _llm_chat(messages, on_retry=on_retry, model=RESEARCH_MODEL,
+                              json_mode=False, max_tokens=RESEARCH_MAX_TOKENS)
     except AgentError as e:
         return f"research failed: {e}"
     return (answer or "(no answer)")[:MAX_OUTPUT_CHARS]
@@ -418,7 +436,8 @@ def _session_context(workspace, history):
     return "\n\n".join(parts)
 
 
-def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
+def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
+                    cancel=None):
     """Run the agent loop for `task`, yielding events as they happen.
 
     This powers the live worklog (Devin-style): the caller receives a "start"
@@ -430,6 +449,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
     artifacts persist; `history` is a list of {"role","text"} prior turns so the
     agent has memory of what it already did. Each yielded value is a
     JSON-serialisable dict with a "type" field.
+    `cancel` is an optional threading.Event; when set, the loop aborts early.
     """
     backend = f"{AI_PROVIDER} ({AI_MODEL})"
     yield {"type": "start", "task": task, "backend": backend, "max_steps": max_steps}
@@ -448,11 +468,14 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
     tools = {"write_file": _write_file, "read_file": _read_file, "run_bash": _run_bash}
 
     for step in range(1, max_steps + 1):
-        # Collect any backoff notices raised during the LLM call so they can be
-        # streamed to the client right after the call returns.
+        if cancel and cancel.is_set():
+            yield {"type": "done", "task": task, "backend": backend,
+                   "steps": steps, "result": "(cancelled)", "finished": False}
+            return
+
         notices = []
         try:
-            reply = _llm_chat(messages, on_retry=notices.append)
+            reply, reasoning = _llm_chat(messages, on_retry=notices.append)
         except AgentError as e:
             for note in notices:
                 yield {"type": "notice", "message": note}
@@ -465,7 +488,8 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
 
         if not action or "action" not in action:
             entry = {"step": step, "action": "invalid",
-                     "thought": reply.strip()[:300], "observation": ""}
+                     "thought": reply.strip()[:300], "reasoning": reasoning[:600],
+                     "observation": ""}
             steps.append(entry)
             yield {"type": "step", **entry}
             messages.append({"role": "assistant", "content": reply})
@@ -481,7 +505,8 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
         if name == "finish":
             result = params.get("message", "(done)")
             entry = {"step": step, "action": "finish",
-                     "thought": thought, "observation": result}
+                     "thought": thought, "reasoning": reasoning[:600],
+                     "observation": result}
             steps.append(entry)
             yield {"type": "step", **entry}
             break
@@ -494,7 +519,8 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
                 f"{i}. {s}" for i, s in enumerate(plan_steps, 1)
             ) or "(empty plan)"
             entry = {"step": step, "action": "plan",
-                     "thought": thought, "detail": "Plan",
+                     "thought": thought, "reasoning": reasoning[:600],
+                     "detail": "Plan",
                      "observation": observation}
             steps.append(entry)
             yield {"type": "step", **entry}
@@ -510,6 +536,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
             for note in rnotices:
                 yield {"type": "notice", "message": note}
             entry = {"step": step, "action": "research", "thought": thought,
+                     "reasoning": reasoning[:600],
                      "detail": query.strip()[:80],
                      "observation": observation[:MAX_OUTPUT_CHARS]}
             steps.append(entry)
@@ -529,6 +556,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
             "step": step,
             "action": name,
             "thought": thought,
+            "reasoning": reasoning[:600],
             "detail": params.get("path") or params.get("command") or "",
             "observation": observation[:MAX_OUTPUT_CHARS],
         }
