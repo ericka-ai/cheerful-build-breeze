@@ -449,6 +449,120 @@ async def site_login_post(password: str = Form(...)):
     return RedirectResponse(url="/login?error=Falsches+Passwort", status_code=303)
 
 
+# ─── AI AGENT (/ai) ────────────────────────────────────────────────────────
+# A small autonomous coding agent: type a task, it writes a script, runs it to
+# verify, and fixes errors until it works. Lives behind the site password gate.
+
+@app.get("/ai", response_class=HTMLResponse)
+async def ai_page():
+    return """<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agent</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f5f5f5; color:#1a1a1a; padding:24px; }
+.wrap { max-width:820px; margin:0 auto; }
+h1 { color:#EC0016; font-size:24px; margin-bottom:4px; }
+p.sub { color:#6b6b6b; font-size:14px; margin-bottom:20px; }
+textarea { width:100%; min-height:90px; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:15px; resize:vertical; }
+textarea:focus { outline:none; border-color:#EC0016; }
+.row { display:flex; gap:10px; margin-top:12px; align-items:center; }
+button { padding:12px 20px; background:#EC0016; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; }
+button:hover { background:#c40014; }
+button:disabled { background:#bbb; cursor:not-allowed; }
+.examples { font-size:13px; color:#6b6b6b; margin-top:10px; }
+.examples a { color:#EC0016; cursor:pointer; text-decoration:underline; margin-right:12px; }
+#out { margin-top:24px; }
+.step { background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:12px 14px; margin-bottom:10px; }
+.step .hd { font-weight:600; font-size:13px; color:#333; margin-bottom:6px; }
+.tag { display:inline-block; font-size:11px; font-weight:700; padding:2px 7px; border-radius:5px; margin-right:8px; color:#fff; }
+.tag.write_file { background:#2563eb; } .tag.run_bash { background:#7c3aed; }
+.tag.read_file { background:#0891b2; } .tag.finish { background:#16a34a; }
+.tag.invalid { background:#9ca3af; }
+.think { color:#555; font-size:13px; margin-bottom:6px; }
+pre { background:#0d1117; color:#d1d5db; padding:10px; border-radius:6px; font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-word; }
+.done { background:#ecfdf5; border:1px solid #16a34a; color:#065f46; padding:14px; border-radius:8px; font-size:14px; margin-bottom:10px; }
+.err { background:#fef2f2; border:1px solid #EC0016; color:#991b1b; padding:14px; border-radius:8px; font-size:14px; }
+.spin { display:inline-block; margin-left:10px; color:#6b6b6b; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AI Agent</h1>
+  <p class="sub">Gib eine Aufgabe ein. Der Agent schreibt das Skript selbst, fuehrt es aus, prueft das Ergebnis und korrigiert Fehler bis es funktioniert.</p>
+  <textarea id="task" placeholder="z.B. Erstell ein Python-Skript, das die 5 groessten Dateien in einem Ordner ausgibt, und teste es."></textarea>
+  <div class="examples">
+    Beispiele:
+    <a onclick="setT('Erstell ein bash-Skript greet.sh das einen Namen als Argument nimmt und Hello, NAME! ausgibt. Teste es mit World.')">greet.sh</a>
+    <a onclick="setT('Schreibe ein Python-Skript, das eine CSV-Datei mit 3 Beispielzeilen erzeugt und dann die Zeilen zaehlt.')">CSV zaehlen</a>
+    <a onclick="setT('Schreibe ein Python-Skript, das die ersten 20 Fibonacci-Zahlen ausgibt, und teste es.')">Fibonacci</a>
+  </div>
+  <div class="row">
+    <button id="run" onclick="run()">Ausfuehren</button>
+    <span class="spin" id="spin" style="display:none">Agent arbeitet...</span>
+  </div>
+  <div id="out"></div>
+</div>
+<script>
+function setT(t){ document.getElementById('task').value = t; }
+function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+async function run(){
+  const task = document.getElementById('task').value.trim();
+  const out = document.getElementById('out');
+  if(!task){ out.innerHTML = '<div class="err">Bitte eine Aufgabe eingeben.</div>'; return; }
+  const btn = document.getElementById('run');
+  btn.disabled = true; document.getElementById('spin').style.display='inline';
+  out.innerHTML = '';
+  try {
+    const body = new URLSearchParams(); body.set('task', task);
+    const r = await fetch('/api/ai/run', { method:'POST', body });
+    const data = await r.json();
+    if(data.error){ out.innerHTML = '<div class="err">'+esc(data.error)+'</div>'; return; }
+    let html = '';
+    if(data.finished){ html += '<div class="done"><b>Fertig.</b> '+esc(data.result)+'</div>'; }
+    else { html += '<div class="err">Nicht abgeschlossen (max. Schritte erreicht).</div>'; }
+    for(const s of data.steps){
+      html += '<div class="step"><div class="hd"><span class="tag '+esc(s.action)+'">'+esc(s.action)+'</span> Schritt '+s.step+(s.detail?(' &middot; '+esc(s.detail)):'')+'</div>';
+      if(s.thought){ html += '<div class="think">'+esc(s.thought)+'</div>'; }
+      if(s.observation){ html += '<pre>'+esc(s.observation)+'</pre>'; }
+      html += '</div>';
+    }
+    out.innerHTML = html;
+  } catch(e){
+    out.innerHTML = '<div class="err">Fehler: '+esc(String(e))+'</div>';
+  } finally {
+    btn.disabled = false; document.getElementById('spin').style.display='none';
+  }
+}
+</script>
+</body>
+</html>"""
+
+
+@app.post("/api/ai/run")
+async def ai_run(task: str = Form(...)):
+    import asyncio
+    try:
+        from ai_agent import run_task, AgentError
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": f"AI agent unavailable: {e}"}, status_code=500)
+    task = (task or "").strip()
+    if not task:
+        return JSONResponse({"error": "Empty task."}, status_code=400)
+    if len(task) > 2000:
+        return JSONResponse({"error": "Task too long (max 2000 chars)."}, status_code=400)
+    try:
+        result = await asyncio.to_thread(run_task, task)
+    except AgentError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": f"Agent failed: {e}"}, status_code=500)
+    return JSONResponse(result)
+
+
 _REQUEST_LOG: list[dict] = []
 
 
