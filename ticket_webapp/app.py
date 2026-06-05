@@ -4775,6 +4775,197 @@ async def api_barcode_decode(image: UploadFile = File(...)):
         }, status_code=400)
 
 
+DECODER_HTML = """<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barcode Decoder</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; min-height: 100vh; padding: 20px; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { color: #EC0016; margin-bottom: 8px; font-size: 28px; }
+.subtitle { color: #6b6b6b; margin-bottom: 24px; font-size: 14px; }
+.card { background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 20px; }
+.upload-area { border: 2px dashed #ccc; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+.upload-area:hover, .upload-area.dragover { border-color: #EC0016; background: #fff5f5; }
+.upload-area input { display: none; }
+.upload-area p { color: #666; font-size: 16px; }
+.upload-area .icon { font-size: 48px; margin-bottom: 12px; }
+button { background: #EC0016; color: white; border: none; border-radius: 8px; padding: 12px 24px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 16px; }
+button:hover { background: #c40014; }
+button:disabled { background: #ccc; cursor: not-allowed; }
+.preview { max-width: 200px; max-height: 200px; margin: 12px auto; display: block; border-radius: 4px; }
+#result { display: none; }
+.result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.badge-vdv { background: #e8f5e9; color: #2e7d32; }
+.badge-uic { background: #e3f2fd; color: #1565c0; }
+.badge-error { background: #fbe9e7; color: #c62828; }
+table { width: 100%; border-collapse: collapse; }
+table th, table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+table th { color: #666; font-weight: 500; width: 35%; }
+table td { color: #333; word-break: break-all; }
+.section-title { font-size: 16px; font-weight: 600; color: #333; margin: 16px 0 8px; padding-top: 12px; border-top: 1px solid #eee; }
+.field-row { background: #f9f9f9; border-radius: 4px; padding: 6px 10px; margin: 4px 0; font-size: 13px; font-family: monospace; }
+.loading { display: none; text-align: center; padding: 20px; color: #666; }
+.spinner { border: 3px solid #eee; border-top: 3px solid #EC0016; border-radius: 50%; width: 30px; height: 30px; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.back-link { display: inline-block; margin-bottom: 16px; color: #EC0016; text-decoration: none; font-size: 14px; }
+.back-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+<a href="/" class="back-link">&larr; Zurueck</a>
+<h1>Barcode Decoder</h1>
+<p class="subtitle">VDV-KA &amp; UIC 918.3/918.9 &mdash; Barcode-Bild hochladen und Ticket-Daten auslesen</p>
+
+<div class="card">
+  <div class="upload-area" id="uploadArea">
+    <div class="icon">&#128247;</div>
+    <p>Barcode-Bild hierher ziehen oder klicken</p>
+    <p style="font-size:12px;color:#999;margin-top:8px">PNG, JPG, JPEG</p>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+  <img id="preview" class="preview" style="display:none">
+  <button id="decodeBtn" disabled>Dekodieren</button>
+</div>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <p>Barcode wird analysiert...</p>
+</div>
+
+<div id="result" class="card"></div>
+</div>
+
+<script>
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const preview = document.getElementById('preview');
+const decodeBtn = document.getElementById('decodeBtn');
+const loading = document.getElementById('loading');
+const result = document.getElementById('result');
+let selectedFile = null;
+
+uploadArea.addEventListener('click', () => fileInput.click());
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault(); uploadArea.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  selectedFile = file;
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+  decodeBtn.disabled = false;
+  result.style.display = 'none';
+}
+
+decodeBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  decodeBtn.disabled = true;
+  loading.style.display = 'block';
+  result.style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('image', selectedFile);
+
+  try {
+    const resp = await fetch('/api/barcode-decode', { method: 'POST', body: formData });
+    const data = await resp.json();
+    renderResult(data, resp.ok);
+  } catch (e) {
+    renderResult({ error: 'Netzwerkfehler: ' + e.message }, false);
+  } finally {
+    loading.style.display = 'none';
+    decodeBtn.disabled = false;
+  }
+});
+
+function renderResult(data, ok) {
+  result.style.display = 'block';
+  if (data.error && !data.format) {
+    result.innerHTML = '<div class="result-header"><span class="badge badge-error">Fehler</span></div><p>' + data.error + '</p>';
+    return;
+  }
+
+  let html = '<div class="result-header">';
+  if (data.format === 'VDV-KA') {
+    html += '<span class="badge badge-vdv">VDV-KA</span>';
+  } else {
+    html += '<span class="badge badge-uic">' + (data.uic_version || 'UIC 918.3') + '</span>';
+  }
+  html += '<span style="color:#666;font-size:13px">' + data.raw_length + ' Bytes</span></div>';
+
+  if (data.format === 'VDV-KA') {
+    html += renderVDV(data);
+  } else {
+    html += renderUIC(data);
+  }
+  result.innerHTML = html;
+}
+
+function renderVDV(d) {
+  let h = '<table>';
+  if (d.ticket) {
+    if (d.ticket.produkt_name) h += row('Produkt', d.ticket.produkt_name);
+    if (d.ticket.org_name) h += row('Herausgeber', d.ticket.org_name);
+    if (d.ticket.gueltig_von) h += row('Gueltig von', d.ticket.gueltig_von);
+    if (d.ticket.gueltig_bis) h += row('Gueltig bis', d.ticket.gueltig_bis);
+  }
+  h += row('Hash gueltig', d.hash_valid ? 'Ja' : 'Nein');
+  h += row('CA Referenz', d.ca_reference || d.ca_reference_hex);
+  if (d.envelope_key) h += row('Schluessel', 'RSA-' + d.envelope_key.bits + ', e=' + d.envelope_key.e);
+  h += '</table>';
+  return h;
+}
+
+function renderUIC(d) {
+  let h = '<table>';
+  h += row('Version', d.uic_version);
+  h += row('RICS', d.rics);
+  h += row('Key ID', d.key_id);
+  h += '</table>';
+
+  if (d.blocks) {
+    d.blocks.forEach(b => {
+      h += '<p class="section-title">' + b.id + ' (v' + b.version + ')</p>';
+      if (b.id === 'U_HEAD' && b.parsed) {
+        h += '<table>';
+        if (b.parsed.rics) h += row('RICS', b.parsed.rics);
+        if (b.parsed.ticket_id) h += row('Ticket ID', b.parsed.ticket_id);
+        if (b.parsed.creation) h += row('Erstellt', b.parsed.creation);
+        h += '</table>';
+      } else if (b.id === 'U_TLAY' && b.parsed && b.parsed.fields) {
+        b.parsed.fields.forEach(f => {
+          if (f.text.trim()) h += '<div class="field-row">[' + f.line + ',' + f.col + '] ' + f.text + '</div>';
+        });
+      } else if (b.id === 'U_FLEX' && b.parsed) {
+        h += '<pre style="font-size:12px;overflow-x:auto;background:#f9f9f9;padding:12px;border-radius:4px">' + JSON.stringify(b.parsed, null, 2) + '</pre>';
+      }
+    });
+  }
+  return h;
+}
+
+function row(k, v) { return '<tr><th>' + k + '</th><td>' + v + '</td></tr>'; }
+</script>
+</body>
+</html>"""
+
+
+@app.get("/decoder", response_class=HTMLResponse)
+async def decoder_page():
+    """Barcode decoder UI — upload a barcode image to decode VDV-KA or UIC tickets."""
+    return DECODER_HTML
+
+
 @app.post("/api/watermark")
 async def api_watermark(
     nachname: str = Form(...),
