@@ -456,7 +456,13 @@ async def site_login_post(password: str = Form(...)):
 
 @app.get("/ai", response_class=HTMLResponse)
 async def ai_page():
-    return """<!DOCTYPE html>
+    # Show the actually-configured free LLM backend in the top bar.
+    try:
+        from ai_agent import AI_PROVIDER, AI_MODEL
+        backend_label = f"{AI_PROVIDER} &middot; {AI_MODEL}"
+    except Exception:
+        backend_label = "AI Agent"
+    return ("""<!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="UTF-8">
@@ -534,7 +540,7 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
   <div class="sidebar-footer">Sessions im Browser gespeichert</div>
 </div>
 <div class="main">
-  <div class="topbar"><span class="dot"></span> Groq &middot; llama-3.3-70b-versatile</div>
+  <div class="topbar"><span class="dot"></span> __AI_BACKEND_LABEL__</div>
   <div class="messages" id="messages"></div>
   <div class="input-area">
     <textarea id="input" placeholder="Schreib deine Aufgabe..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"></textarea>
@@ -673,7 +679,7 @@ if(sessions.length===0)newChat(); else{currentId=sessions[0].id;}
 renderSidebar();renderMessages();
 </script>
 </body>
-</html>"""
+</html>""").replace("__AI_BACKEND_LABEL__", backend_label)
 
 
 # Persistent per-chat agent workspaces so artifacts (keys, files, results) made

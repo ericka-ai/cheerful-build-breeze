@@ -9,20 +9,20 @@ The agent will:
   3. RUN them and inspect the output,
   4. fix errors automatically and retry until it actually works.
 
-It runs on a free, local LLM via Ollama by default (no paid API key needed),
-and can also use any OpenAI-compatible API (OpenAI, Groq, ...) via env vars.
+It runs out of the box on a free, OpenAI-compatible API that needs NO key
+(Pollinations), and can also use any other OpenAI-compatible API via env vars.
 
 Usage:
     python3 agent.py "create a bash script that prints the 10 biggest files in a dir"
     python3 agent.py            # interactive prompt
 
 Backends (auto-detected, in priority order):
-    GROQ_API_KEY set        -> Groq free API (fast). Model from GROQ_MODEL
-                               (default llama-3.3-70b-versatile).
     OPENAI_API_KEY set      -> OpenAI-compatible API
                                (OPENAI_BASE_URL, OPENAI_MODEL override defaults)
-    otherwise               -> local Ollama at OLLAMA_HOST (default localhost:11434)
+    AGENT_BACKEND=ollama    -> local Ollama at OLLAMA_HOST (default localhost:11434)
                                model from OLLAMA_MODEL (default qwen2.5-coder:3b)
+    otherwise (default)     -> free, keyless Pollinations API
+                               (AI_BASE_URL / AI_MODEL override defaults)
 """
 
 import json
@@ -51,9 +51,13 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_BASE_URL = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# Default backend: a free, OpenAI-compatible API that requires NO API key.
+AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://text.pollinations.ai/openai")
+AI_MODEL = os.environ.get("AI_MODEL", "openai")
+AI_API_KEY = os.environ.get("AI_API_KEY", "")
+
+# Optional opt-in backend selector (e.g. AGENT_BACKEND=ollama).
+AGENT_BACKEND = os.environ.get("AGENT_BACKEND", "").strip().lower()
 
 
 # --------------------------------------------------------------------------- #
@@ -99,20 +103,13 @@ def _http_post(url, payload, headers=None, timeout=600):
 def _openai_compatible_chat(messages, base_url, api_key, model):
     url = f"{base_url.rstrip('/')}/chat/completions"
     payload = {"model": model, "messages": messages, "temperature": 0.2}
-    headers = {"Authorization": f"Bearer {api_key}"}
+    # Keyless providers (e.g. Pollinations) need no Authorization header.
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     out = _http_post(url, payload, headers)
     return out["choices"][0]["message"]["content"]
 
 
-def llm_chat(messages):
-    """Send a chat conversation to the active backend and return the reply text."""
-    if GROQ_API_KEY:
-        return _openai_compatible_chat(messages, GROQ_BASE_URL, GROQ_API_KEY, GROQ_MODEL)
-
-    if OPENAI_API_KEY:
-        return _openai_compatible_chat(messages, OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_MODEL)
-
-    # Default: local Ollama
+def _ollama_chat(messages):
     url = f"{OLLAMA_HOST.rstrip('/')}/api/chat"
     payload = {
         "model": OLLAMA_MODEL,
@@ -124,12 +121,24 @@ def llm_chat(messages):
     return out["message"]["content"]
 
 
+def llm_chat(messages):
+    """Send a chat conversation to the active backend and return the reply text."""
+    if OPENAI_API_KEY:
+        return _openai_compatible_chat(messages, OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_MODEL)
+
+    if AGENT_BACKEND == "ollama":
+        return _ollama_chat(messages)
+
+    # Default: free, keyless OpenAI-compatible API (Pollinations).
+    return _openai_compatible_chat(messages, AI_BASE_URL, AI_API_KEY, AI_MODEL)
+
+
 def backend_name():
-    if GROQ_API_KEY:
-        return f"Groq API ({GROQ_MODEL})"
     if OPENAI_API_KEY:
         return f"OpenAI-compatible API ({OPENAI_MODEL} @ {OPENAI_BASE_URL})"
-    return f"Ollama local ({OLLAMA_MODEL} @ {OLLAMA_HOST})"
+    if AGENT_BACKEND == "ollama":
+        return f"Ollama local ({OLLAMA_MODEL} @ {OLLAMA_HOST})"
+    return f"Free keyless API ({AI_MODEL} @ {AI_BASE_URL})"
 
 
 # --------------------------------------------------------------------------- #
