@@ -5210,6 +5210,21 @@ table td { color: #333; word-break: break-all; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .back-link { display: inline-block; margin-bottom: 16px; color: #EC0016; text-decoration: none; font-size: 14px; }
 .back-link:hover { text-decoration: underline; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.btn-sm { width: auto; margin: 0; padding: 8px 14px; font-size: 13px; background: #f0f0f0; color: #333; border: 1px solid #ddd; border-radius: 8px; }
+.btn-sm:hover { background: #e6e6e6; }
+.btn-sm.active { background: #EC0016; color: #fff; border-color: #EC0016; }
+.dev-only { display: none; }
+#result.show-dev .dev-only { display: revert; }
+.kv-table th { width: 45%; vertical-align: top; }
+.kv-nested { margin: 0; }
+.kv-choice { font-size: 13px; font-weight: 600; color: #1565c0; margin: 8px 0 4px; }
+@media print {
+  body { background: #fff; padding: 0; }
+  .back-link, .toolbar, .upload-area, #decodeBtn, .loading, .preview, #cameraCard { display: none !important; }
+  .card { box-shadow: none; padding: 0; }
+  #result .dev-only { display: none !important; }
+}
 </style>
 </head>
 <body>
@@ -5284,10 +5299,18 @@ decodeBtn.addEventListener('click', async () => {
   }
 });
 
+let lastDecoded = null;
+
+function esc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function renderResult(data, ok) {
+  lastDecoded = data;
+  result.classList.remove('show-dev');
   result.style.display = 'block';
   if (data.error && !data.format) {
-    result.innerHTML = '<div class="result-header"><span class="badge badge-error">Fehler</span></div><p>' + data.error + '</p>';
+    result.innerHTML = '<div class="result-header"><span class="badge badge-error">Fehler</span></div><p>' + esc(data.error) + '</p>';
     return;
   }
 
@@ -5295,9 +5318,15 @@ function renderResult(data, ok) {
   if (data.format === 'VDV-KA') {
     html += '<span class="badge badge-vdv">VDV-KA</span>';
   } else {
-    html += '<span class="badge badge-uic">' + (data.uic_version || 'UIC 918.3') + '</span>';
+    html += '<span class="badge badge-uic">' + esc(data.uic_version || 'UIC 918.3') + '</span>';
   }
-  html += '<span style="color:#666;font-size:13px">' + data.raw_length + ' Bytes</span></div>';
+  html += '<span style="color:#666;font-size:13px">' + esc(data.raw_length) + ' Bytes</span></div>';
+
+  html += '<div class="toolbar">'
+    + '<button class="btn-sm" id="devToggle" onclick="toggleDev()">Technische Details</button>'
+    + '<button class="btn-sm" onclick="downloadJSON()">JSON herunterladen</button>'
+    + '<button class="btn-sm" onclick="window.print()">PDF / Drucken</button>'
+    + '</div>';
 
   if (data.format === 'VDV-KA') {
     html += renderVDV(data);
@@ -5307,6 +5336,66 @@ function renderResult(data, ok) {
   result.innerHTML = html;
 }
 
+function toggleDev() {
+  const on = result.classList.toggle('show-dev');
+  const btn = document.getElementById('devToggle');
+  if (btn) btn.classList.toggle('active', on);
+}
+
+function downloadJSON() {
+  if (!lastDecoded) return;
+  const blob = new Blob([JSON.stringify(lastDecoded, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (lastDecoded.format === 'VDV-KA' ? 'vdv' : 'uic') + '-ticket.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Map FCB / ticket field names to readable German labels
+const FCB_LABELS = {
+  issuingDetail: 'Ausstellung', travelerDetail: 'Reisende', transportDocument: 'Fahrkarte',
+  controlDetail: 'Kontrolle', traveler: 'Reisender', ticket: 'Dokument',
+  securityProviderNum: 'Anbieter-Nr.', issuingYear: 'Ausstelljahr', issuingDay: 'Ausstelltag',
+  issuingTime: 'Ausstellzeit', issuerName: 'Aussteller', specimen: 'Muster', activated: 'Aktiviert',
+  currency: 'Waehrung', currencyFract: 'Nachkommastellen', securePaperTicket: 'Sicheres Papierticket',
+  firstName: 'Vorname', lastName: 'Nachname', yearOfBirth: 'Geburtsjahr', dayOfBirth: 'Geburtstag',
+  ticketHolder: 'Ticketinhaber', passengerType: 'Fahrgasttyp', countryOfResidence: 'Wohnsitzland',
+  referenceIA5: 'Referenz', productOwnerNum: 'Produkt-Eigner', productIdIA5: 'Produkt-ID',
+  passType: 'Pass-Typ', passDescription: 'Beschreibung', classCode: 'Klasse',
+  validFromDay: 'Gueltig ab (Tag)', validUntilDay: 'Gueltig bis (Tag)', validUntilTime: 'Gueltig bis (Zeit)',
+  activatedDay: 'Aktiviert (Tag)', countries: 'Laender', fromStationNum: 'Von (Bhf-Nr.)',
+  toStationNum: 'Nach (Bhf-Nr.)', fromStationIA5: 'Von', toStationIA5: 'Nach',
+  validRegionDesc: 'Geltungsbereich', infoText: 'Hinweis', extension: 'Erweiterung'
+};
+
+function fcbLabel(k) { return FCB_LABELS[k] || k; }
+
+// Recursively render an FCB/object value as nested tables (no raw JSON)
+function renderObj(v) {
+  if (v === null || v === undefined) return '<span style="color:#999">&mdash;</span>';
+  if (Array.isArray(v)) {
+    // asn1 CHOICE is decoded as a 2-tuple [name, value]
+    if (v.length === 2 && typeof v[0] === 'string' && v[1] && typeof v[1] === 'object') {
+      return '<div class="kv-choice">' + esc(fcbLabel(v[0])) + '</div>' + renderObj(v[1]);
+    }
+    if (v.every(x => typeof x !== 'object' || x === null)) {
+      return esc(v.join(', '));
+    }
+    return v.map(x => renderObj(x)).join('');
+  }
+  if (typeof v === 'object') {
+    let h = '<table class="kv-table kv-nested">';
+    Object.entries(v).forEach(([k, val]) => {
+      h += '<tr><th>' + esc(fcbLabel(k)) + '</th><td>' + renderObj(val) + '</td></tr>';
+    });
+    h += '</table>';
+    return h;
+  }
+  if (typeof v === 'boolean') return v ? 'Ja' : 'Nein';
+  return esc(v);
+}
+
 function renderVDV(d) {
   let h = '<p class="section-title">Ticket-Daten</p><table>';
   if (d.ticket) {
@@ -5314,18 +5403,22 @@ function renderVDV(d) {
   }
   h += '</table>';
   h += '<p class="section-title">Signatur &amp; Zertifikat</p><table>';
-  if (d.hash_valid !== undefined) h += row('Hash gueltig', d.hash_valid ? 'Ja' : 'Nein');
-  if (d.sha1) h += row('SHA-1', d.sha1);
+  if (d.hash_valid !== undefined) h += row('Hash gueltig', d.hash_valid ? 'Ja \u2713' : 'Nein');
   if (d.ca_reference) h += row('CA Referenz', d.ca_reference);
-  if (d.ca_reference_hex) h += row('CA Referenz (hex)', d.ca_reference_hex);
   if (d.envelope_key) h += row('Schluessel', 'RSA-' + d.envelope_key.bits + ', e=' + d.envelope_key.e);
+  h += '</table>';
+  if (d.cert_error) h += '<p style="color:red">Cert Error: ' + esc(d.cert_error) + '</p>';
+  if (d.ticket_error) h += '<p style="color:red">Ticket Error: ' + esc(d.ticket_error) + '</p>';
+  h += '<div class="dev-only">';
+  h += '<p class="section-title">Technische Details</p><table>';
+  if (d.sha1) h += row('SHA-1', d.sha1);
+  if (d.ca_reference_hex) h += row('CA Referenz (hex)', d.ca_reference_hex);
   if (d.signature_hex) h += row('Signatur (hex)', d.signature_hex);
   if (d.remainder_hex) h += row('Remainder (hex)', d.remainder_hex);
   h += '</table>';
-  if (d.cert_error) h += '<p style="color:red">Cert Error: ' + d.cert_error + '</p>';
-  if (d.ticket_error) h += '<p style="color:red">Ticket Error: ' + d.ticket_error + '</p>';
   h += '<p class="section-title">Komplette JSON-Antwort</p>';
-  h += '<pre style="font-size:11px;overflow-x:auto;background:#f0f0f0;padding:12px;border-radius:4px;max-height:400px;overflow-y:auto">' + JSON.stringify(d, null, 2) + '</pre>';
+  h += '<pre style="font-size:11px;overflow-x:auto;background:#f0f0f0;padding:12px;border-radius:4px;max-height:400px;overflow-y:auto">' + esc(JSON.stringify(d, null, 2)) + '</pre>';
+  h += '</div>';
   return h;
 }
 
@@ -5334,14 +5427,12 @@ function renderUIC(d) {
   h += row('Version', d.uic_version);
   h += row('RICS', d.rics);
   h += row('Key ID', d.key_id);
-  h += row('Signatur (hex)', d.signature_hex);
-  if (d.compressed_length) h += row('Komprimiert', d.compressed_length + ' Bytes');
   if (d.payload_length) h += row('Payload', d.payload_length + ' Bytes');
   h += '</table>';
 
   if (d.blocks) {
     d.blocks.forEach(b => {
-      h += '<p class="section-title">' + b.id + ' (v' + b.version + ', ' + b.length + ' Bytes)</p>';
+      h += '<p class="section-title">' + esc(b.id) + ' (v' + esc(b.version) + ', ' + esc(b.length) + ' Bytes)</p>';
       if (b.id === 'U_HEAD' && b.parsed) {
         h += '<table>';
         Object.entries(b.parsed).forEach(([k,v]) => { h += row(k, v); });
@@ -5354,23 +5445,27 @@ function renderUIC(d) {
         if (b.parsed.fields) {
           b.parsed.fields.forEach(f => {
             const t = (f.text || '').trim();
-            if (t) h += '<div class="field-row">' + t + '</div>';
+            if (t) h += '<div class="field-row">' + esc(t) + '</div>';
           });
         }
       } else if (b.id === 'U_FLEX' && b.parsed) {
-        h += '<pre style="font-size:11px;overflow-x:auto;background:#f9f9f9;padding:12px;border-radius:4px;max-height:600px;overflow-y:auto">' + JSON.stringify(b.parsed, null, 2) + '</pre>';
+        h += renderObj(b.parsed);
+        h += '<div class="dev-only"><pre style="font-size:11px;overflow-x:auto;background:#f9f9f9;padding:12px;border-radius:4px;max-height:600px;overflow-y:auto">' + esc(JSON.stringify(b.parsed, null, 2)) + '</pre></div>';
       } else if (b.raw_hex) {
-        h += '<div class="field-row" style="word-break:break-all">' + b.raw_hex + '</div>';
+        h += '<div class="field-row dev-only" style="word-break:break-all">' + esc(b.raw_hex) + '</div>';
       }
     });
   }
-  if (d.error) h += '<p style="color:red;margin-top:12px">Fehler: ' + d.error + '</p>';
+  if (d.error) h += '<p style="color:red;margin-top:12px">Fehler: ' + esc(d.error) + '</p>';
+  h += '<div class="dev-only">';
+  h += '<p class="section-title">Signatur (hex)</p><table>' + row('Signatur', d.signature_hex || '') + '</table>';
   h += '<p class="section-title">Komplette JSON-Antwort</p>';
-  h += '<pre style="font-size:11px;overflow-x:auto;background:#f0f0f0;padding:12px;border-radius:4px;max-height:400px;overflow-y:auto">' + JSON.stringify(d, null, 2) + '</pre>';
+  h += '<pre style="font-size:11px;overflow-x:auto;background:#f0f0f0;padding:12px;border-radius:4px;max-height:400px;overflow-y:auto">' + esc(JSON.stringify(d, null, 2)) + '</pre>';
+  h += '</div>';
   return h;
 }
 
-function row(k, v) { return '<tr><th>' + k + '</th><td>' + (typeof v === 'object' ? JSON.stringify(v) : v) + '</td></tr>'; }
+function row(k, v) { return '<tr><th>' + esc(k) + '</th><td>' + (typeof v === 'object' ? esc(JSON.stringify(v)) : esc(v)) + '</td></tr>'; }
 </script>
 </body>
 </html>"""
