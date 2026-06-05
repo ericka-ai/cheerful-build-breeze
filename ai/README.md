@@ -43,9 +43,9 @@ The agent picks a backend automatically based on environment variables:
 |----------|-----------|---------|
 | 1 | `OPENAI_API_KEY` is set | OpenAI-compatible API |
 | 2 | `AGENT_BACKEND=ollama` | **Local Ollama** (free, offline) — default model `qwen2.5-coder:3b` |
-| 3 | otherwise (default) | **Free, keyless API** (Pollinations) — no account/key needed |
+| 3 | otherwise (default) | **Free OpenRouter API** — ships with an embedded free key |
 
-### Option A — Free & keyless (default, recommended)
+### Option A — Free OpenRouter (default, recommended)
 
 Nothing to set up — it just works:
 
@@ -53,9 +53,9 @@ Nothing to set up — it just works:
 python3 agent.py "create a python script that renames all .jpeg files to .jpg"
 ```
 
-This uses the free, OpenAI-compatible [Pollinations](https://text.pollinations.ai)
-API, which needs no API key. To use a different free/keyless OpenAI-compatible
-endpoint, override `AI_BASE_URL` and `AI_MODEL`.
+This uses the free, OpenAI-compatible [OpenRouter](https://openrouter.ai) tier
+(default model `openai/gpt-oss-120b:free`). To use your own key or a different
+OpenAI-compatible endpoint, override `AI_API_KEY`, `AI_BASE_URL` and `AI_MODEL`.
 
 ### Option B — Local Ollama (free, no key, runs offline)
 
@@ -93,9 +93,9 @@ python3 agent.py
 | `AGENT_WORKSPACE` | `./workspace` | where the agent creates files |
 | `AGENT_MAX_STEPS` | `20` | max think/act iterations per task |
 | `AGENT_CMD_TIMEOUT` | `120` | per-command timeout (seconds) |
-| `AI_BASE_URL` | `https://text.pollinations.ai/openai` | default keyless OpenAI-compatible base URL |
-| `AI_MODEL` | `openai` | default keyless model |
-| `AI_API_KEY` | _(empty)_ | optional bearer token for the default backend |
+| `AI_BASE_URL` | `https://openrouter.ai/api/v1` | default OpenAI-compatible base URL |
+| `AI_MODEL` | `openai/gpt-oss-120b:free` | default model |
+| `AI_API_KEY` | _(embedded free key)_ | bearer token for the default backend |
 | `AGENT_BACKEND` | _(empty)_ | set to `ollama` to use local Ollama |
 | `OLLAMA_MODEL` | `qwen2.5-coder:3b` | local model |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint |
