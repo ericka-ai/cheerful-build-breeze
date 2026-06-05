@@ -5,7 +5,10 @@ Given a natural-language task it runs a think -> act -> observe loop:
 the LLM writes files and runs shell commands (to test its own work) inside
 an isolated per-request workspace, and keeps iterating until it calls finish.
 
-Uses Groq's free OpenAI-compatible API. Set GROQ_API_KEY in the environment.
+Uses a free, OpenAI-compatible LLM API. The default provider is Pollinations
+(https://text.pollinations.ai) which is completely free and needs NO API key,
+so the agent works out of the box. Any other OpenAI-compatible endpoint can be
+used by setting the AI_BASE_URL / AI_MODEL / AI_API_KEY env vars (see below).
 A standalone CLI version of the same idea lives in ../ai/agent.py.
 """
 
@@ -18,38 +21,42 @@ import time
 
 import httpx
 
-# Prefer the GROQ_API_KEY env var (e.g. set in Render). Embedded fallback below
-# is used only if the env var is unset. Repo is private; rotate the key if leaked.
-_EMBEDDED_GROQ_API_KEY = "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"
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "") or _EMBEDDED_GROQ_API_KEY
-GROQ_BASE_URL = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
-# Default to a stronger reasoning model so the agent writes correct code and
-# actually reasons about the task (the old llama-3.3-70b often produced buggy
-# scripts). gpt-oss-120b returns clean JSON and keeps its chain-of-thought in a
-# separate `reasoning` field, which is ideal for this JSON-only protocol.
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+# --- LLM provider configuration --------------------------------------------
+# Defaults to Pollinations' free, OpenAI-compatible text API, which needs NO API
+# key and has no hard per-key request cap. Point the agent at any other
+# OpenAI-compatible endpoint (e.g. a free OpenRouter/Gemini key) just by setting
+# these env vars -- no code change required.
+#   AI_BASE_URL : OpenAI-compatible base URL (the part before /chat/completions)
+#   AI_MODEL    : model name to request
+#   AI_API_KEY  : bearer token; leave empty for keyless providers like Pollinations
+#   AI_PROVIDER : human-readable label shown in the UI / worklog
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "Pollinations")
+AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://text.pollinations.ai/openai")
+AI_MODEL = os.environ.get("AI_MODEL", "openai")
+AI_API_KEY = os.environ.get("AI_API_KEY", "")
 
 MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "18"))
 CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "30"))
 MAX_OUTPUT_CHARS = 3000
 
-# Automatic retry/backoff for transient Groq errors (rate limits, 5xx, network).
-# The Groq free tier has tight per-minute token limits (e.g. 12k tokens/min),
-# so a short HTTP 429 is expected under load and usually clears within seconds.
+# Automatic retry/backoff for transient errors (rate limits, 5xx, network).
+# Free public endpoints can briefly return HTTP 429 under load; it usually
+# clears within seconds, so we retry with exponential backoff.
 MAX_RETRIES = int(os.environ.get("AI_AGENT_MAX_RETRIES", "5"))
 RETRY_BASE_DELAY = float(os.environ.get("AI_AGENT_RETRY_BASE_DELAY", "2.0"))
 RETRY_MAX_DELAY = float(os.environ.get("AI_AGENT_RETRY_MAX_DELAY", "30.0"))
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
-# Ask Groq to guarantee a valid JSON object in the reply (supported by the
-# default gpt-oss model). Set AI_AGENT_JSON_MODE=0 to disable.
+# Ask the model to guarantee a valid JSON object in the reply. If a provider
+# doesn't support response_format we transparently fall back. Set
+# AI_AGENT_JSON_MODE=0 to disable.
 JSON_MODE = os.environ.get("AI_AGENT_JSON_MODE", "1") not in ("0", "false", "")
 
-# Model used for the agent's `research` action. Groq's "compound" models have
-# built-in live web search, so the agent can look up facts it is unsure about
-# (e.g. niche ticketing/barcode standards) instead of guessing. The mini
-# variant fits the free-tier per-request size limit.
-RESEARCH_MODEL = os.environ.get("AI_AGENT_RESEARCH_MODEL", "groq/compound-mini")
+# Model used for the agent's `research` action. Pollinations' "searchgpt" model
+# has built-in live web search, so the agent can look up facts it is unsure
+# about (e.g. niche ticketing/barcode standards) instead of guessing. Defaults
+# to the main model if the override is left blank.
+RESEARCH_MODEL = os.environ.get("AI_AGENT_RESEARCH_MODEL", "searchgpt") or AI_MODEL
 RESEARCH_MAX_TOKENS = int(os.environ.get("AI_AGENT_RESEARCH_MAX_TOKENS", "1200"))
 
 
@@ -172,7 +179,7 @@ def _extract_message_text(data):
 def _retry_after_seconds(resp, attempt):
     """How long to wait before the next retry.
 
-    Honour the server's Retry-After header when present (Groq sends it on 429),
+    Honour the server's Retry-After header when present (sent on 429),
     otherwise fall back to exponential backoff capped at RETRY_MAX_DELAY.
     """
     header = resp.headers.get("Retry-After") if resp is not None else None
@@ -184,28 +191,25 @@ def _retry_after_seconds(resp, attempt):
     return min(RETRY_BASE_DELAY * (2 ** attempt), RETRY_MAX_DELAY)
 
 
-def _groq_chat(messages, on_retry=None, model=None, json_mode=None,
-               max_tokens=None):
-    """Call the Groq chat API, retrying transient failures with backoff.
+def _llm_chat(messages, on_retry=None, model=None, json_mode=None,
+              max_tokens=None):
+    """Call the OpenAI-compatible chat API, retrying transient failures.
 
     `on_retry`, if given, is called as on_retry(message:str) before each wait so
     the live worklog can show that a short rate limit is being handled.
     `model`/`json_mode`/`max_tokens` override the defaults (used by the research
     action, which talks to a web-capable model and does not want JSON mode).
     """
-    if not GROQ_API_KEY:
-        raise AgentError(
-            "GROQ_API_KEY is not set on the server. Add it in the Render "
-            "dashboard (Environment) and redeploy. Get a free key at "
-            "https://console.groq.com/keys"
-        )
-    url = f"{GROQ_BASE_URL.rstrip('/')}/chat/completions"
+    url = f"{AI_BASE_URL.rstrip('/')}/chat/completions"
     headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
         "User-Agent": "ubuntu-agent/1.0",
     }
-    payload = {"model": model or GROQ_MODEL, "messages": messages,
+    # Keyless providers (e.g. Pollinations) need no Authorization header; only
+    # send one when an API key is configured.
+    if AI_API_KEY:
+        headers["Authorization"] = f"Bearer {AI_API_KEY}"
+    payload = {"model": model or AI_MODEL, "messages": messages,
                "temperature": 0.2}
     if max_tokens:
         payload["max_tokens"] = max_tokens
@@ -235,7 +239,7 @@ def _groq_chat(messages, on_retry=None, model=None, json_mode=None,
                           else f"server error ({resp.status_code})")
                 if on_retry:
                     on_retry(
-                        f"Groq {reason} \u2013 retrying in {delay:.0f}s "
+                        f"{AI_PROVIDER} {reason} \u2013 retrying in {delay:.0f}s "
                         f"(attempt {attempt + 1}/{MAX_RETRIES})\u2026"
                     )
                 time.sleep(delay)
@@ -250,8 +254,9 @@ def _groq_chat(messages, on_retry=None, model=None, json_mode=None,
                 delay = _retry_after_seconds(None, attempt)
                 if on_retry:
                     on_retry(
-                        f"Groq network error ({type(e).__name__}) \u2013 retrying "
-                        f"in {delay:.0f}s (attempt {attempt + 1}/{MAX_RETRIES})\u2026"
+                        f"{AI_PROVIDER} network error ({type(e).__name__}) \u2013 "
+                        f"retrying in {delay:.0f}s "
+                        f"(attempt {attempt + 1}/{MAX_RETRIES})\u2026"
                     )
                 time.sleep(delay)
                 continue
@@ -361,7 +366,7 @@ _RESEARCH_SYSTEM = (
 
 
 def _research(query, on_retry=None):
-    """Look a fact up on the live web via Groq's web-capable model.
+    """Look a fact up on the live web via a web-capable model.
 
     This is the agent's self-research ability: when it is unsure about a fact,
     standard, or format it can call `research` instead of guessing.
@@ -374,8 +379,8 @@ def _research(query, on_retry=None):
         {"role": "user", "content": query},
     ]
     try:
-        answer = _groq_chat(messages, on_retry=on_retry, model=RESEARCH_MODEL,
-                            json_mode=False, max_tokens=RESEARCH_MAX_TOKENS)
+        answer = _llm_chat(messages, on_retry=on_retry, model=RESEARCH_MODEL,
+                           json_mode=False, max_tokens=RESEARCH_MAX_TOKENS)
     except AgentError as e:
         return f"research failed: {e}"
     return (answer or "(no answer)")[:MAX_OUTPUT_CHARS]
@@ -425,7 +430,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
     agent has memory of what it already did. Each yielded value is a
     JSON-serialisable dict with a "type" field.
     """
-    backend = f"Groq ({GROQ_MODEL})"
+    backend = f"{AI_PROVIDER} ({AI_MODEL})"
     yield {"type": "start", "task": task, "backend": backend, "max_steps": max_steps}
 
     if workspace:
@@ -446,7 +451,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
         # streamed to the client right after the call returns.
         notices = []
         try:
-            reply = _groq_chat(messages, on_retry=notices.append)
+            reply = _llm_chat(messages, on_retry=notices.append)
         except AgentError as e:
             for note in notices:
                 yield {"type": "notice", "message": note}
@@ -558,7 +563,7 @@ def run_task(task, max_steps=MAX_STEPS, workspace=None, history=None):
     if final is None:
         return {
             "task": task,
-            "backend": f"Groq ({GROQ_MODEL})",
+            "backend": f"{AI_PROVIDER} ({AI_MODEL})",
             "steps": [],
             "result": None,
             "finished": False,
