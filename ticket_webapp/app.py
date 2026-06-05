@@ -5353,7 +5353,8 @@ function renderUIC(d) {
         h += '</table>';
         if (b.parsed.fields) {
           b.parsed.fields.forEach(f => {
-            h += '<div class="field-row">[' + f.line + ',' + f.col + ' ' + f.height + 'x' + f.width + ' fmt=' + f.format + '] ' + f.text + '</div>';
+            const t = (f.text || '').trim();
+            if (t) h += '<div class="field-row">' + t + '</div>';
           });
         }
       } else if (b.id === 'U_FLEX' && b.parsed) {
