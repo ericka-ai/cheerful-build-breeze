@@ -4490,26 +4490,51 @@ def _uic_parse_header(raw: bytes) -> dict:
 
 
 def _uic_parse_payload_blocks(payload: bytes) -> list:
-    """Parse decompressed UIC payload into U_* blocks."""
+    """Parse the decompressed UIC payload into U_* records/blocks.
+
+    Each record is framed as id(6) + version(2) + length(4 ASCII) + body. The
+    4-digit length normally counts the total record size in bytes, but some
+    issuers count UTF-8 characters instead; detect and correct for that so the
+    following records stay byte-aligned. Logic mirrors TheEnbyperor/zuegli
+    (main/uic/envelope.py Record.parse).
+    """
     blocks = []
-    p = 0
-    while p < len(payload):
-        if p + 12 > len(payload):
+    offset = 0
+    while payload[offset:]:
+        data = payload[offset:]
+        if len(data) < 12:
             break
-        block_id = payload[p:p+6].decode('ascii', errors='replace')
-        block_ver = payload[p+6:p+8].decode('ascii', errors='replace')
+        block_id = data[0:6].decode('ascii', errors='replace')
+        block_ver = data[6:8].decode('ascii', errors='replace')
         try:
-            block_len = int(payload[p+8:p+12])
+            block_len = int(data[8:12])
         except ValueError:
             break
-        block_data = payload[p+12:p+block_len]
+
+        try:
+            data_utf8 = data[12:].decode('utf8')[:block_len]
+        except (UnicodeDecodeError, ValueError):
+            data_utf8 = ""
+        if len(data) < block_len:
+            if len(data_utf8) + 12 < block_len:
+                break
+            block_len = len(data_utf8.encode('utf8', 'replace')) + 12
+        if len(data_utf8) + 12 == block_len:
+            block_len = len(data_utf8.encode('utf8', 'replace')) + 12
+        if block_len < 12:
+            break
+
+        block_data = data[12:block_len]
         blocks.append({
             "id": block_id,
             "version": block_ver,
             "length": block_len,
             "data": block_data,
         })
-        p += block_len
+        advance = 12 + len(block_data)
+        if advance <= 0:
+            break
+        offset += advance
     return blocks
 
 
