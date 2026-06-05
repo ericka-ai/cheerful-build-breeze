@@ -5242,6 +5242,13 @@ table td { color: #333; word-break: break-all; }
   </div>
   <img id="preview" class="preview" style="display:none">
   <button id="decodeBtn" disabled>Dekodieren</button>
+  <button id="cameraBtn" class="btn-sm" style="width:100%;margin-top:8px">&#128247; Mit Kamera scannen</button>
+</div>
+
+<div class="card" id="cameraCard" style="display:none">
+  <video id="cameraVideo" playsinline autoplay muted style="width:100%;border-radius:8px;background:#000"></video>
+  <button id="captureBtn">Foto aufnehmen &amp; dekodieren</button>
+  <button id="cameraCloseBtn" class="btn-sm" style="width:100%;margin-top:8px">Kamera schliessen</button>
 </div>
 
 <div class="loading" id="loading">
@@ -5466,6 +5473,65 @@ function renderUIC(d) {
 }
 
 function row(k, v) { return '<tr><th>' + esc(k) + '</th><td>' + (typeof v === 'object' ? esc(JSON.stringify(v)) : esc(v)) + '</td></tr>'; }
+
+// ─── Live camera scan ───────────────────────────────────────────────
+const cameraBtn = document.getElementById('cameraBtn');
+const cameraCard = document.getElementById('cameraCard');
+const cameraVideo = document.getElementById('cameraVideo');
+const captureBtn = document.getElementById('captureBtn');
+const cameraCloseBtn = document.getElementById('cameraCloseBtn');
+let cameraStream = null;
+
+async function decodeBlob(blob) {
+  loading.style.display = 'block';
+  result.style.display = 'none';
+  const formData = new FormData();
+  formData.append('image', blob, 'capture.jpg');
+  try {
+    const resp = await fetch('/api/barcode-decode', { method: 'POST', body: formData });
+    const data = await resp.json();
+    renderResult(data, resp.ok);
+  } catch (e) {
+    renderResult({ error: 'Netzwerkfehler: ' + e.message }, false);
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  cameraVideo.srcObject = null;
+  cameraCard.style.display = 'none';
+}
+
+cameraBtn.addEventListener('click', async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    renderResult({ error: 'Kamera wird von diesem Browser nicht unterstuetzt.' }, false);
+    return;
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }, audio: false
+    });
+    cameraVideo.srcObject = cameraStream;
+    cameraCard.style.display = 'block';
+    cameraCard.scrollIntoView({ behavior: 'smooth' });
+  } catch (e) {
+    renderResult({ error: 'Kamerazugriff verweigert: ' + e.message }, false);
+  }
+});
+
+cameraCloseBtn.addEventListener('click', stopCamera);
+
+captureBtn.addEventListener('click', () => {
+  if (!cameraStream) return;
+  const w = cameraVideo.videoWidth, h = cameraVideo.videoHeight;
+  if (!w || !h) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(cameraVideo, 0, 0, w, h);
+  canvas.toBlob(blob => { if (blob) { stopCamera(); decodeBlob(blob); } }, 'image/jpeg', 0.95);
+});
 </script>
 </body>
 </html>"""
