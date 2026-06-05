@@ -755,7 +755,15 @@ async function send(){
     }
   }catch(e){
     if(e&&e.name==='AbortError'){agent.status='Gestoppt';agent.steps.push({action:'notice',message:'Vom Benutzer gestoppt.'});}
-    else{agent.error=String(e);}
+    else{
+      const raw=String((e&&e.message)||e);
+      const netty=/load failed|networkerror|failed to fetch|http 5|http 429/i.test(raw);
+      agent.error = netty
+        ? ('Verbindung unterbrochen ('+raw+'). '+(aiMode==='devin'
+            ? 'Die Devin-Session l\u00e4uft im Hintergrund weiter \u2013 schick im selben Chat nochmal eine Nachricht, um wieder anzudocken.'
+            : 'Bei langen Aufgaben kann die Verbindung abbrechen \u2013 bitte nochmal senden.'))
+        : raw;
+    }
     agent.streaming=false;
   }
   agent.streaming=false;abortCtrl=null;
@@ -897,6 +905,8 @@ async def ai_stream(request: Request,
         )
 
     async def event_gen():
+        import time as _time
+
         def _sse(obj):
             return f"data: {json.dumps(obj)}\n\n"
 
@@ -924,6 +934,13 @@ async def ai_stream(request: Request,
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, _worker)
 
+        # Keep the connection alive during long gaps (a slow run_bash, a Devin
+        # poll with no status change). Without periodic bytes, proxies (e.g.
+        # Render) drop the idle connection and the browser shows "Load failed".
+        # SSE comment lines (": ...") are ignored by the client but reset the
+        # idle timer.
+        last_sent = _time.monotonic()
+        HEARTBEAT_SECS = 12
         while True:
             # Check if client disconnected (stop button / page close).
             if await request.is_disconnected():
@@ -934,9 +951,13 @@ async def ai_stream(request: Request,
                     asyncio.to_thread(q.get, timeout=1.0), timeout=2.0
                 )
             except (asyncio.TimeoutError, Exception):
+                if _time.monotonic() - last_sent >= HEARTBEAT_SECS:
+                    last_sent = _time.monotonic()
+                    yield ": ping\n\n"
                 continue
             if event is _SENTINEL:
                 break
+            last_sent = _time.monotonic()
             yield _sse(event)
 
     headers = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}

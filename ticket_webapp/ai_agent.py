@@ -38,8 +38,8 @@ AI_MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-120b:free")
 # providers (e.g. Pollinations).
 AI_API_KEY = os.environ.get("AI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
 
-MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "25"))
-CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "120"))
+MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "40"))
+CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "240"))
 MAX_OUTPUT_CHARS = 6000
 
 # Automatic retry/backoff for transient errors (rate limits, 5xx, network).
@@ -108,6 +108,21 @@ How to work (like Devin):
     iterating until the output is correct. Do not give up early.
   - You may create multiple files and install packages with pip as needed.
   - Write clean, correct, general-purpose code. No placeholders, no "...".
+  - NEVER hand back placeholder, "illustrative", "stub", "demonstration" or
+    "not implemented" work, and never just DESCRIBE what the code *would* do.
+    Actually implement the real thing and make it run. Phrases like "in a real
+    implementation", "left as an exercise", "this is illustrative" or "recovery
+    not performed" are FORBIDDEN in your code and final answer — if you catch
+    yourself writing one, stop and implement it for real instead.
+  - PROVE success with real output. When the task is to RECOVER / CRACK / SOLVE /
+    BREAK / DECRYPT something (e.g. recover a private key from leaked nonce bits
+    via an LLL/BKZ lattice attack), you must ACTUALLY recover the value, then
+    VERIFY it: compare the recovered value to the ground truth in code
+    (`assert recovered == real`) and print both. Do not claim it works unless
+    the program itself prints proof that it does.
+  - TAKE YOUR TIME. You have many steps available — use them. It is far better to
+    think, research, implement carefully, run, debug, and iterate than to rush to
+    a quick but wrong/placeholder answer. Do not finish early just to be fast.
   - Use only relative paths inside the current workspace directory.
   - BE THOROUGH AND PRECISE. Read the task carefully and address EVERY part of
     it. Re-read what the user actually asked before finishing — do not solve a
@@ -388,6 +403,71 @@ def _format_file_list(files):
     return "Files produced (downloadable):\n" + "\n".join(lines) + more
 
 
+# Phrases that betray fake / unfinished work — the agent describing what code
+# *would* do instead of making it actually do it. Kept specific on purpose so
+# legit code (e.g. a "todo" app) is not flagged. If any of these appear in the
+# finish message or in the produced code, we push the agent to really finish.
+_PLACEHOLDER_MARKERS = (
+    "placeholder",
+    "not performed",
+    "is illustrative",
+    "illustrative)",
+    "for demonstration",
+    "for illustration",
+    "not implemented",
+    "notimplementederror",
+    "to be implemented",
+    "in a real implementation",
+    "in a real attack",
+    "in a real-world",
+    "in practice you would",
+    "in practice, you would",
+    "left as an exercise",
+    "this is a stub",
+    "pseudo-code",
+    "pseudocode",
+    "real attack is more",
+    "real implementation would",
+    "would actually recover",
+    "does not actually",
+)
+
+
+def _find_placeholder(text):
+    """Return the first placeholder marker present in `text`, else None."""
+    if not text:
+        return None
+    low = text.lower()
+    for marker in _PLACEHOLDER_MARKERS:
+        if marker in low:
+            return marker
+    return None
+
+
+def _workspace_code_placeholder(workspace, files):
+    """Scan produced runnable files for placeholder markers.
+
+    Returns (relpath, marker) for the first hit, else (None, None). Only small
+    runnable source files are read so this stays cheap.
+    """
+    for f in files:
+        rel = f.get("path", "")
+        _, ext = os.path.splitext(rel.lower())
+        if ext not in _RUNNABLE_EXTS:
+            continue
+        if (f.get("size") or 0) > 200_000:
+            continue
+        try:
+            with open(os.path.join(workspace, rel), encoding="utf-8",
+                      errors="ignore") as fh:
+                marker = _find_placeholder(fh.read())
+        except OSError:
+            continue
+        if marker:
+            return rel, marker
+    return None, None
+
+
 def _write_file(workspace, params):
     path = params.get("path")
     content = params.get("content", "")
@@ -533,6 +613,9 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
     wrote_code = False
     ran_bash = False
     forced_test_nudges = 0
+    placeholder_nudges = 0
+    _MAX_TEST_NUDGES = 3
+    _MAX_PLACEHOLDER_NUDGES = 2
 
     for step in range(1, max_steps + 1):
         if cancel and cancel.is_set():
@@ -570,9 +653,11 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
         thought = action.get("thought", "")
 
         if name == "finish":
-            # Don't let the agent declare success on code it never ran. Push
-            # back once (or twice) and make it actually execute its work first.
-            if wrote_code and not ran_bash and forced_test_nudges < 2:
+            finish_msg = params.get("message", "(done)")
+            files = list_workspace_files(workspace)
+
+            # Guard 1: don't let the agent declare success on code it never ran.
+            if wrote_code and not ran_bash and forced_test_nudges < _MAX_TEST_NUDGES:
                 forced_test_nudges += 1
                 nudge = (
                     "You called finish but you have NOT run your code yet. "
@@ -586,8 +671,45 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
                 messages.append({"role": "assistant", "content": json.dumps(action)})
                 messages.append({"role": "user", "content": nudge})
                 continue
-            result = params.get("message", "(done)")
-            files = list_workspace_files(workspace)
+
+            # Guard 2: reject placeholder / "illustrative" / stub work. The
+            # agent must really do the task, not describe what code *would* do.
+            ph_rel, ph_marker = _workspace_code_placeholder(workspace, files)
+            ph_in_msg = _find_placeholder(finish_msg)
+            if (ph_rel or ph_in_msg) and placeholder_nudges < _MAX_PLACEHOLDER_NUDGES:
+                placeholder_nudges += 1
+                where = (f"your file '{ph_rel}' (\"{ph_marker}\")" if ph_rel
+                         else f"your finish message (\"{ph_in_msg}\")")
+                nudge = (
+                    f"This is not finished: {where} contains placeholder / "
+                    "illustrative / not-implemented content. Do NOT hand back a "
+                    "stub or a description of what the code *would* do. Implement "
+                    "the REAL thing now so it actually performs the task, run it "
+                    "with run_bash, and PROVE it worked with the real output "
+                    "(e.g. for a recovery/attack task, actually recover the value "
+                    "and assert it equals the true value, then print it). Only "
+                    "finish once it genuinely works end to end."
+                )
+                entry = {"step": step, "action": "notice", "message": nudge}
+                steps.append(entry)
+                yield {"type": "notice", "message": nudge}
+                messages.append({"role": "assistant", "content": json.dumps(action)})
+                messages.append({"role": "user", "content": nudge})
+                continue
+
+            result = finish_msg
+            # If guards were exhausted without resolution, flag it honestly so
+            # the user knows the result may be unverified rather than trusting it.
+            warnings = []
+            if wrote_code and not ran_bash:
+                warnings.append("\u26a0\ufe0f Achtung: Der Code wurde NICHT "
+                                "ausgef\u00fchrt \u2013 das Ergebnis ist unbest\u00e4tigt.")
+            if _workspace_code_placeholder(workspace, files)[0] or _find_placeholder(result):
+                warnings.append("\u26a0\ufe0f Achtung: Der Code enth\u00e4lt evtl. "
+                                "Platzhalter \u2013 bitte pr\u00fcfen, ob die Aufgabe "
+                                "wirklich gel\u00f6st wurde.")
+            if warnings:
+                result = result + "\n\n" + "\n".join(warnings)
             file_summary = _format_file_list(files)
             observation = result if not file_summary else f"{result}\n\n{file_summary}"
             entry = {"step": step, "action": "finish",
