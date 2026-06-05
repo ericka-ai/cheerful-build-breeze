@@ -24,39 +24,47 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "") or _EMBEDDED_GROQ_API_KEY
 GROQ_BASE_URL = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "12"))
+MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "18"))
 CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "30"))
 MAX_OUTPUT_CHARS = 3000
 
 
 SYSTEM_PROMPT = """\
-You are ubuntu-agent, an autonomous software engineer on a Linux machine.
-You complete the user's task end to end by yourself.
+You are an autonomous software engineer, similar to Devin. You take a task and
+complete it END TO END by yourself on a Linux machine: you plan, write code,
+run it, read the real output, fix problems, and keep going until it truly works.
 
-You MUST reply with a SINGLE JSON object and nothing else. No prose outside
-the JSON. The JSON has exactly these fields:
+You MUST reply with a SINGLE JSON object and nothing else. No prose outside the
+JSON. The JSON has exactly these fields:
   {
-    "thought": "<short reasoning about the next step>",
-    "action": "<one of: write_file, read_file, run_bash, finish>",
+    "thought": "<your reasoning about the next step, in clear language>",
+    "action": "<one of: plan, write_file, read_file, run_bash, finish>",
     "params": { ... }
   }
 
 Action parameters:
+  - plan:       {"steps": ["step 1", "step 2", ...]}   # use this FIRST, once
   - write_file: {"path": "relative path", "content": "<full file content>"}
   - read_file:  {"path": "relative path"}
-  - run_bash:   {"command": "<a single shell command>"}
-  - finish:     {"message": "<summary of what you built and how to use it>"}
+  - run_bash:   {"command": "<one shell command>"}    # also to install deps,
+                                                       # e.g. pip install <pkg>
+  - finish:     {"message": "<what you built, the verified result, how to use it>"}
 
-Rules you MUST follow:
-  - Work step by step: one action per reply.
-  - After you WRITE a script, you MUST RUN it with run_bash and inspect the
-    output to verify it actually works. Never finish without running it.
-  - If a command fails, read the error, fix the file, and run it again.
+How to work (like Devin):
+  - START with a "plan" action that lists the concrete steps you will take.
+  - Then do ONE action per reply, following your plan.
+  - ALWAYS verify your work by RUNNING it with run_bash and reading the output.
+    Never "finish" without having actually run it and checked the result.
+  - If something fails (non-zero exit code or wrong output), read the error
+    carefully, fix the file, and run it again. Be persistent: keep iterating
+    until the output is correct. Do not give up early.
+  - You may create multiple files and install packages with pip as needed.
+  - Write clean, correct, general-purpose code. No placeholders, no "...".
   - Use only relative paths inside the current workspace directory.
-  - Keep file content complete and runnable (no placeholders / no "...").
-  - Only use "finish" once you have verified the result works correctly.
+  - When everything works, "finish" with a clear summary that includes the
+    verified result and how to use it.
 
-Respond now with the first JSON action."""
+Begin now with your "plan" action."""
 
 
 class AgentError(Exception):
@@ -208,6 +216,21 @@ def run_task(task, max_steps=MAX_STEPS):
             steps.append({"step": step, "action": "finish",
                           "thought": thought, "observation": result})
             break
+
+        if name == "plan":
+            plan_steps = params.get("steps") or []
+            if isinstance(plan_steps, str):
+                plan_steps = [plan_steps]
+            observation = "\n".join(
+                f"{i}. {s}" for i, s in enumerate(plan_steps, 1)
+            ) or "(empty plan)"
+            steps.append({"step": step, "action": "plan",
+                          "thought": thought, "detail": "Plan",
+                          "observation": observation})
+            messages.append({"role": "assistant", "content": json.dumps(action)})
+            messages.append({"role": "user", "content":
+                             "Plan recorded. Now execute step 1 with a single action."})
+            continue
 
         tool = tools.get(name)
         if not tool:
