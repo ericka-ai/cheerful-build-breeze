@@ -136,12 +136,17 @@ def _status_line(data):
     return line
 
 
-def run_devin_stream(task, workspace=None, history=None, cancel=None):
+def run_devin_stream(task, workspace=None, history=None, cancel=None, resume=False):
     """Run `task` on a real Devin session, yielding worklog events.
 
     Yields dicts shaped like ai_agent.run_task_stream so the same UI renders
     both backends: start, step (action="message"/"research"), notice, done,
     error.
+
+    When `resume` is True, no new task/message is sent — we simply re-attach to
+    the chat's existing Devin session (from `workspace/.devin_session`) and
+    stream its current status to completion. This lets the browser reconnect to
+    a run that kept going server-side while the user's device was offline.
     """
     backend = "Devin (api v3)"
     yield {"type": "start", "task": task, "backend": backend, "max_steps": 0}
@@ -156,23 +161,40 @@ def run_devin_stream(task, workspace=None, history=None, cancel=None):
             existing = _read_saved_session(workspace)
             session_id = None
             url = ""
-            if existing:
-                try:
-                    info = _get_session(client, existing)
-                    session_id = existing
-                    url = info.get("url", "")
-                    _send_message(client, session_id, task)
-                    yield {"type": "notice",
-                           "message": f"Nachricht an bestehende Devin-Session "
-                                      f"gesendet ({session_id})."}
-                except DevinError:
-                    session_id = None  # stale -> create a fresh one below
 
-            if not session_id:
-                session_id, url = _create_session(client, task)
-                _save_session(workspace, session_id)
+            if resume:
+                # Re-attach only: do not send anything, just watch the run.
+                if not existing:
+                    yield {"type": "notice",
+                           "message": "Keine laufende Devin-Session gefunden."}
+                    yield {"type": "done", "task": task, "backend": backend,
+                           "steps": [], "result": "Keine laufende Session zum "
+                           "Wiederverbinden.", "finished": False, "files": []}
+                    return
+                info = _get_session(client, existing)
+                session_id = existing
+                url = info.get("url", "")
                 yield {"type": "notice",
-                       "message": f"Devin-Session erstellt: {session_id}"}
+                       "message": f"Mit laufender Devin-Session verbunden "
+                                  f"({session_id})."}
+            else:
+                if existing:
+                    try:
+                        info = _get_session(client, existing)
+                        session_id = existing
+                        url = info.get("url", "")
+                        _send_message(client, session_id, task)
+                        yield {"type": "notice",
+                               "message": f"Nachricht an bestehende Devin-Session "
+                                          f"gesendet ({session_id})."}
+                    except DevinError:
+                        session_id = None  # stale -> create a fresh one below
+
+                if not session_id:
+                    session_id, url = _create_session(client, task)
+                    _save_session(workspace, session_id)
+                    yield {"type": "notice",
+                           "message": f"Devin-Session erstellt: {session_id}"}
 
             if url:
                 yield {"type": "step", "step": 0, "action": "research",

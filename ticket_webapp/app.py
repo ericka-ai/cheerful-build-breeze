@@ -568,8 +568,8 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
 <div class="main">
   <div class="topbar"><span class="dot"></span> <span id="backend-label">__AI_BACKEND_LABEL__</span>
     <span class="mode-switch">
-      <label title="Lokaler, kostenloser Agent in diesem Server"><input type="radio" name="aimode" value="local" checked onchange="setMode('local')"> Lokaler Agent</label>
-      <label title="Delegiert an eine echte Devin-Session (DEVIN_API_KEY noetig)"><input type="radio" name="aimode" value="devin" onchange="setMode('devin')"> Devin</label>
+      <label title="Delegiert an eine echte Devin-Session \u2013 testet, verifiziert, l\u00e4uft im Hintergrund weiter"><input type="radio" name="aimode" value="devin" checked onchange="setMode('devin')"> Devin (empfohlen)</label>
+      <label title="Lokaler, kostenloser Agent in diesem Server \u2013 schw\u00e4cher, l\u00e4uft nicht im Hintergrund weiter"><input type="radio" name="aimode" value="local" onchange="setMode('local')"> Lokaler Agent (gratis)</label>
     </span>
   </div>
   <div class="messages" id="messages"></div>
@@ -589,7 +589,7 @@ let currentId=null;
 let working=false;
 let abortCtrl=null;
 let selectedFiles=[];
-let aiMode=localStorage.getItem('ai_agent_mode')||'local';
+let aiMode=localStorage.getItem('ai_agent_mode')||'devin';
 
 function setMode(m){aiMode=m;localStorage.setItem('ai_agent_mode',m);}
 
@@ -659,7 +659,7 @@ function newChat(){
   document.getElementById('input').focus();
 }
 
-function loadSession(id){currentId=id;renderSidebar();renderMessages();}
+function loadSession(id){currentId=id;renderSidebar();renderMessages();maybeResume();}
 
 function deleteSession(id){
   if(working&&id===currentId){alert('Bitte zuerst den laufenden Task stoppen.');return;}
@@ -702,7 +702,7 @@ async function send(){
   if(sess.title==='Neuer Chat')sess.title=task.slice(0,40);
   sess.ts=new Date().toLocaleString('de');
   // Live worklog: append an agent message we update in place as events stream in.
-  const agent={role:'agent',steps:[],result:null,finished:false,streaming:true,status:'Agent plant'};
+  const agent={role:'agent',mode:aiMode,steps:[],result:null,finished:false,streaming:true,status:'Agent plant'};
   sess.msgs.push(agent);
   // Show uploaded filenames on the user message, then clear the picker.
   const filesToSend=selectedFiles.slice();
@@ -712,27 +712,31 @@ async function send(){
   selectedFiles=[];document.getElementById('file-input').value='';renderFileList();
   setWorking(true);
 
+  // Prior turns (everything before the just-added user msg + agent placeholder)
+  // give the agent memory of this chat; session_id keeps its workspace.
+  const hist=sess.msgs.slice(0,-2).map(m=>m.role==='user'
+      ?{role:'user',text:m.text}
+      :{role:'agent',text:(m.result||m.error||'')}).filter(x=>x.text);
+  const fd=new FormData();fd.set('task',task);
+  fd.set('session_id',currentId);
+  fd.set('history',JSON.stringify(hist));
+  fd.set('mode',aiMode);
+  for(const f of filesToSend){fd.append('files',f,f.name);}
+  await consumeStream(fd,agent,sess);
+}
+
+// Read an SSE stream from /api/ai/stream into `agent` (shared by send + resume).
+async function consumeStream(fd,agent,sess){
   function handle(ev){
-    if(ev.type==='start'){agent.status='Agent plant';}
-    else if(ev.type==='notice'){agent.steps.push({action:'notice',message:ev.message});agent.status='Warte auf Rate-Limit';}
+    if(ev.type==='start'){if(!agent.steps.length)agent.status='Agent plant';}
+    else if(ev.type==='notice'){agent.steps.push({action:'notice',message:ev.message});agent.status='Arbeitet';}
     else if(ev.type==='step'){const s=Object.assign({},ev);delete s.type;agent.steps.push(s);agent.status=(s.action==='finish')?'Fertig':'Agent arbeitet';}
     else if(ev.type==='done'){if((!agent.steps||!agent.steps.length)&&ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.files=ev.files||[];agent.streaming=false;}
     else if(ev.type==='error'){agent.error=ev.error;agent.streaming=false;}
     if(sess.id===currentId)renderMessages();
   }
-
   abortCtrl=new AbortController();
   try{
-    // Prior turns (everything before the just-added user msg + agent placeholder)
-    // give the agent memory of this chat; session_id keeps its workspace.
-    const hist=sess.msgs.slice(0,-2).map(m=>m.role==='user'
-        ?{role:'user',text:m.text}
-        :{role:'agent',text:(m.result||m.error||'')}).filter(x=>x.text);
-    const fd=new FormData();fd.set('task',task);
-    fd.set('session_id',currentId);
-    fd.set('history',JSON.stringify(hist));
-    fd.set('mode',aiMode);
-    for(const f of filesToSend){fd.append('files',f,f.name);}
     const r=await fetch('/api/ai/stream',{method:'POST',body:fd,signal:abortCtrl.signal});
     if(!r.ok||!r.body){throw new Error('HTTP '+r.status);}
     const reader=r.body.getReader();
@@ -759,8 +763,8 @@ async function send(){
       const raw=String((e&&e.message)||e);
       const netty=/load failed|networkerror|failed to fetch|http 5|http 429/i.test(raw);
       agent.error = netty
-        ? ('Verbindung unterbrochen ('+raw+'). '+(aiMode==='devin'
-            ? 'Die Devin-Session l\u00e4uft im Hintergrund weiter \u2013 schick im selben Chat nochmal eine Nachricht, um wieder anzudocken.'
+        ? ('Verbindung unterbrochen ('+raw+'). '+(agent.mode==='devin'
+            ? 'Die Devin-Session l\u00e4uft im Hintergrund weiter \u2013 \u00f6ffne den Chat sp\u00e4ter erneut, dann verbinde ich automatisch neu.'
             : 'Bei langen Aufgaben kann die Verbindung abbrechen \u2013 bitte nochmal senden.'))
         : raw;
     }
@@ -771,14 +775,38 @@ async function send(){
   save();renderSidebar();renderMessages();
 }
 
+// Reconnect to a Devin run that kept going server-side (e.g. after the device
+// was offline). Streams the current status into the existing agent message.
+async function resumeAgent(sess,agent){
+  if(working)return;
+  agent.streaming=true;agent.error=null;agent.status='Verbinde mit Devin-Session...';
+  setWorking(true);
+  if(sess.id===currentId)renderMessages();
+  const fd=new FormData();
+  fd.set('task','');fd.set('session_id',sess.id);fd.set('mode','devin');fd.set('resume','1');
+  await consumeStream(fd,agent,sess);
+}
+
+// If the current chat has an unfinished Devin run, auto-reconnect to it.
+function maybeResume(){
+  if(working)return;
+  const sess=sessions.find(s=>s.id===currentId);
+  if(!sess||!sess.msgs)return;
+  const last=sess.msgs[sess.msgs.length-1];
+  if(last&&last.role==='agent'&&last.streaming&&last.mode==='devin'){resumeAgent(sess,last);}
+}
+
 // Auto-resize textarea
 document.getElementById('input').addEventListener('input',function(){this.style.height='48px';this.style.height=Math.min(this.scrollHeight,120)+'px';});
 
 // Init
 (function(){const r=document.querySelector('input[name="aimode"][value="'+aiMode+'"]');if(r)r.checked=true;})();
-for(const s of sessions){for(const m of (s.msgs||[])){if(m.role==='agent'&&m.streaming){m.streaming=false;}}}
+// Local runs can't survive a reload (they live in the server process); drop
+// their streaming flag. Devin runs keep going server-side, so leave them so we
+// can auto-reconnect below.
+for(const s of sessions){for(const m of (s.msgs||[])){if(m.role==='agent'&&m.streaming&&m.mode!=='devin'){m.streaming=false;}}}
 if(sessions.length===0)newChat(); else{currentId=sessions[0].id;}
-renderSidebar();renderMessages();
+renderSidebar();renderMessages();maybeResume();
 </script>
 </body>
 </html>""").replace("__AI_BACKEND_LABEL__", backend_label)
@@ -848,8 +876,9 @@ async def ai_run(task: str = Form(...), session_id: str = Form(""),
 
 @app.post("/api/ai/stream")
 async def ai_stream(request: Request,
-                    task: str = Form(...), session_id: str = Form(""),
-                    history: str = Form(""), mode: str = Form("local"),
+                    task: str = Form(""), session_id: str = Form(""),
+                    history: str = Form(""), mode: str = Form("devin"),
+                    resume: str = Form(""),
                     files: list[UploadFile] = File(default=[])):
     """Live worklog: stream each agent step as it happens via Server-Sent Events.
 
@@ -864,8 +893,9 @@ async def ai_stream(request: Request,
     import queue as _queue
     import threading
 
-    # Pick the backend: the local free agent (default) or a real Devin session.
-    use_devin = (mode or "local").strip().lower() == "devin"
+    # Pick the backend: a real Devin session (default) or the local free agent.
+    is_resume = str(resume).strip().lower() in ("1", "true", "yes", "on")
+    use_devin = (mode or "devin").strip().lower() == "devin" or is_resume
     try:
         if use_devin:
             from devin_agent import run_devin_stream as _run_stream
@@ -910,7 +940,7 @@ async def ai_stream(request: Request,
         def _sse(obj):
             return f"data: {json.dumps(obj)}\n\n"
 
-        if not task:
+        if not task and not is_resume:
             yield _sse({"type": "error", "error": "Empty task."})
             return
         if len(task) > 4000:
@@ -923,8 +953,14 @@ async def ai_stream(request: Request,
 
         def _worker():
             try:
-                for event in _run_stream(effective_task, workspace=workspace,
-                                         history=turns, cancel=cancel_event):
+                if use_devin:
+                    gen = _run_stream(effective_task, workspace=workspace,
+                                      history=turns, cancel=cancel_event,
+                                      resume=is_resume)
+                else:
+                    gen = _run_stream(effective_task, workspace=workspace,
+                                      history=turns, cancel=cancel_event)
+                for event in gen:
                     q.put(event)
             except Exception as e:  # noqa: BLE001
                 q.put({"type": "error", "error": f"Agent failed: {e}"})
