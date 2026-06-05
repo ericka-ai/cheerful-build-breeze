@@ -478,9 +478,14 @@ async def debug_mob_requests():
     return JSONResponse(_REQUEST_LOG)
 
 
+_API_KEY_EXEMPT_PATHS = {"/api/barcode-decode", "/api/vdv-decode", "/api/uic-decode"}
+
+
 @app.middleware("http")
 async def check_api_key(request, call_next):
     path = request.url.path
+    if path in _API_KEY_EXEMPT_PATHS:
+        return await call_next(request)
     if path.startswith("/api/") or path == "/batch":
         api_key = request.headers.get("X-API-Key", "")
         if api_key != API_SECRET_KEY:
