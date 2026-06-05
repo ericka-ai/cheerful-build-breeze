@@ -481,7 +481,7 @@ button:disabled { background:#bbb; cursor:not-allowed; }
 .tag { display:inline-block; font-size:11px; font-weight:700; padding:2px 7px; border-radius:5px; margin-right:8px; color:#fff; }
 .tag.write_file { background:#2563eb; } .tag.run_bash { background:#7c3aed; }
 .tag.read_file { background:#0891b2; } .tag.finish { background:#16a34a; }
-.tag.invalid { background:#9ca3af; }
+.tag.invalid { background:#9ca3af; } .tag.plan { background:#0f766e; }
 .think { color:#555; font-size:13px; margin-bottom:6px; }
 pre { background:#0d1117; color:#d1d5db; padding:10px; border-radius:6px; font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-word; }
 .done { background:#ecfdf5; border:1px solid #16a34a; color:#065f46; padding:14px; border-radius:8px; font-size:14px; margin-bottom:10px; }
