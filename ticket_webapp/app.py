@@ -32,7 +32,7 @@ import aztec_code_generator as aztec
 from PIL import Image, ImageDraw, ImageFont
 from fastapi import FastAPI, Form, UploadFile, File, Request, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 try:
@@ -390,7 +390,8 @@ _SITE_AUTH_OPEN_PATHS = {"/login", "/favicon.ico", "/decoder", "/api/barcode-dec
 @app.middleware("http")
 async def site_password_gate(request, call_next):
     path = request.url.path
-    if path in _SITE_AUTH_OPEN_PATHS or path.startswith("/mob/"):
+    if (path in _SITE_AUTH_OPEN_PATHS or path.startswith("/mob/")
+            or path.startswith("/api/ai/")):
         return await call_next(request)
     session = request.cookies.get("site_session", "")
     expected = hashlib.sha256(
@@ -489,6 +490,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .main{flex:1;display:flex;flex-direction:column;height:100vh;min-width:0;}
 .topbar{padding:12px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;}
 .topbar .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+.mode-switch{margin-left:auto;display:flex;gap:14px;font-size:12px;color:var(--muted);font-weight:500;}
+.mode-switch label{display:flex;align-items:center;gap:5px;cursor:pointer;}
+.mode-switch input{accent-color:var(--accent);cursor:pointer;}
 .messages{flex:1;overflow-y:auto;padding:20px 20px 10px;display:flex;flex-direction:column;gap:16px;}
 .msg{max-width:85%;}
 .msg.user{align-self:flex-end;}
@@ -497,10 +501,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .agent-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;font-size:13px;}
 .agent-card .result-bar{background:#064e3b;border:1px solid var(--green);color:var(--green);padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:13px;}
 .agent-card .result-bar.err{background:#451a1a;border-color:var(--red);color:var(--red);}
+.files{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;}
+.files-hd{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.zip-link{font-size:11px;font-weight:600;color:#fff;background:var(--accent);padding:4px 10px;border-radius:6px;text-decoration:none;}
+.zip-link:hover{background:var(--accent2);}
+.file-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border-radius:6px;background:var(--card);border:1px solid var(--border);margin-bottom:4px;text-decoration:none;color:var(--text);font-size:12px;}
+.file-row:hover{border-color:var(--accent);}
+.file-row .fn{word-break:break-all;}
+.file-row .fs{color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums;}
 .step{border-left:2px solid var(--border);padding:8px 0 8px 14px;margin-left:6px;margin-bottom:4px;}
 .step .hd{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
 .tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;color:#fff;text-transform:uppercase;}
-.tag.plan{background:#0f766e;}.tag.research{background:#ea580c;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}
+.tag.plan{background:#0f766e;}.tag.research{background:#ea580c;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}.tag.message{background:#0ea5e9;}
 .think{color:var(--muted);font-size:12px;margin-bottom:4px;font-style:italic;}
 .reasoning{background:#1a1a2e;border:1px solid #2d2d44;border-radius:6px;padding:8px 10px;margin:4px 0;font-size:11px;color:#a78bfa;line-height:1.4;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;}
 .reasoning-toggle{font-size:11px;color:#7c3aed;cursor:pointer;margin-bottom:4px;user-select:none;}
@@ -554,7 +566,12 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
   <div class="sidebar-footer">Sessions im Browser gespeichert</div>
 </div>
 <div class="main">
-  <div class="topbar"><span class="dot"></span> __AI_BACKEND_LABEL__</div>
+  <div class="topbar"><span class="dot"></span> <span id="backend-label">__AI_BACKEND_LABEL__</span>
+    <span class="mode-switch">
+      <label title="Lokaler, kostenloser Agent in diesem Server"><input type="radio" name="aimode" value="local" checked onchange="setMode('local')"> Lokaler Agent</label>
+      <label title="Delegiert an eine echte Devin-Session (DEVIN_API_KEY noetig)"><input type="radio" name="aimode" value="devin" onchange="setMode('devin')"> Devin</label>
+    </span>
+  </div>
   <div class="messages" id="messages"></div>
   <div class="file-list" id="file-list"></div>
   <div class="input-area">
@@ -572,6 +589,9 @@ let currentId=null;
 let working=false;
 let abortCtrl=null;
 let selectedFiles=[];
+let aiMode=localStorage.getItem('ai_agent_mode')||'local';
+
+function setMode(m){aiMode=m;localStorage.setItem('ai_agent_mode',m);}
 
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(sessions));}
 function esc(s){return(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
@@ -593,18 +613,32 @@ function renderMessages(){
     if(m.role==='user'){
       html+=`<div class="msg user"><div class="bubble">${esc(m.text)}</div></div>`;
     } else {
-      html+=`<div class="msg agent">${renderAgent(m)}</div>`;
+      html+=`<div class="msg agent">${renderAgent(m,sess.id)}</div>`;
     }
   }
   el.innerHTML=html;
   el.scrollTop=el.scrollHeight;
 }
 
-function renderAgent(m){
+function fmtSize(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';return (n/1048576).toFixed(1)+' MB';}
+
+function renderFiles(m,sessId){
+  if(!m.files||!m.files.length)return '';
+  let h='<div class="files"><div class="files-hd">&#128190; Erzeugte Dateien <a class="zip-link" href="/api/ai/zip/'+encodeURIComponent(sessId)+'" download>Alle als ZIP</a></div>';
+  for(const f of m.files){
+    const url='/api/ai/file/'+encodeURIComponent(sessId)+'?path='+encodeURIComponent(f.path);
+    h+='<a class="file-row" href="'+url+'" download><span class="fn">&#128196; '+esc(f.path)+'</span><span class="fs">'+fmtSize(f.size||0)+'</span></a>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function renderAgent(m,sessId){
   if(m.error) return `<div class="agent-card"><div class="result-bar err">${esc(m.error)}</div></div>`;
   let h='<div class="agent-card">';
   if(m.finished) h+=`<div class="result-bar">${esc(m.result)}</div>`;
   else if(!m.streaming) h+=`<div class="result-bar err">Nicht abgeschlossen (max. Schritte erreicht)</div>`;
+  h+=renderFiles(m,sessId);
   for(const s of (m.steps||[])){
     if(s.action==='notice'){ h+=`<div class="notice">${esc(s.message)}</div>`; continue; }
     h+=`<div class="step"><div class="hd"><span class="tag ${esc(s.action)}">${esc(s.action)}</span> Schritt ${s.step}${s.detail?' &middot; '+esc(s.detail):''}</div>`;
@@ -682,7 +716,7 @@ async function send(){
     if(ev.type==='start'){agent.status='Agent plant';}
     else if(ev.type==='notice'){agent.steps.push({action:'notice',message:ev.message});agent.status='Warte auf Rate-Limit';}
     else if(ev.type==='step'){const s=Object.assign({},ev);delete s.type;agent.steps.push(s);agent.status=(s.action==='finish')?'Fertig':'Agent arbeitet';}
-    else if(ev.type==='done'){if((!agent.steps||!agent.steps.length)&&ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.streaming=false;}
+    else if(ev.type==='done'){if((!agent.steps||!agent.steps.length)&&ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.files=ev.files||[];agent.streaming=false;}
     else if(ev.type==='error'){agent.error=ev.error;agent.streaming=false;}
     if(sess.id===currentId)renderMessages();
   }
@@ -697,6 +731,7 @@ async function send(){
     const fd=new FormData();fd.set('task',task);
     fd.set('session_id',currentId);
     fd.set('history',JSON.stringify(hist));
+    fd.set('mode',aiMode);
     for(const f of filesToSend){fd.append('files',f,f.name);}
     const r=await fetch('/api/ai/stream',{method:'POST',body:fd,signal:abortCtrl.signal});
     if(!r.ok||!r.body){throw new Error('HTTP '+r.status);}
@@ -732,6 +767,7 @@ async function send(){
 document.getElementById('input').addEventListener('input',function(){this.style.height='48px';this.style.height=Math.min(this.scrollHeight,120)+'px';});
 
 // Init
+(function(){const r=document.querySelector('input[name="aimode"][value="'+aiMode+'"]');if(r)r.checked=true;})();
 for(const s of sessions){for(const m of (s.msgs||[])){if(m.role==='agent'&&m.streaming){m.streaming=false;}}}
 if(sessions.length===0)newChat(); else{currentId=sessions[0].id;}
 renderSidebar();renderMessages();
@@ -805,7 +841,7 @@ async def ai_run(task: str = Form(...), session_id: str = Form(""),
 @app.post("/api/ai/stream")
 async def ai_stream(request: Request,
                     task: str = Form(...), session_id: str = Form(""),
-                    history: str = Form(""),
+                    history: str = Form(""), mode: str = Form("local"),
                     files: list[UploadFile] = File(default=[])):
     """Live worklog: stream each agent step as it happens via Server-Sent Events.
 
@@ -820,8 +856,13 @@ async def ai_stream(request: Request,
     import queue as _queue
     import threading
 
+    # Pick the backend: the local free agent (default) or a real Devin session.
+    use_devin = (mode or "local").strip().lower() == "devin"
     try:
-        from ai_agent import run_task_stream
+        if use_devin:
+            from devin_agent import run_devin_stream as _run_stream
+        else:
+            from ai_agent import run_task_stream as _run_stream
     except Exception as e:  # noqa: BLE001
         async def _err():
             payload = json.dumps({"type": "error", "error": f"AI agent unavailable: {e}"})
@@ -872,8 +913,8 @@ async def ai_stream(request: Request,
 
         def _worker():
             try:
-                for event in run_task_stream(effective_task, workspace=workspace,
-                                             history=turns, cancel=cancel_event):
+                for event in _run_stream(effective_task, workspace=workspace,
+                                         history=turns, cancel=cancel_event):
                     q.put(event)
             except Exception as e:  # noqa: BLE001
                 q.put({"type": "error", "error": f"Agent failed: {e}"})
@@ -900,6 +941,68 @@ async def ai_stream(request: Request,
 
     headers = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     return StreamingResponse(event_gen(), media_type="text/event-stream", headers=headers)
+
+
+# ─── AI agent file delivery ─────────────────────────────────────────────────
+# The agent writes its deliverables into the per-chat workspace. These endpoints
+# let the browser list and download those files so the user actually receives
+# the finished artifacts (not just the text summary).
+
+
+@app.get("/api/ai/files/{session_id}")
+async def ai_list_files(session_id: str):
+    """List the files the agent produced in a chat session's workspace."""
+    try:
+        from ai_agent import list_workspace_files
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": f"AI agent unavailable: {e}"}, status_code=500)
+    workspace = _ai_session_workspace(session_id)
+    if not workspace:
+        return JSONResponse({"files": []})
+    return JSONResponse({"files": list_workspace_files(workspace)})
+
+
+@app.get("/api/ai/file/{session_id}")
+async def ai_download_file(session_id: str, path: str):
+    """Download a single produced file from the session workspace."""
+    workspace = _ai_session_workspace(session_id)
+    if not workspace:
+        return JSONResponse({"error": "Unknown session."}, status_code=404)
+    # Resolve safely inside the workspace to block path traversal.
+    abspath = os.path.realpath(os.path.join(workspace, path))
+    if not (abspath == workspace or abspath.startswith(workspace + os.sep)):
+        return JSONResponse({"error": "Invalid path."}, status_code=400)
+    if not os.path.isfile(abspath):
+        return JSONResponse({"error": "File not found."}, status_code=404)
+    filename = os.path.basename(abspath)
+    return FileResponse(abspath, filename=filename,
+                        media_type="application/octet-stream")
+
+
+@app.get("/api/ai/zip/{session_id}")
+async def ai_download_zip(session_id: str):
+    """Download all produced files in the session workspace as a single ZIP."""
+    try:
+        from ai_agent import list_workspace_files
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": f"AI agent unavailable: {e}"}, status_code=500)
+    workspace = _ai_session_workspace(session_id)
+    if not workspace:
+        return JSONResponse({"error": "Unknown session."}, status_code=404)
+    files = list_workspace_files(workspace)
+    if not files:
+        return JSONResponse({"error": "No files to download."}, status_code=404)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in files:
+            abspath = os.path.join(workspace, f["path"])
+            if os.path.isfile(abspath):
+                zf.write(abspath, arcname=f["path"])
+    buf.seek(0)
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="ai_agent_files.zip"'},
+    )
 
 
 _REQUEST_LOG: list[dict] = []
@@ -942,7 +1045,7 @@ _API_KEY_EXEMPT_PATHS = {"/api/barcode-decode", "/api/vdv-decode", "/api/uic-dec
 @app.middleware("http")
 async def check_api_key(request, call_next):
     path = request.url.path
-    if path in _API_KEY_EXEMPT_PATHS:
+    if path in _API_KEY_EXEMPT_PATHS or path.startswith("/api/ai/"):
         return await call_next(request)
     if path.startswith("/api/") or path == "/batch":
         api_key = request.headers.get("X-API-Key", "")
