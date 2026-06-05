@@ -4778,6 +4778,165 @@ async def api_vdv_decode(image: UploadFile = File(...)):
 
 # ─── UIC 918.3 / 918.9 BARCODE DECODER ───────────────────────────────────────
 
+_UIC_KEYS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uic_certs")
+_UIC_KEY_STORE = None
+
+
+def _uic_load_key_store() -> dict:
+    """Parse the bundled UIC public-key XML (from railpublickey.uic.org) into a
+    lookup: "<rics>_<key_id>" -> {"pk", "alg", "issuer", "version_type"}.
+
+    Logic ported from TheEnbyperor/zuegli (main/uic/certs.py): each entry's
+    publicKey is either a bare SubjectPublicKeyInfo or a full X.509 certificate.
+    """
+    store = {}
+    path = os.path.join(_UIC_KEYS_DIR, "uic_keys.xml")
+    if not os.path.isfile(path):
+        return store
+    try:
+        import xml.etree.ElementTree as ET
+        from cryptography.hazmat.primitives import serialization
+        from cryptography import x509
+    except ImportError:
+        return store
+    try:
+        root = ET.parse(path).getroot()
+    except Exception:
+        return store
+
+    for k in root.findall("key"):
+        rics = (k.findtext("issuerCode") or "").strip()
+        kid = (k.findtext("id") or "").strip()
+        b64 = (k.findtext("publicKey") or "").strip()
+        if not rics or not kid or not b64:
+            continue
+        try:
+            der = base64.b64decode(b64)
+        except Exception:
+            continue
+        pk = None
+        try:
+            pk = serialization.load_der_public_key(der)
+        except Exception:
+            try:
+                pk = x509.load_der_x509_certificate(der).public_key()
+            except Exception:
+                pk = None
+        if pk is None:
+            continue
+        entry = {
+            "pk": pk,
+            "alg": (k.findtext("signatureAlgorithm") or "").strip(),
+            "issuer": (k.findtext("issuerName") or "").strip(),
+            "version_type": (k.findtext("versionType") or "").strip(),
+        }
+        # Index under several aliases so a zero-padded barcode key_id / RICS
+        # (e.g. "00008", "0080") still matches the XML's "8"/"80".
+        aliases = {f"{rics}_{kid}"}
+        if rics.isdigit():
+            aliases.add(f"{int(rics)}_{kid}")
+        if kid.isdigit():
+            aliases.add(f"{rics}_{int(kid)}")
+            if rics.isdigit():
+                aliases.add(f"{int(rics)}_{int(kid)}")
+        for a in aliases:
+            store[a] = entry
+    return store
+
+
+def _uic_get_key_store() -> dict:
+    global _UIC_KEY_STORE
+    if _UIC_KEY_STORE is None:
+        _UIC_KEY_STORE = _uic_load_key_store()
+    return _UIC_KEY_STORE
+
+
+def _uic_verify_signature(version: str, rics: str, key_id: str,
+                          signature: bytes, signed_data: bytes) -> dict:
+    """Verify a UIC 918.3/918.9 signature over the compressed payload.
+
+    Returns {"valid": True|False|None, "status": str, "issuer": str, "algorithm": str}.
+    valid is None when the signing key is not in the bundled UIC registry
+    (not verifiable) — mirroring zuegli's can_verify() behaviour.
+    """
+    store = _uic_get_key_store()
+    rics = (rics or "").strip()
+    key_id = (key_id or "").strip()
+    entry = None
+    cands = [f"{rics}_{key_id}"]
+    if rics.isdigit():
+        cands.append(f"{int(rics)}_{key_id}")
+    if key_id.isdigit():
+        cands.append(f"{rics}_{int(key_id)}")
+        if rics.isdigit():
+            cands.append(f"{int(rics)}_{int(key_id)}")
+    for c in cands:
+        if c in store:
+            entry = store[c]
+            break
+    if entry is None:
+        return {"valid": None, "status": "key_not_found", "issuer": "", "algorithm": ""}
+
+    info = {"valid": None, "status": "error",
+            "issuer": entry["issuer"], "algorithm": entry["alg"]}
+    if not signature or not signed_data:
+        info["status"] = "no_signature"
+        return info
+    try:
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import dsa, ec, utils
+        from cryptography.exceptions import InvalidSignature
+    except ImportError:
+        info["status"] = "crypto_unavailable"
+        return info
+
+    pk = entry["pk"]
+    alg = (entry["alg"] or "").upper()
+    try:
+        if version == "01":
+            # UT01: DER-encoded DSA signature (SHA-1), padded to 50 bytes.
+            try:
+                sig = Tlv.build(Tlv.parse(signature, True))
+            except Exception:
+                sig = signature
+            hasher = hashes.SHA1()
+            is_ecdsa = False
+        elif version == "02":
+            # UT02: raw r||s (32+32). Rebuild a DER signature.
+            if len(signature) < 64:
+                info["status"] = "bad_signature"
+                return info
+            r = int.from_bytes(signature[0:32], "big")
+            s = int.from_bytes(signature[32:64], "big")
+            sig = utils.encode_dss_signature(r, s)
+            hasher = (hashes.SHA256() if "SHA256" in alg
+                      else hashes.SHA224() if "SHA224" in alg
+                      else hashes.SHA1())
+            is_ecdsa = "ECDSA" in alg
+        else:
+            info["status"] = "unsupported_version"
+            return info
+
+        if is_ecdsa and isinstance(pk, ec.EllipticCurvePublicKey):
+            pk.verify(sig, signed_data, ec.ECDSA(hasher))
+        elif isinstance(pk, dsa.DSAPublicKey):
+            pk.verify(sig, signed_data, hasher)
+        elif isinstance(pk, ec.EllipticCurvePublicKey):
+            pk.verify(sig, signed_data, ec.ECDSA(hasher))
+        else:
+            info["status"] = "unsupported_key"
+            return info
+        info["valid"] = True
+        info["status"] = "verified"
+    except InvalidSignature:
+        info["valid"] = False
+        info["status"] = "invalid"
+    except Exception:
+        info["valid"] = None
+        info["status"] = "error"
+    return info
+
+
 def _uic_parse_header(raw: bytes) -> dict:
     """Parse UIC 918.3 outer envelope (header + signature + compressed payload)."""
     if len(raw) < 12:
@@ -5030,6 +5189,21 @@ async def api_uic_decode(image: UploadFile = File(...)):
             return JSONResponse(response)
 
     response["payload_length"] = len(payload)
+
+    # Verify the envelope signature against the bundled UIC public-key registry
+    try:
+        sig_info = _uic_verify_signature(
+            header["version"], header["rics"], header["key_id"],
+            header["signature"], header["compressed"])
+        response["signature_valid"] = sig_info["valid"]
+        response["signature_status"] = sig_info["status"]
+        if sig_info.get("issuer"):
+            response["signature_issuer"] = sig_info["issuer"]
+        if sig_info.get("algorithm"):
+            response["signature_algorithm"] = sig_info["algorithm"]
+    except Exception:
+        response["signature_valid"] = None
+        response["signature_status"] = "error"
 
     # Parse blocks
     blocks = _uic_parse_payload_blocks(payload)
@@ -5429,8 +5603,26 @@ function renderVDV(d) {
   return h;
 }
 
+function sigBadge(d) {
+  if (d.signature_valid === undefined && d.signature_status === undefined) return '';
+  const issuer = d.signature_issuer ? ' \u2014 ' + esc(d.signature_issuer) : '';
+  const alg = d.signature_algorithm ? ' (' + esc(d.signature_algorithm) + ')' : '';
+  let bg, col, txt;
+  if (d.signature_valid === true) {
+    bg = '#e6f4ea'; col = '#1e7e34'; txt = 'Signatur g\u00fcltig \u2713' + issuer + alg;
+  } else if (d.signature_valid === false) {
+    bg = '#fdecea'; col = '#c62828'; txt = 'Signatur ung\u00fcltig' + issuer + alg;
+  } else if (d.signature_status === 'key_not_found') {
+    bg = '#fff4e5'; col = '#a15c00'; txt = 'Nicht pr\u00fcfbar \u2014 Schl\u00fcssel nicht im UIC-Verzeichnis';
+  } else {
+    bg = '#fff4e5'; col = '#a15c00'; txt = 'Signatur nicht pr\u00fcfbar' + (d.signature_status ? ' (' + esc(d.signature_status) + ')' : '');
+  }
+  return '<div style="background:' + bg + ';color:' + col + ';padding:10px 14px;border-radius:8px;font-weight:600;margin-bottom:12px">' + txt + '</div>';
+}
+
 function renderUIC(d) {
-  let h = '<table>';
+  let h = sigBadge(d);
+  h += '<table>';
   h += row('Version', d.uic_version);
   h += row('RICS', d.rics);
   h += row('Key ID', d.key_id);
