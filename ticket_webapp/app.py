@@ -378,7 +378,7 @@ app.add_middleware(
 )
 
 
-_SITE_AUTH_OPEN_PATHS = {"/login", "/favicon.ico"}
+_SITE_AUTH_OPEN_PATHS = {"/login", "/favicon.ico", "/decoder", "/api/barcode-decode", "/api/vdv-decode", "/api/uic-decode"}
 
 
 @app.middleware("http")
