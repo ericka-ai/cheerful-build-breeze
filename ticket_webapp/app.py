@@ -462,81 +462,171 @@ async def ai_page():
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Agent</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f5f5f5; color:#1a1a1a; padding:24px; }
-.wrap { max-width:820px; margin:0 auto; }
-h1 { color:#EC0016; font-size:24px; margin-bottom:4px; }
-p.sub { color:#6b6b6b; font-size:14px; margin-bottom:20px; }
-textarea { width:100%; min-height:90px; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:15px; resize:vertical; }
-textarea:focus { outline:none; border-color:#EC0016; }
-.row { display:flex; gap:10px; margin-top:12px; align-items:center; }
-button { padding:12px 20px; background:#EC0016; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; }
-button:hover { background:#c40014; }
-button:disabled { background:#bbb; cursor:not-allowed; }
-.examples { font-size:13px; color:#6b6b6b; margin-top:10px; }
-.examples a { color:#EC0016; cursor:pointer; text-decoration:underline; margin-right:12px; }
-#out { margin-top:24px; }
-.step { background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:12px 14px; margin-bottom:10px; }
-.step .hd { font-weight:600; font-size:13px; color:#333; margin-bottom:6px; }
-.tag { display:inline-block; font-size:11px; font-weight:700; padding:2px 7px; border-radius:5px; margin-right:8px; color:#fff; }
-.tag.write_file { background:#2563eb; } .tag.run_bash { background:#7c3aed; }
-.tag.read_file { background:#0891b2; } .tag.finish { background:#16a34a; }
-.tag.invalid { background:#9ca3af; } .tag.plan { background:#0f766e; }
-.think { color:#555; font-size:13px; margin-bottom:6px; }
-pre { background:#0d1117; color:#d1d5db; padding:10px; border-radius:6px; font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-word; }
-.done { background:#ecfdf5; border:1px solid #16a34a; color:#065f46; padding:14px; border-radius:8px; font-size:14px; margin-bottom:10px; }
-.err { background:#fef2f2; border:1px solid #EC0016; color:#991b1b; padding:14px; border-radius:8px; font-size:14px; }
-.spin { display:inline-block; margin-left:10px; color:#6b6b6b; font-size:14px; }
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0f0f11;--sidebar:#18181b;--chat:#0f0f11;--card:#1e1e24;--border:#2a2a30;--accent:#7c3aed;--accent2:#6d28d9;--text:#e2e8f0;--muted:#94a3b8;--green:#10b981;--red:#ef4444;--blue:#3b82f6;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);display:flex;}
+/* Sidebar */
+.sidebar{width:260px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;flex-shrink:0;}
+.sidebar .logo{padding:20px 16px 12px;font-size:18px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px;}
+.sidebar .logo span{color:var(--accent);}
+.new-btn{margin:0 12px 12px;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.new-btn:hover{background:var(--accent2);}
+.sessions{flex:1;overflow-y:auto;padding:0 8px;}
+.sess-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--muted);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sess-item:hover{background:var(--card);}
+.sess-item.active{background:var(--card);color:#fff;}
+.sess-item .ts{font-size:11px;color:#64748b;margin-top:2px;}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);font-size:12px;color:#64748b;}
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;height:100vh;min-width:0;}
+.topbar{padding:12px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;}
+.topbar .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+.messages{flex:1;overflow-y:auto;padding:20px 20px 10px;display:flex;flex-direction:column;gap:16px;}
+.msg{max-width:85%;}
+.msg.user{align-self:flex-end;}
+.msg.agent{align-self:flex-start;width:100%;max-width:100%;}
+.msg.user .bubble{background:var(--accent);color:#fff;padding:10px 14px;border-radius:16px 16px 4px 16px;font-size:14px;line-height:1.5;}
+.agent-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;font-size:13px;}
+.agent-card .result-bar{background:#064e3b;border:1px solid var(--green);color:var(--green);padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:13px;}
+.agent-card .result-bar.err{background:#451a1a;border-color:var(--red);color:var(--red);}
+.step{border-left:2px solid var(--border);padding:8px 0 8px 14px;margin-left:6px;margin-bottom:4px;}
+.step .hd{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;color:#fff;text-transform:uppercase;}
+.tag.plan{background:#0f766e;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}
+.think{color:var(--muted);font-size:12px;margin-bottom:4px;font-style:italic;}
+pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-size:11px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin-top:4px;}
+/* Input */
+.input-area{padding:12px 20px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;}
+.input-area textarea{flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:12px;font-size:14px;resize:none;min-height:48px;max-height:120px;line-height:1.4;}
+.input-area textarea:focus{outline:none;border-color:var(--accent);}
+.input-area textarea::placeholder{color:#64748b;}
+.send-btn{width:40px;height:40px;background:var(--accent);border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.send-btn:hover{background:var(--accent2);}
+.send-btn:disabled{background:#4a4a52;cursor:not-allowed;}
+.send-btn svg{fill:#fff;width:18px;height:18px;}
+.working{text-align:center;color:var(--muted);font-size:13px;padding:10px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.working .dots span{animation:blink 1.4s infinite both;}
+.working .dots span:nth-child(2){animation-delay:0.2s;}
+.working .dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes blink{0%,80%,100%{opacity:0.3;}40%{opacity:1;}}
+.welcome{text-align:center;padding:60px 20px;color:var(--muted);}
+.welcome h2{color:#fff;font-size:20px;margin-bottom:8px;}
+.welcome p{font-size:14px;margin-bottom:20px;}
+.welcome .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.welcome .chip{background:var(--card);border:1px solid var(--border);padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;color:var(--text);}
+.welcome .chip:hover{border-color:var(--accent);color:var(--accent);}
+@media(max-width:768px){.sidebar{display:none;}.main{width:100%;}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>AI Agent</h1>
-  <p class="sub">Gib eine Aufgabe ein. Der Agent schreibt das Skript selbst, fuehrt es aus, prueft das Ergebnis und korrigiert Fehler bis es funktioniert.</p>
-  <textarea id="task" placeholder="z.B. Erstell ein Python-Skript, das die 5 groessten Dateien in einem Ordner ausgibt, und teste es."></textarea>
-  <div class="examples">
-    Beispiele:
-    <a onclick="setT('Erstell ein bash-Skript greet.sh das einen Namen als Argument nimmt und Hello, NAME! ausgibt. Teste es mit World.')">greet.sh</a>
-    <a onclick="setT('Schreibe ein Python-Skript, das eine CSV-Datei mit 3 Beispielzeilen erzeugt und dann die Zeilen zaehlt.')">CSV zaehlen</a>
-    <a onclick="setT('Schreibe ein Python-Skript, das die ersten 20 Fibonacci-Zahlen ausgibt, und teste es.')">Fibonacci</a>
+<div class="sidebar">
+  <div class="logo"><span>&#9670;</span> AI Agent</div>
+  <button class="new-btn" onclick="newChat()">+ Neuer Chat</button>
+  <div class="sessions" id="sess-list"></div>
+  <div class="sidebar-footer">Sessions im Browser gespeichert</div>
+</div>
+<div class="main">
+  <div class="topbar"><span class="dot"></span> Groq &middot; llama-3.3-70b-versatile</div>
+  <div class="messages" id="messages"></div>
+  <div class="input-area">
+    <textarea id="input" placeholder="Schreib deine Aufgabe..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"></textarea>
+    <button class="send-btn" id="send-btn" onclick="send()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
   </div>
-  <div class="row">
-    <button id="run" onclick="run()">Ausfuehren</button>
-    <span class="spin" id="spin" style="display:none">Agent arbeitet...</span>
-  </div>
-  <div id="out"></div>
 </div>
 <script>
-function setT(t){ document.getElementById('task').value = t; }
-function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
-async function run(){
-  const task = document.getElementById('task').value.trim();
-  const out = document.getElementById('out');
-  if(!task){ out.innerHTML = '<div class="err">Bitte eine Aufgabe eingeben.</div>'; return; }
-  const btn = document.getElementById('run');
-  btn.disabled = true; document.getElementById('spin').style.display='inline';
-  out.innerHTML = '';
-  try {
-    const body = new URLSearchParams(); body.set('task', task);
-    const r = await fetch('/api/ai/run', { method:'POST', body });
-    const data = await r.json();
-    if(data.error){ out.innerHTML = '<div class="err">'+esc(data.error)+'</div>'; return; }
-    let html = '';
-    if(data.finished){ html += '<div class="done"><b>Fertig.</b> '+esc(data.result)+'</div>'; }
-    else { html += '<div class="err">Nicht abgeschlossen (max. Schritte erreicht).</div>'; }
-    for(const s of data.steps){
-      html += '<div class="step"><div class="hd"><span class="tag '+esc(s.action)+'">'+esc(s.action)+'</span> Schritt '+s.step+(s.detail?(' &middot; '+esc(s.detail)):'')+'</div>';
-      if(s.thought){ html += '<div class="think">'+esc(s.thought)+'</div>'; }
-      if(s.observation){ html += '<pre>'+esc(s.observation)+'</pre>'; }
-      html += '</div>';
-    }
-    out.innerHTML = html;
-  } catch(e){
-    out.innerHTML = '<div class="err">Fehler: '+esc(String(e))+'</div>';
-  } finally {
-    btn.disabled = false; document.getElementById('spin').style.display='none';
-  }
+const STORAGE_KEY='ai_agent_sessions';
+let sessions=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+let currentId=null;
+let working=false;
+
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(sessions));}
+function esc(s){return(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+function renderSidebar(){
+  const el=document.getElementById('sess-list');
+  el.innerHTML=sessions.map(s=>`<div class="sess-item${s.id===currentId?' active':''}" onclick="loadSession('${s.id}')"><div>${esc(s.title)}</div><div class="ts">${s.ts}</div></div>`).join('');
 }
+
+function renderMessages(){
+  const el=document.getElementById('messages');
+  const sess=sessions.find(s=>s.id===currentId);
+  if(!sess||sess.msgs.length===0){
+    el.innerHTML=`<div class="welcome"><h2>AI Agent</h2><p>Gib eine Aufgabe ein. Der Agent plant, schreibt Code, fuehrt ihn aus und korrigiert Fehler selbststaendig.</p><div class="chips"><div class="chip" onclick="setTask('Erstell ein bash-Skript greet.sh das Hello, World! ausgibt und teste es.')">greet.sh</div><div class="chip" onclick="setTask('Schreibe ein Python-Skript, das alle Primzahlen bis 50 ausgibt, und teste es.')">Primzahlen</div><div class="chip" onclick="setTask('Schreibe ein Python-Skript, das die ersten 20 Fibonacci-Zahlen ausgibt, und teste es.')">Fibonacci</div></div></div>`;
+    return;
+  }
+  let html='';
+  for(const m of sess.msgs){
+    if(m.role==='user'){
+      html+=`<div class="msg user"><div class="bubble">${esc(m.text)}</div></div>`;
+    } else {
+      html+=`<div class="msg agent">${renderAgent(m)}</div>`;
+    }
+  }
+  el.innerHTML=html;
+  el.scrollTop=el.scrollHeight;
+}
+
+function renderAgent(m){
+  if(m.error) return `<div class="agent-card"><div class="result-bar err">${esc(m.error)}</div></div>`;
+  let h='<div class="agent-card">';
+  if(m.finished) h+=`<div class="result-bar">${esc(m.result)}</div>`;
+  else h+=`<div class="result-bar err">Nicht abgeschlossen (max. Schritte erreicht)</div>`;
+  for(const s of (m.steps||[])){
+    h+=`<div class="step"><div class="hd"><span class="tag ${esc(s.action)}">${esc(s.action)}</span> Schritt ${s.step}${s.detail?' &middot; '+esc(s.detail):''}</div>`;
+    if(s.thought) h+=`<div class="think">${esc(s.thought)}</div>`;
+    if(s.observation) h+=`<pre>${esc(s.observation)}</pre>`;
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+function newChat(){
+  const id='s_'+Date.now();
+  sessions.unshift({id,title:'Neuer Chat',ts:new Date().toLocaleString('de'),msgs:[]});
+  currentId=id;save();renderSidebar();renderMessages();
+  document.getElementById('input').focus();
+}
+
+function loadSession(id){currentId=id;renderSidebar();renderMessages();}
+
+function setTask(t){document.getElementById('input').value=t;}
+
+async function send(){
+  if(working)return;
+  const inp=document.getElementById('input');
+  const task=inp.value.trim();
+  if(!task)return;
+  if(!currentId)newChat();
+  const sess=sessions.find(s=>s.id===currentId);
+  sess.msgs.push({role:'user',text:task});
+  if(sess.title==='Neuer Chat')sess.title=task.slice(0,40);
+  sess.ts=new Date().toLocaleString('de');
+  save();renderSidebar();renderMessages();
+  inp.value='';inp.style.height='48px';
+  working=true;
+  document.getElementById('send-btn').disabled=true;
+  const msgEl=document.getElementById('messages');
+  msgEl.innerHTML+=`<div class="working" id="work-indicator"><span class="dots"><span>.</span><span>.</span><span>.</span></span>&nbsp;Agent arbeitet</div>`;
+  msgEl.scrollTop=msgEl.scrollHeight;
+  try{
+    const body=new URLSearchParams();body.set('task',task);
+    const r=await fetch('/api/ai/run',{method:'POST',body});
+    const data=await r.json();
+    if(data.error){sess.msgs.push({role:'agent',error:data.error});}
+    else{sess.msgs.push({role:'agent',steps:data.steps,result:data.result,finished:data.finished});}
+  }catch(e){sess.msgs.push({role:'agent',error:String(e)});}
+  working=false;document.getElementById('send-btn').disabled=false;
+  save();renderSidebar();renderMessages();
+}
+
+// Auto-resize textarea
+document.getElementById('input').addEventListener('input',function(){this.style.height='48px';this.style.height=Math.min(this.scrollHeight,120)+'px';});
+
+// Init
+if(sessions.length===0)newChat(); else{currentId=sessions[0].id;}
+renderSidebar();renderMessages();
 </script>
 </body>
 </html>"""
