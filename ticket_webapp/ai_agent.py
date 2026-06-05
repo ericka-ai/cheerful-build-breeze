@@ -45,6 +45,13 @@ _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 # default gpt-oss model). Set AI_AGENT_JSON_MODE=0 to disable.
 JSON_MODE = os.environ.get("AI_AGENT_JSON_MODE", "1") not in ("0", "false", "")
 
+# Model used for the agent's `research` action. Groq's "compound" models have
+# built-in live web search, so the agent can look up facts it is unsure about
+# (e.g. niche ticketing/barcode standards) instead of guessing. The mini
+# variant fits the free-tier per-request size limit.
+RESEARCH_MODEL = os.environ.get("AI_AGENT_RESEARCH_MODEL", "groq/compound-mini")
+RESEARCH_MAX_TOKENS = int(os.environ.get("AI_AGENT_RESEARCH_MAX_TOKENS", "1200"))
+
 
 SYSTEM_PROMPT = """\
 You are an autonomous software engineer, similar to Devin. You take a task and
@@ -55,12 +62,14 @@ You MUST reply with a SINGLE JSON object and nothing else. No prose outside the
 JSON. The JSON has exactly these fields:
   {
     "thought": "<your reasoning about the next step, in clear language>",
-    "action": "<one of: plan, write_file, read_file, run_bash, finish>",
+    "action": "<one of: plan, research, write_file, read_file, run_bash, finish>",
     "params": { ... }
   }
 
 Action parameters:
   - plan:       {"steps": ["step 1", "step 2", ...]}   # use this FIRST, once
+  - research:   {"query": "<a specific question>"}     # live web lookup; use it
+                                                       # when unsure of a fact
   - write_file: {"path": "relative path", "content": "<full file content>"}
   - read_file:  {"path": "relative path"}
   - run_bash:   {"command": "<one shell command>"}    # also to install deps,
@@ -77,6 +86,12 @@ How to work (like Devin):
     user refers to "that"/"it" or to something from before, find it and use it.
   - ALWAYS verify your work by RUNNING it with run_bash and reading the output.
     Never "finish" without having actually run it and checked the result.
+  - THINK, AND RESEARCH WHEN UNSURE. If you are not certain about a fact, a
+    standard, a wire format, a field layout, an algorithm, a library API, or any
+    detail — do NOT guess or invent it. Use the `research` action to look it up
+    on the live web first, then build on the real answer. This is exactly how a
+    senior engineer works: confirm the spec, then implement. Prefer one focused
+    research query over several vague ones.
   - Write code carefully BEFORE running it: re-read it for syntax (matched
     parentheses/quotes/colons) so you don't waste a step on a trivial error.
   - If something fails (non-zero exit code or wrong output), read the error
@@ -109,6 +124,28 @@ Cryptography expertise:
         -> `.p`, `.q`, `.g`. Print them as decimal `int`s.
       * RSA: `.private_numbers()` -> `p`, `q`, `d`; `.public_numbers()` -> `n`, `e`.
     Print very large integers in full (decimal); the user wants the real digits.
+
+Barcodes & transit ticketing expertise:
+  - You are knowledgeable about 2D barcode symbologies and transport ticketing
+    standards. Useful background (verify exact details with `research` when it
+    matters):
+      * UIC 918.3 / ERA TAP-TSI "barcode" rail e-ticket: payload is carried in
+        an Aztec Code, container starts with magic "#UT", a version, a 4-char
+        RICS issuer/security-provider code and a key id, then a DSA/ECDSA
+        signature over a zlib-DEFLATE-compressed ASN.1 record set (record ids
+        like U_HEAD, U_TLAY, U_FLEX...). Flexible content uses ASN.1 (UPER).
+      * VDV-KA / "VDV eTicket Deutschland" barcode (a.k.a. VDV-Barcode / EFS):
+        static ticket data in a TLV/ASN.1 structure with a signature, encoded in
+        an Aztec Code. Distinct from UIC 918.3.
+      * Symbologies: Aztec, QR, PDF417, DataMatrix, Code128 — know their
+        capacity, error-correction and typical use.
+      * Encodings: ASN.1 BER/DER/PER/UPER, TLV, base64, zlib/DEFLATE.
+  - Relevant libraries are commonly available and you may pip install as needed:
+    `asn1tools` (ASN.1 schemas), `ber_tlv` (TLV), `aztec_code_generator`
+    (Aztec), `pyzbar`/`zxing` (decoding), plus the crypto libs above.
+  - When a task touches a specific standard or field layout you are not 100%
+    sure about, RESEARCH it first (e.g. "UIC 918.3 barcode header byte layout"),
+    then implement against the confirmed spec instead of guessing.
 
 Begin now with your "plan" action."""
 
@@ -147,11 +184,14 @@ def _retry_after_seconds(resp, attempt):
     return min(RETRY_BASE_DELAY * (2 ** attempt), RETRY_MAX_DELAY)
 
 
-def _groq_chat(messages, on_retry=None):
+def _groq_chat(messages, on_retry=None, model=None, json_mode=None,
+               max_tokens=None):
     """Call the Groq chat API, retrying transient failures with backoff.
 
     `on_retry`, if given, is called as on_retry(message:str) before each wait so
     the live worklog can show that a short rate limit is being handled.
+    `model`/`json_mode`/`max_tokens` override the defaults (used by the research
+    action, which talks to a web-capable model and does not want JSON mode).
     """
     if not GROQ_API_KEY:
         raise AgentError(
@@ -165,10 +205,13 @@ def _groq_chat(messages, on_retry=None):
         "Content-Type": "application/json",
         "User-Agent": "ubuntu-agent/1.0",
     }
-    payload = {"model": GROQ_MODEL, "messages": messages, "temperature": 0.2}
+    payload = {"model": model or GROQ_MODEL, "messages": messages,
+               "temperature": 0.2}
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
     # Force valid JSON so the agent never wastes a step on an unparseable reply.
     # If a model doesn't support JSON mode we transparently fall back below.
-    use_json = JSON_MODE
+    use_json = JSON_MODE if json_mode is None else json_mode
     if use_json:
         payload["response_format"] = {"type": "json_object"}
 
@@ -308,6 +351,36 @@ def _run_bash(workspace, params):
     return f"exit_code: {proc.returncode}\n--- stdout ---\n{out}\n--- stderr ---\n{err}"
 
 
+_RESEARCH_SYSTEM = (
+    "You are a precise research assistant with live web access. Answer the "
+    "question factually and concretely: give exact specifics (numbers, field "
+    "names, byte layouts, algorithm names, standard/version identifiers) rather "
+    "than vague summaries. Name the relevant standards/sources inline. If the "
+    "answer is uncertain or contested, say so explicitly. Be concise."
+)
+
+
+def _research(query, on_retry=None):
+    """Look a fact up on the live web via Groq's web-capable model.
+
+    This is the agent's self-research ability: when it is unsure about a fact,
+    standard, or format it can call `research` instead of guessing.
+    """
+    query = (query or "").strip()
+    if not query:
+        return "ERROR: research needs a non-empty 'query'."
+    messages = [
+        {"role": "system", "content": _RESEARCH_SYSTEM},
+        {"role": "user", "content": query},
+    ]
+    try:
+        answer = _groq_chat(messages, on_retry=on_retry, model=RESEARCH_MODEL,
+                            json_mode=False, max_tokens=RESEARCH_MAX_TOKENS)
+    except AgentError as e:
+        return f"research failed: {e}"
+    return (answer or "(no answer)")[:MAX_OUTPUT_CHARS]
+
+
 def _format_history(history):
     """Render prior turns of this chat into a compact context string."""
     lines = []
@@ -422,6 +495,22 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
             messages.append({"role": "assistant", "content": json.dumps(action)})
             messages.append({"role": "user", "content":
                              "Plan recorded. Now execute step 1 with a single action."})
+            continue
+
+        if name == "research":
+            query = params.get("query") or params.get("question") or ""
+            rnotices = []
+            observation = _research(query, on_retry=rnotices.append)
+            for note in rnotices:
+                yield {"type": "notice", "message": note}
+            entry = {"step": step, "action": "research", "thought": thought,
+                     "detail": query.strip()[:80],
+                     "observation": observation[:MAX_OUTPUT_CHARS]}
+            steps.append(entry)
+            yield {"type": "step", **entry}
+            messages.append({"role": "assistant", "content": json.dumps(action)})
+            messages.append({"role": "user",
+                             "content": f"RESEARCH RESULT:\n{observation}"})
             continue
 
         tool = tools.get(name)
