@@ -26,6 +26,7 @@ import uuid as _uuid
 import asn1tools
 import cv2
 import numpy as np
+from ber_tlv.tlv import Tlv
 import aztec_code_generator as aztec
 from PIL import Image, ImageDraw, ImageFont
 from fastapi import FastAPI, Form, UploadFile, File, Request, Response, Cookie
@@ -4305,55 +4306,260 @@ def _vdv_recover_ticket(signature: bytes, remainder: bytes, pub_key: dict) -> di
     }
 
 
-def _vdv_parse_ticket_data(data: bytes) -> dict:
-    """Parse VDV ticket data fields."""
-    result = {}
-    if len(data) < 18:
-        return {"error": "Ticket-Daten zu kurz"}
+_VDV_ORG_NAMES = {
+    36: "Rhein-Main-Verkehrsverbund (RMV)",
+    3000: "Deutsche Bahn (D-Ticket)",
+    5000: "Rhein-Main-Verkehrsverbund (RMV)",
+    6260: "DB Vertrieb GmbH",
+    6262: "DB Vertrieb GmbH",
+}
 
-    result["raw_hex"] = data.hex()
-    result["length"] = len(data)
 
-    # Common VDV STB (Statische Berechtigung) fields
-    if len(data) >= 8:
-        result["org_id"] = struct.unpack(">H", data[4:6])[0]
-        result["produkt_nr"] = struct.unpack(">H", data[6:8])[0]
+def _vdv_org_name(code: int) -> str:
+    return _VDV_ORG_NAMES.get(code, f"Org {code}")
 
-    if len(data) >= 10:
-        result["pv_org"] = struct.unpack(">H", data[8:10])[0]
 
-    # Validity dates (VDV date-time encoding)
-    def decode_vdv_datetime(b4):
-        if len(b4) < 4:
-            return None
-        day_word = (b4[0] << 8) | b4[1]
-        time_word = (b4[2] << 8) | b4[3]
-        year = ((day_word >> 9) & 0x7F) + 1990
-        month = (day_word >> 5) & 0x0F
-        day = day_word & 0x1F
-        hour = (time_word >> 11) & 0x1F
-        minute = (time_word >> 5) & 0x3F
-        return f"{day:02d}.{month:02d}.{year} {hour:02d}:{minute:02d}"
-
-    if len(data) >= 18:
-        result["gueltig_von"] = decode_vdv_datetime(data[10:14])
-        result["gueltig_bis"] = decode_vdv_datetime(data[14:18])
-
-    # Product name mapping
-    prod_names = {
+def _vdv_product_name(product_number: int, product_org_id: int = 0) -> str:
+    names = {
         9999: "Deutschlandticket",
+        9998: "Deutschlandjobticket",
+        9997: "Startkarte Deutschlandticket",
+        9996: "Deutschlandsemesterticket",
+        9995: "Deutschlandschuelerticket",
         0: "Einzelfahrschein",
     }
-    if "produkt_nr" in result:
-        result["produkt_name"] = prod_names.get(result["produkt_nr"], f"Produkt {result['produkt_nr']}")
+    return names.get(product_number, f"Produkt {product_number}")
 
-    # Org name mapping
-    org_names = {
-        36: "Rhein-Main-Verkehrsverbund (RMV)",
-        3000: "Deutsche Bahn",
+
+def _vdv_terminal_type_name(t: int) -> str:
+    names = {
+        0: "Unbestimmt", 1: "Erfassungsterminal CICO/BIBO",
+        2: "Verkaufsautomat", 3: "Kontrollterminal (mobil)",
+        4: "Kartenausgabeterminal", 5: "Kartenrueckgabeterminal",
+        6: "Entwerter", 7: "Multifunktionsterminal",
+        8: "Informationsterminal", 9: "OePV-Werteinheiten",
+        13: "Massenpersonalisierer", 14: "Servicestelle",
+        15: "Fahrerterminal", 16: "HandyTicketserver",
+        17: "eOnline Ticketserver", 18: "Verkaufsautomat (mobil)",
+        19: "Kontrollterminal (mobil)",
     }
-    if "org_id" in result:
-        result["org_name"] = org_names.get(result["org_id"], f"Org {result['org_id']}")
+    return names.get(t, f"Unbekannt ({t})")
+
+
+def _vdv_location_type_name(t: int) -> str:
+    names = {
+        0: "Bushaltestelle", 1: "U-Bahn-Station", 2: "Bahnhof (Eisenbahn)",
+        3: "Strassenbahn-Haltestelle", 11: "Verkaufsstelle",
+        16: "Gebiet/Zone", 17: "Korridor", 200: "Haltestelle allgemein",
+        201: "Massenpersonalisierer", 203: "im Fahrzeug/Zug",
+        204: "TouchPoint", 212: "HAFAS-ID", 215: "Ticketserver",
+        252: "Gemeinde", 253: "Kreis", 254: "Land", 255: "keine Angabe",
+    }
+    return names.get(t, f"Unbekannt ({t})")
+
+
+def _vdv_payment_type_name(t: int):
+    names = {
+        1: "Bar", 2: "Kreditkarte", 3: "POB/PEB", 6: "EC-Karte / Lastschrift",
+        7: "Rechnung", 8: "Werteinheiten", 14: "Gutschein", 17: "ECcash",
+        24: "GeldKarte", 25: "Mastercard", 26: "Visa",
+        27: "HandyTicket Konto", 28: "Mobilfunkrechnung", 111: "PayPal",
+    }
+    return names.get(t)
+
+
+def _vdv_passenger_type_name(t: int):
+    names = {
+        1: "Erwachsener", 2: "Kind", 3: "Student", 9: "Personal",
+        19: "Schueler", 20: "Azubi", 25: "Senior", 64: "Ermaessigt",
+        65: "Fahrrad", 66: "Hund",
+    }
+    return names.get(t)
+
+
+def _vdv_id_medium_type_name(c: str):
+    names = {
+        "E": "Girocard (EC-Karte)", "K": "Kreditkarte", "\u00d6": "OePNV-Kundenkarte",
+        "P": "Personalausweis", "R": "Reisepass", "T": "Telefonnummer",
+        "Z": "Sozialpass", "S": "Schuelerausweis", "A": "Studentenausweis",
+        "C": "Client_ID", "G": "Geraete_ID (IMEI)",
+    }
+    return names.get(c)
+
+
+def _vdv_datetime(b4: bytes):
+    """Decode a 4-byte VDV-KA DateTimeCompact (mirrors zuegli util.DateTime)."""
+    if len(b4) != 4:
+        return None
+    year = (b4[0] >> 1) + 1990
+    month = ((b4[0] & 0x01) << 3) | ((b4[1] & 0xE0) >> 5)
+    day = b4[1] & 0x1F
+    hour = (b4[2] & 0xF8) >> 3
+    minute = ((b4[2] & 0x07) << 3) | ((b4[3] & 0xE0) >> 5)
+    second = (b4[3] & 0x1F) * 2
+    return f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}"
+
+
+def _vdv_un_bcd(b: bytes) -> int:
+    v = 0
+    for c in b:
+        v = v * 100 + ((c & 0xF0) >> 4) * 10 + (c & 0x0F)
+    return v
+
+
+def _vdv_date(b: bytes):
+    if len(b) == 4:
+        return f"{_vdv_un_bcd(b[0:2]):04d}-{_vdv_un_bcd(b[2:3]):02d}-{_vdv_un_bcd(b[3:4]):02d}"
+    return None
+
+
+def _vdv_version_number(b: bytes) -> str:
+    """Decode a 2-byte VDV version number (mirrors zuegli util.parse_version_number)."""
+    if len(b) < 2:
+        return b.hex()
+    major = b[0] >> 4
+    minor = b[0] & 0xF
+    if minor == 1:
+        minor = 10 + (b[1] >> 4)
+        revision = b[1] & 0xF
+    else:
+        revision = _vdv_un_bcd(b[1:2])
+    return f"{major}.{minor}.{revision}"
+
+
+def _vdv_parse_product_element(tag: int, val: bytes, product_org_id: int) -> dict:
+    """Decode one product-data TLV element (mirrors zuegli ticket.parse_product_data_element)."""
+    out = {"tag": f"0x{tag:02X}", "length": len(val), "value_hex": val.hex()}
+    try:
+        if tag == 0xDA and len(val) >= 17:  # BasicData
+            out["type"] = "basic-data"
+            out["payment_type"] = val[0]
+            out["payment_type_name"] = _vdv_payment_type_name(val[0])
+            out["passenger_type"] = val[1]
+            out["passenger_type_name"] = _vdv_passenger_type_name(val[1])
+            out["transport_category"] = val[6]
+            out["service_class"] = val[7]
+            out["service_class_name"] = {1: "1. Klasse", 2: "2. Klasse"}.get(val[7])
+            out["price_base"] = (f"{int.from_bytes(val[8:11], 'big') / 100:.2f}"
+                                 if any(val[8:11]) else None)
+            vat = int.from_bytes(val[11:13], 'big')
+            out["vat_rate"] = (vat / 100 if vat >= 100 else vat)
+            out["price_level"] = val[13]
+            out["internal_product_number"] = int.from_bytes(val[14:17], 'big')
+        elif tag == 0xDB and len(val) >= 5:  # PassengerData
+            out["type"] = "passenger-data"
+            out["gender"] = {1: "M", 2: "W", 3: "D"}.get(val[0])
+            out["date_of_birth"] = _vdv_date(val[1:5]) if any(val[1:5]) else None
+            out["name"] = val[5:].decode("iso-8859-15", "replace")
+        elif tag == 0xDC and len(val) >= 3:  # SpatialValidity
+            out["type"] = "spatial-validity"
+            out["definition_type"] = f"0x{val[0]:02X}"
+            area_org = int.from_bytes(val[1:3], 'big') or product_org_id
+            out["area_org_id"] = area_org
+            out["area_org_name"] = _vdv_org_name(area_org)
+        elif tag == 0xD7:  # IdentificationMedium
+            s = val.decode("iso-8859-15", "replace")
+            out["type"] = "identification-medium"
+            out["id_type"] = s[:1]
+            out["id_type_name"] = _vdv_id_medium_type_name(s[:1])
+            out["id_number"] = s[1:].strip()
+        elif tag == 0xD6:  # SEId (MOTICS)
+            out["type"] = "se-id"
+        elif tag == 0xDE:  # PrivateData / RMVPrivateData
+            out["type"] = "private-data"
+            if len(val) >= 9:
+                out["organization_id"] = int.from_bytes(val[0:2], 'big')
+                out["organization_name"] = _vdv_org_name(int.from_bytes(val[0:2], 'big'))
+                out["traffic_company"] = val[2:9].decode("iso-8859-15", "replace").strip()
+                out["other_data_hex"] = val[9:].hex()
+        else:
+            out["type"] = "unknown"
+    except Exception as exc:  # never let one bad element break the whole decode
+        out["parse_error"] = str(exc)
+    return out
+
+
+def _vdv_parse_ticket_data(data: bytes) -> dict:
+    """Parse the recovered VDV-KA static authorization (Statische Berechtigung).
+
+    Faithful port of TheEnbyperor/zuegli main/vdv/ticket.py VDVTicket.parse:
+    header(18) + product-data TLV(0x85) + common-transaction(17) +
+    product-transaction TLV(0x8A) + ticket-issue/SAM(12) + 'VDV' trailer(5).
+    """
+    result = {"raw_hex": data.hex(), "length": len(data)}
+    if len(data) < 18:
+        result["error"] = "Ticket-Daten zu kurz"
+        return result
+
+    try:
+        header, rest = data[0:18], data[18:]
+
+        product_org_id = int.from_bytes(header[8:10], 'big')
+        result["ticket_id"] = int.from_bytes(header[0:4], 'big')
+        result["ticket_org_id"] = int.from_bytes(header[4:6], 'big')
+        result["ticket_org_name"] = _vdv_org_name(result["ticket_org_id"])
+        result["product_number"] = int.from_bytes(header[6:8], 'big')
+        result["product_org_id"] = product_org_id
+        result["product_org_name"] = _vdv_org_name(product_org_id)
+        result["produkt_name"] = _vdv_product_name(result["product_number"], product_org_id)
+        result["gueltig_von"] = _vdv_datetime(header[10:14])
+        result["gueltig_bis"] = _vdv_datetime(header[14:18])
+
+        product_data_elements = []
+        common = b""
+        try:
+            parser = Tlv.Parser(rest, [], 0)
+            product_data = parser.next()
+            if product_data[0] == 0x85:
+                off1 = parser.get_offset()
+                common = rest[off1:off1 + 17]
+                rest2 = rest[off1 + 17:]
+                inner = Tlv.parse(product_data[1], recursive=False)
+                for tag, val in inner:
+                    if all(b == 0 for b in val):
+                        continue
+                    product_data_elements.append(
+                        _vdv_parse_product_element(tag, val, product_org_id))
+            else:
+                rest2 = rest
+        except Exception:
+            rest2 = rest
+        result["product_data"] = product_data_elements
+
+        if len(common) >= 17:
+            result["kvp_org_id"] = int.from_bytes(common[0:2], 'big')
+            result["kvp_org_name"] = _vdv_org_name(result["kvp_org_id"])
+            result["terminal_type"] = common[2]
+            result["terminal_type_name"] = _vdv_terminal_type_name(common[2])
+            result["terminal_number"] = int.from_bytes(common[3:5], 'big')
+            result["terminal_owner_id"] = int.from_bytes(common[5:7], 'big')
+            result["transaction_time"] = _vdv_datetime(common[7:11]) if any(common[7:11]) else None
+            result["location_type"] = common[11]
+            result["location_type_name"] = _vdv_location_type_name(common[11])
+            result["location_number"] = int.from_bytes(common[12:15], 'big')
+            result["location_org_id"] = int.from_bytes(common[15:17], 'big')
+
+        try:
+            parser = Tlv.Parser(rest2, [], 0)
+            ptd = parser.next()
+            if ptd[0] == 0x8A:
+                off2 = parser.get_offset()
+                result["product_transaction_data_hex"] = ptd[1].hex()
+                issue = rest2[off2:off2 + 12]
+                if len(issue) >= 12:
+                    result["sam_sequence_number_1"] = int.from_bytes(issue[0:4], 'big')
+                    result["sam_version"] = issue[4]
+                    result["sam_sequence_number_2"] = int.from_bytes(issue[5:9], 'big')
+                    result["sam_id"] = int.from_bytes(issue[9:12], 'big')
+        except Exception:
+            pass
+
+        trailer = data[-5:]
+        if trailer[0:3] == b'VDV':
+            result["kvp_marker"] = "VDV"
+            result["version"] = _vdv_version_number(trailer[3:5])
+    except Exception as exc:
+        result["parse_error"] = str(exc)
 
     return result
 
