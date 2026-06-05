@@ -502,13 +502,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;color:#fff;text-transform:uppercase;}
 .tag.plan{background:#0f766e;}.tag.research{background:#ea580c;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}
 .think{color:var(--muted);font-size:12px;margin-bottom:4px;font-style:italic;}
+.reasoning{background:#1a1a2e;border:1px solid #2d2d44;border-radius:6px;padding:8px 10px;margin:4px 0;font-size:11px;color:#a78bfa;line-height:1.4;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;}
+.reasoning-toggle{font-size:11px;color:#7c3aed;cursor:pointer;margin-bottom:4px;user-select:none;}
+.reasoning-toggle:hover{text-decoration:underline;}
 .notice{display:flex;align-items:center;gap:8px;background:#3a2e12;border:1px solid #b45309;color:#fbbf24;padding:8px 10px;border-radius:8px;font-size:12px;margin:6px 0 6px 6px;}
 .notice::before{content:"\\21bb";font-weight:700;}
 .live-step{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;padding:8px 0 4px 6px;}
 .live-step .dots span{animation:blink 1.4s infinite both;}
 .live-step .dots span:nth-child(2){animation-delay:0.2s;}
 .live-step .dots span:nth-child(3){animation-delay:0.4s;}
-pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-size:11px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin-top:4px;}
+pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-size:11px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin-top:4px;max-height:400px;overflow-y:auto;}
 /* Input */
 .input-area{padding:12px 20px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;}
 .input-area textarea{flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:12px;font-size:14px;resize:none;min-height:48px;max-height:120px;line-height:1.4;}
@@ -518,6 +521,17 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
 .send-btn:hover{background:var(--accent2);}
 .send-btn:disabled{background:#4a4a52;cursor:not-allowed;}
 .send-btn svg{fill:#fff;width:18px;height:18px;}
+.stop-btn{width:40px;height:40px;background:var(--red);border:none;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.stop-btn:hover{background:#dc2626;}
+.stop-btn svg{fill:#fff;width:18px;height:18px;}
+.file-upload-btn{width:40px;height:40px;background:transparent;border:1px solid var(--border);border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;}
+.file-upload-btn:hover{border-color:var(--accent);color:var(--accent);}
+.file-list{font-size:11px;color:var(--muted);padding:0 20px;}
+.file-list span{background:var(--card);border:1px solid var(--border);padding:2px 8px;border-radius:10px;margin-right:4px;display:inline-flex;align-items:center;gap:4px;}
+.file-list .remove-file{cursor:pointer;color:var(--red);font-weight:700;}
+.del-sess{float:right;color:#64748b;cursor:pointer;font-size:14px;opacity:0;transition:opacity .2s;}
+.sess-item:hover .del-sess{opacity:1;}
+.del-sess:hover{color:var(--red);}
 .working{text-align:center;color:var(--muted);font-size:13px;padding:10px;display:flex;align-items:center;justify-content:center;gap:8px;}
 .working .dots span{animation:blink 1.4s infinite both;}
 .working .dots span:nth-child(2){animation-delay:0.2s;}
@@ -542,9 +556,13 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
 <div class="main">
   <div class="topbar"><span class="dot"></span> __AI_BACKEND_LABEL__</div>
   <div class="messages" id="messages"></div>
+  <div class="file-list" id="file-list"></div>
   <div class="input-area">
+    <input type="file" id="file-input" multiple style="display:none" onchange="updateFileList()">
+    <button class="file-upload-btn" id="file-btn" onclick="document.getElementById('file-input').click()" title="Dateien hochladen">&#128206;</button>
     <textarea id="input" placeholder="Schreib deine Aufgabe..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"></textarea>
     <button class="send-btn" id="send-btn" onclick="send()"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+    <button class="stop-btn" id="stop-btn" style="display:none" onclick="stopAgent()"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
   </div>
 </div>
 <script>
@@ -552,13 +570,15 @@ const STORAGE_KEY='ai_agent_sessions';
 let sessions=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
 let currentId=null;
 let working=false;
+let abortCtrl=null;
+let selectedFiles=[];
 
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(sessions));}
 function esc(s){return(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 
 function renderSidebar(){
   const el=document.getElementById('sess-list');
-  el.innerHTML=sessions.map(s=>`<div class="sess-item${s.id===currentId?' active':''}" onclick="loadSession('${s.id}')"><div>${esc(s.title)}</div><div class="ts">${s.ts}</div></div>`).join('');
+  el.innerHTML=sessions.map(s=>`<div class="sess-item${s.id===currentId?' active':''}" onclick="loadSession('${s.id}')"><span class="del-sess" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Chat l\u00f6schen">&#128465;</span><div>${esc(s.title)}</div><div class="ts">${s.ts}</div></div>`).join('');
 }
 
 function renderMessages(){
@@ -589,6 +609,7 @@ function renderAgent(m){
     if(s.action==='notice'){ h+=`<div class="notice">${esc(s.message)}</div>`; continue; }
     h+=`<div class="step"><div class="hd"><span class="tag ${esc(s.action)}">${esc(s.action)}</span> Schritt ${s.step}${s.detail?' &middot; '+esc(s.detail):''}</div>`;
     if(s.thought) h+=`<div class="think">${esc(s.thought)}</div>`;
+    if(s.reasoning){const rid='r_'+Math.random().toString(36).slice(2);h+=`<div class="reasoning-toggle" onclick="const e=document.getElementById('${rid}');e.style.display=e.style.display==='none'?'block':'none';">&#129504; Denkprozess anzeigen/verbergen</div><div class="reasoning" id="${rid}" style="display:none">${esc(s.reasoning)}</div>`;}
     if(s.observation) h+=`<pre>${esc(s.observation)}</pre>`;
     h+='</div>';
   }
@@ -606,7 +627,35 @@ function newChat(){
 
 function loadSession(id){currentId=id;renderSidebar();renderMessages();}
 
+function deleteSession(id){
+  if(working&&id===currentId){alert('Bitte zuerst den laufenden Task stoppen.');return;}
+  if(!confirm('Diesen Chat l\u00f6schen?'))return;
+  sessions=sessions.filter(s=>s.id!==id);
+  if(currentId===id){currentId=sessions.length?sessions[0].id:null;if(!currentId)newChat();}
+  save();renderSidebar();renderMessages();
+}
+
 function setTask(t){document.getElementById('input').value=t;}
+
+function updateFileList(){
+  const fi=document.getElementById('file-input');
+  selectedFiles=Array.from(fi.files||[]);
+  renderFileList();
+}
+function renderFileList(){
+  const el=document.getElementById('file-list');
+  if(!selectedFiles.length){el.innerHTML='';return;}
+  el.innerHTML=selectedFiles.map((f,i)=>`<span>${esc(f.name)} <span class="remove-file" onclick="removeFile(${i})">&times;</span></span>`).join('');
+}
+function removeFile(i){selectedFiles.splice(i,1);renderFileList();}
+
+function stopAgent(){if(abortCtrl){abortCtrl.abort();}}
+
+function setWorking(on){
+  working=on;
+  document.getElementById('send-btn').style.display=on?'none':'flex';
+  document.getElementById('stop-btn').style.display=on?'flex':'none';
+}
 
 async function send(){
   if(working)return;
@@ -621,10 +670,13 @@ async function send(){
   // Live worklog: append an agent message we update in place as events stream in.
   const agent={role:'agent',steps:[],result:null,finished:false,streaming:true,status:'Agent plant'};
   sess.msgs.push(agent);
+  // Show uploaded filenames on the user message, then clear the picker.
+  const filesToSend=selectedFiles.slice();
+  if(filesToSend.length){sess.msgs[sess.msgs.length-2].text+=' [Datei: '+filesToSend.map(f=>f.name).join(', ')+']';}
   save();renderSidebar();renderMessages();
   inp.value='';inp.style.height='48px';
-  working=true;
-  document.getElementById('send-btn').disabled=true;
+  selectedFiles=[];document.getElementById('file-input').value='';renderFileList();
+  setWorking(true);
 
   function handle(ev){
     if(ev.type==='start'){agent.status='Agent plant';}
@@ -635,16 +687,18 @@ async function send(){
     if(sess.id===currentId)renderMessages();
   }
 
+  abortCtrl=new AbortController();
   try{
     // Prior turns (everything before the just-added user msg + agent placeholder)
     // give the agent memory of this chat; session_id keeps its workspace.
     const hist=sess.msgs.slice(0,-2).map(m=>m.role==='user'
         ?{role:'user',text:m.text}
         :{role:'agent',text:(m.result||m.error||'')}).filter(x=>x.text);
-    const body=new URLSearchParams();body.set('task',task);
-    body.set('session_id',currentId);
-    body.set('history',JSON.stringify(hist));
-    const r=await fetch('/api/ai/stream',{method:'POST',body});
+    const fd=new FormData();fd.set('task',task);
+    fd.set('session_id',currentId);
+    fd.set('history',JSON.stringify(hist));
+    for(const f of filesToSend){fd.append('files',f,f.name);}
+    const r=await fetch('/api/ai/stream',{method:'POST',body:fd,signal:abortCtrl.signal});
     if(!r.ok||!r.body){throw new Error('HTTP '+r.status);}
     const reader=r.body.getReader();
     const dec=new TextDecoder();
@@ -664,9 +718,13 @@ async function send(){
       }
       save();
     }
-  }catch(e){agent.error=String(e);agent.streaming=false;}
-  agent.streaming=false;
-  working=false;document.getElementById('send-btn').disabled=false;
+  }catch(e){
+    if(e&&e.name==='AbortError'){agent.status='Gestoppt';agent.steps.push({action:'notice',message:'Vom Benutzer gestoppt.'});}
+    else{agent.error=String(e);}
+    agent.streaming=false;
+  }
+  agent.streaming=false;abortCtrl=null;
+  setWorking(false);
   save();renderSidebar();renderMessages();
 }
 
@@ -745,16 +803,22 @@ async def ai_run(task: str = Form(...), session_id: str = Form(""),
 
 
 @app.post("/api/ai/stream")
-async def ai_stream(task: str = Form(...), session_id: str = Form(""),
-                    history: str = Form("")):
+async def ai_stream(request: Request,
+                    task: str = Form(...), session_id: str = Form(""),
+                    history: str = Form(""),
+                    files: list[UploadFile] = File(default=[])):
     """Live worklog: stream each agent step as it happens via Server-Sent Events.
 
     Emits one SSE `data:` line per JSON event from run_task_stream (start, step,
     notice, done, error), so the browser can render the plan and each action in
     real time instead of waiting for the whole run to finish.
+
+    Accepts optional file uploads — they are saved into the session workspace so
+    the agent can use them (e.g. analyse an image, parse a CSV, decode a barcode).
     """
     import asyncio
     import queue as _queue
+    import threading
 
     try:
         from ai_agent import run_task_stream
@@ -766,7 +830,30 @@ async def ai_stream(task: str = Form(...), session_id: str = Form(""),
 
     task = (task or "").strip()
     workspace = _ai_session_workspace(session_id)
+
+    # Save uploaded files to the workspace so the agent can access them.
+    uploaded_names = []
+    if workspace and files:
+        os.makedirs(workspace, exist_ok=True)
+        for f in files:
+            if f.filename:
+                safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", f.filename)[:120]
+                dest = os.path.join(workspace, safe_name)
+                data = await f.read()
+                with open(dest, "wb") as out:
+                    out.write(data)
+                uploaded_names.append(safe_name)
+
     turns = _ai_parse_history(history)
+
+    # Build the actual task string, appending upload info so the agent knows.
+    effective_task = task
+    if uploaded_names:
+        effective_task += (
+            "\n\n[The user uploaded these files to your workspace: "
+            + ", ".join(uploaded_names)
+            + ". Use them as needed (read_file, run_bash, etc.).]"
+        )
 
     async def event_gen():
         def _sse(obj):
@@ -775,20 +862,18 @@ async def ai_stream(task: str = Form(...), session_id: str = Form(""),
         if not task:
             yield _sse({"type": "error", "error": "Empty task."})
             return
-        if len(task) > 2000:
-            yield _sse({"type": "error", "error": "Task too long (max 2000 chars)."})
+        if len(task) > 4000:
+            yield _sse({"type": "error", "error": "Task too long (max 4000 chars)."})
             return
 
-        # Run the blocking agent loop in a worker thread and hand events back to
-        # this async generator through a thread-safe queue so the connection can
-        # flush each event immediately.
         q: _queue.Queue = _queue.Queue()
         _SENTINEL = object()
+        cancel_event = threading.Event()
 
         def _worker():
             try:
-                for event in run_task_stream(task, workspace=workspace,
-                                             history=turns):
+                for event in run_task_stream(effective_task, workspace=workspace,
+                                             history=turns, cancel=cancel_event):
                     q.put(event)
             except Exception as e:  # noqa: BLE001
                 q.put({"type": "error", "error": f"Agent failed: {e}"})
@@ -799,7 +884,16 @@ async def ai_stream(task: str = Form(...), session_id: str = Form(""),
         loop.run_in_executor(None, _worker)
 
         while True:
-            event = await asyncio.to_thread(q.get)
+            # Check if client disconnected (stop button / page close).
+            if await request.is_disconnected():
+                cancel_event.set()
+                break
+            try:
+                event = await asyncio.wait_for(
+                    asyncio.to_thread(q.get, timeout=1.0), timeout=2.0
+                )
+            except (asyncio.TimeoutError, Exception):
+                continue
             if event is _SENTINEL:
                 break
             yield _sse(event)
