@@ -597,7 +597,7 @@ async def debug_mob_requests():
     return JSONResponse(_REQUEST_LOG)
 
 
-_API_KEY_EXEMPT_PATHS = {"/api/barcode-decode", "/api/vdv-decode", "/api/uic-decode"}
+_API_KEY_EXEMPT_PATHS = {"/api/barcode-decode", "/api/vdv-decode", "/api/uic-decode", "/api/ai/run"}
 
 
 @app.middleware("http")
