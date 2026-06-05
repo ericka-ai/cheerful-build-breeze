@@ -23,7 +23,11 @@ import httpx
 _EMBEDDED_GROQ_API_KEY = "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"
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "") or _EMBEDDED_GROQ_API_KEY
 GROQ_BASE_URL = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# Default to a stronger reasoning model so the agent writes correct code and
+# actually reasons about the task (the old llama-3.3-70b often produced buggy
+# scripts). gpt-oss-120b returns clean JSON and keeps its chain-of-thought in a
+# separate `reasoning` field, which is ideal for this JSON-only protocol.
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "18"))
 CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "30"))
@@ -36,6 +40,10 @@ MAX_RETRIES = int(os.environ.get("AI_AGENT_MAX_RETRIES", "5"))
 RETRY_BASE_DELAY = float(os.environ.get("AI_AGENT_RETRY_BASE_DELAY", "2.0"))
 RETRY_MAX_DELAY = float(os.environ.get("AI_AGENT_RETRY_MAX_DELAY", "30.0"))
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+# Ask Groq to guarantee a valid JSON object in the reply (supported by the
+# default gpt-oss model). Set AI_AGENT_JSON_MODE=0 to disable.
+JSON_MODE = os.environ.get("AI_AGENT_JSON_MODE", "1") not in ("0", "false", "")
 
 
 SYSTEM_PROMPT = """\
@@ -62,16 +70,24 @@ Action parameters:
 How to work (like Devin):
   - START with a "plan" action that lists the concrete steps you will take.
   - Then do ONE action per reply, following your plan.
+  - CHECK WHAT ALREADY EXISTS FIRST. Your workspace persists across turns in the
+    same chat. Before creating anything, run `ls -la` (and read_file as needed)
+    to see files produced in earlier turns, and REUSE them. Do NOT regenerate or
+    overwrite an artifact (a key, a file, a result) that already exists — if the
+    user refers to "that"/"it" or to something from before, find it and use it.
   - ALWAYS verify your work by RUNNING it with run_bash and reading the output.
     Never "finish" without having actually run it and checked the result.
+  - Write code carefully BEFORE running it: re-read it for syntax (matched
+    parentheses/quotes/colons) so you don't waste a step on a trivial error.
   - If something fails (non-zero exit code or wrong output), read the error
-    carefully, fix the file, and run it again. Be persistent: keep iterating
-    until the output is correct. Do not give up early.
+    carefully, fix the SPECIFIC problem, and run it again. Be persistent: keep
+    iterating until the output is correct. Do not give up early.
   - You may create multiple files and install packages with pip as needed.
   - Write clean, correct, general-purpose code. No placeholders, no "...".
   - Use only relative paths inside the current workspace directory.
   - When everything works, "finish" with a clear summary that includes the
-    verified result and how to use it.
+    verified result and how to use it. If the user asked for specific values,
+    PUT THE ACTUAL VALUES in the finish message, not just "it worked".
 
 Cryptography expertise:
   - You are also a cryptography expert. You can confidently handle symmetric
@@ -86,12 +102,34 @@ Cryptography expertise:
   - Follow best practices: never reuse a nonce/IV, prefer authenticated
     encryption (AES-GCM), use cryptographically secure randomness
     (`os.urandom` / `secrets`), and verify signatures/tags before trusting data.
+  - To output the NUMERIC parameters of an EXISTING key, load that key file and
+    print the integers — do NOT generate a new key:
+      * DSA: `load_pem_private_key(...)`, then `.private_numbers()` gives `x` and
+        `.public_numbers.y`; the group params are `.public_numbers.parameter_numbers`
+        -> `.p`, `.q`, `.g`. Print them as decimal `int`s.
+      * RSA: `.private_numbers()` -> `p`, `q`, `d`; `.public_numbers()` -> `n`, `e`.
+    Print very large integers in full (decimal); the user wants the real digits.
 
 Begin now with your "plan" action."""
 
 
 class AgentError(Exception):
     pass
+
+
+def _extract_message_text(data):
+    """Pull the assistant text out of a chat-completions response.
+
+    Reasoning models (e.g. gpt-oss) keep their chain-of-thought in a separate
+    `reasoning` field and return clean JSON in `content`. As a defensive
+    fallback, if a model instead inlines a <think>...</think> block we drop it
+    and keep what follows.
+    """
+    msg = data["choices"][0]["message"]
+    content = msg.get("content") or ""
+    if "</think>" in content:
+        content = content.rsplit("</think>", 1)[1]
+    return content.strip()
 
 
 def _retry_after_seconds(resp, attempt):
@@ -128,6 +166,11 @@ def _groq_chat(messages, on_retry=None):
         "User-Agent": "ubuntu-agent/1.0",
     }
     payload = {"model": GROQ_MODEL, "messages": messages, "temperature": 0.2}
+    # Force valid JSON so the agent never wastes a step on an unparseable reply.
+    # If a model doesn't support JSON mode we transparently fall back below.
+    use_json = JSON_MODE
+    if use_json:
+        payload["response_format"] = {"type": "json_object"}
 
     last_error = None
     for attempt in range(MAX_RETRIES + 1):
@@ -136,7 +179,13 @@ def _groq_chat(messages, on_retry=None):
             with httpx.Client(timeout=60) as client:
                 resp = client.post(url, headers=headers, json=payload)
             if resp.status_code == 200:
-                return resp.json()["choices"][0]["message"]["content"]
+                return _extract_message_text(resp.json())
+            if resp.status_code == 400 and use_json:
+                # Model likely rejected response_format; drop it and retry once
+                # without consuming a backoff attempt.
+                use_json = False
+                payload.pop("response_format", None)
+                continue
             if resp.status_code in _RETRYABLE_STATUS and attempt < MAX_RETRIES:
                 delay = _retry_after_seconds(resp, attempt)
                 reason = ("rate limit (429)" if resp.status_code == 429
@@ -259,7 +308,38 @@ def _run_bash(workspace, params):
     return f"exit_code: {proc.returncode}\n--- stdout ---\n{out}\n--- stderr ---\n{err}"
 
 
-def run_task_stream(task, max_steps=MAX_STEPS):
+def _format_history(history):
+    """Render prior turns of this chat into a compact context string."""
+    lines = []
+    for turn in history or []:
+        role = (turn.get("role") or "").lower()
+        text = (turn.get("text") or "").strip()
+        if not text:
+            continue
+        who = "User asked" if role == "user" else "You (agent) answered"
+        lines.append(f"- {who}: {text[:500]}")
+    return "\n".join(lines)
+
+
+def _session_context(workspace, history):
+    """Build a context message so the agent has memory + sees existing files."""
+    parts = []
+    hist = _format_history(history)
+    if hist:
+        parts.append("EARLIER IN THIS CHAT SESSION (for context, do not redo):\n" + hist)
+    try:
+        files = sorted(f for f in os.listdir(workspace) if not f.startswith("."))
+    except OSError:
+        files = []
+    if files:
+        parts.append(
+            "Your workspace ALREADY contains these files from earlier turns; "
+            "reuse them instead of regenerating: " + ", ".join(files)
+        )
+    return "\n\n".join(parts)
+
+
+def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None):
     """Run the agent loop for `task`, yielding events as they happen.
 
     This powers the live worklog (Devin-style): the caller receives a "start"
@@ -267,18 +347,25 @@ def run_task_stream(task, max_steps=MAX_STEPS):
     "notice" events (e.g. a rate-limit backoff), and finally a "done" event
     summarising the run. Errors are yielded as an "error" event.
 
-    Each yielded value is a JSON-serialisable dict with a "type" field.
+    `workspace` (if given) is a directory reused across turns of the same chat so
+    artifacts persist; `history` is a list of {"role","text"} prior turns so the
+    agent has memory of what it already did. Each yielded value is a
+    JSON-serialisable dict with a "type" field.
     """
     backend = f"Groq ({GROQ_MODEL})"
     yield {"type": "start", "task": task, "backend": backend, "max_steps": max_steps}
 
-    workspace = tempfile.mkdtemp(prefix="ai_agent_")
+    if workspace:
+        os.makedirs(workspace, exist_ok=True)
+    else:
+        workspace = tempfile.mkdtemp(prefix="ai_agent_")
     steps = []
     result = None
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"TASK: {task}"},
-    ]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    context = _session_context(workspace, history)
+    if context:
+        messages.append({"role": "user", "content": context})
+    messages.append({"role": "user", "content": f"TASK: {task}"})
     tools = {"write_file": _write_file, "read_file": _read_file, "run_bash": _run_bash}
 
     for step in range(1, max_steps + 1):
@@ -365,7 +452,7 @@ def run_task_stream(task, max_steps=MAX_STEPS):
     }
 
 
-def run_task(task, max_steps=MAX_STEPS):
+def run_task(task, max_steps=MAX_STEPS, workspace=None, history=None):
     """Run the agent loop for `task`. Returns a dict with the full transcript.
 
     Backwards-compatible wrapper around run_task_stream for the non-streaming
@@ -373,7 +460,8 @@ def run_task(task, max_steps=MAX_STEPS):
     can report it the same way as before.
     """
     final = None
-    for event in run_task_stream(task, max_steps=max_steps):
+    for event in run_task_stream(task, max_steps=max_steps,
+                                 workspace=workspace, history=history):
         if event["type"] == "error":
             raise AgentError(event["error"])
         if event["type"] == "done":
