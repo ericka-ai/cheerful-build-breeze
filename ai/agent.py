@@ -9,8 +9,8 @@ The agent will:
   3. RUN them and inspect the output,
   4. fix errors automatically and retry until it actually works.
 
-It runs out of the box on a free, OpenAI-compatible API that needs NO key
-(Pollinations), and can also use any other OpenAI-compatible API via env vars.
+It runs out of the box on a free, OpenAI-compatible API (OpenRouter free tier),
+and can also use any other OpenAI-compatible API via env vars.
 
 Usage:
     python3 agent.py "create a bash script that prints the 10 biggest files in a dir"
@@ -21,8 +21,8 @@ Backends (auto-detected, in priority order):
                                (OPENAI_BASE_URL, OPENAI_MODEL override defaults)
     AGENT_BACKEND=ollama    -> local Ollama at OLLAMA_HOST (default localhost:11434)
                                model from OLLAMA_MODEL (default qwen2.5-coder:3b)
-    otherwise (default)     -> free, keyless Pollinations API
-                               (AI_BASE_URL / AI_MODEL override defaults)
+    otherwise (default)     -> free OpenRouter API
+                               (AI_BASE_URL / AI_MODEL / AI_API_KEY override defaults)
 """
 
 import json
@@ -51,10 +51,12 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
-# Default backend: a free, OpenAI-compatible API that requires NO API key.
-AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://text.pollinations.ai/openai")
-AI_MODEL = os.environ.get("AI_MODEL", "openai")
-AI_API_KEY = os.environ.get("AI_API_KEY", "")
+# Default backend: OpenRouter's free, OpenAI-compatible tier. Embedded free key
+# so it works out of the box (repo is private; rotate at openrouter.ai/keys).
+AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api/v1")
+AI_MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-120b:free")
+_EMBEDDED_AI_API_KEY = "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"
+AI_API_KEY = os.environ.get("AI_API_KEY", "") or _EMBEDDED_AI_API_KEY
 
 # Optional opt-in backend selector (e.g. AGENT_BACKEND=ollama).
 AGENT_BACKEND = os.environ.get("AGENT_BACKEND", "").strip().lower()

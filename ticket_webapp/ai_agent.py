@@ -5,10 +5,10 @@ Given a natural-language task it runs a think -> act -> observe loop:
 the LLM writes files and runs shell commands (to test its own work) inside
 an isolated per-request workspace, and keeps iterating until it calls finish.
 
-Uses a free, OpenAI-compatible LLM API. The default provider is Pollinations
-(https://text.pollinations.ai) which is completely free and needs NO API key,
-so the agent works out of the box. Any other OpenAI-compatible endpoint can be
-used by setting the AI_BASE_URL / AI_MODEL / AI_API_KEY env vars (see below).
+Uses a free, OpenAI-compatible LLM API. The default provider is OpenRouter's
+free tier (model openai/gpt-oss-120b:free), which returns clean JSON and reasons
+well. Any other OpenAI-compatible endpoint can be used by setting the
+AI_BASE_URL / AI_MODEL / AI_API_KEY env vars (see below).
 A standalone CLI version of the same idea lives in ../ai/agent.py.
 """
 
@@ -22,18 +22,20 @@ import time
 import httpx
 
 # --- LLM provider configuration --------------------------------------------
-# Defaults to Pollinations' free, OpenAI-compatible text API, which needs NO API
-# key and has no hard per-key request cap. Point the agent at any other
-# OpenAI-compatible endpoint (e.g. a free OpenRouter/Gemini key) just by setting
-# these env vars -- no code change required.
+# Defaults to OpenRouter's free tier (OpenAI-compatible). Point the agent at any
+# other OpenAI-compatible endpoint just by setting these env vars -- no code
+# change required.
 #   AI_BASE_URL : OpenAI-compatible base URL (the part before /chat/completions)
 #   AI_MODEL    : model name to request
-#   AI_API_KEY  : bearer token; leave empty for keyless providers like Pollinations
+#   AI_API_KEY  : bearer token (leave empty for keyless providers)
 #   AI_PROVIDER : human-readable label shown in the UI / worklog
-AI_PROVIDER = os.environ.get("AI_PROVIDER", "Pollinations")
-AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://text.pollinations.ai/openai")
-AI_MODEL = os.environ.get("AI_MODEL", "openai")
-AI_API_KEY = os.environ.get("AI_API_KEY", "")
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "OpenRouter")
+AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://openrouter.ai/api/v1")
+AI_MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-120b:free")
+# Embedded free OpenRouter key so the agent works out of the box. The env var
+# wins if set. Repo is private; rotate the key at openrouter.ai/keys if leaked.
+_EMBEDDED_AI_API_KEY = "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"
+AI_API_KEY = os.environ.get("AI_API_KEY", "") or _EMBEDDED_AI_API_KEY
 
 MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "18"))
 CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "30"))
@@ -52,11 +54,10 @@ _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 # AI_AGENT_JSON_MODE=0 to disable.
 JSON_MODE = os.environ.get("AI_AGENT_JSON_MODE", "1") not in ("0", "false", "")
 
-# Model used for the agent's `research` action. Pollinations' "searchgpt" model
-# has built-in live web search, so the agent can look up facts it is unsure
-# about (e.g. niche ticketing/barcode standards) instead of guessing. Defaults
-# to the main model if the override is left blank.
-RESEARCH_MODEL = os.environ.get("AI_AGENT_RESEARCH_MODEL", "searchgpt") or AI_MODEL
+# Model used for the agent's `research` action. Defaults to the main model; set
+# AI_AGENT_RESEARCH_MODEL to a web-capable model (e.g. an OpenRouter ":online"
+# variant) if you want the agent to look facts up on the live web.
+RESEARCH_MODEL = os.environ.get("AI_AGENT_RESEARCH_MODEL", "") or AI_MODEL
 RESEARCH_MAX_TOKENS = int(os.environ.get("AI_AGENT_RESEARCH_MAX_TOKENS", "1200"))
 
 
