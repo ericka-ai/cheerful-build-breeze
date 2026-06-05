@@ -383,7 +383,7 @@ app.add_middleware(
 )
 
 
-_SITE_AUTH_OPEN_PATHS = {"/login", "/favicon.ico", "/decoder", "/api/barcode-decode", "/api/vdv-decode", "/api/uic-decode", "/ai", "/api/ai/run"}
+_SITE_AUTH_OPEN_PATHS = {"/login", "/favicon.ico", "/decoder", "/api/barcode-decode", "/api/vdv-decode", "/api/uic-decode", "/ai", "/api/ai/run", "/api/ai/stream"}
 
 
 @app.middleware("http")
@@ -495,6 +495,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;color:#fff;text-transform:uppercase;}
 .tag.plan{background:#0f766e;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}
 .think{color:var(--muted);font-size:12px;margin-bottom:4px;font-style:italic;}
+.notice{display:flex;align-items:center;gap:8px;background:#3a2e12;border:1px solid #b45309;color:#fbbf24;padding:8px 10px;border-radius:8px;font-size:12px;margin:6px 0 6px 6px;}
+.notice::before{content:"\\21bb";font-weight:700;}
+.live-step{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;padding:8px 0 4px 6px;}
+.live-step .dots span{animation:blink 1.4s infinite both;}
+.live-step .dots span:nth-child(2){animation-delay:0.2s;}
+.live-step .dots span:nth-child(3){animation-delay:0.4s;}
 pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-size:11px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin-top:4px;}
 /* Input */
 .input-area{padding:12px 20px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;}
@@ -571,13 +577,15 @@ function renderAgent(m){
   if(m.error) return `<div class="agent-card"><div class="result-bar err">${esc(m.error)}</div></div>`;
   let h='<div class="agent-card">';
   if(m.finished) h+=`<div class="result-bar">${esc(m.result)}</div>`;
-  else h+=`<div class="result-bar err">Nicht abgeschlossen (max. Schritte erreicht)</div>`;
+  else if(!m.streaming) h+=`<div class="result-bar err">Nicht abgeschlossen (max. Schritte erreicht)</div>`;
   for(const s of (m.steps||[])){
+    if(s.action==='notice'){ h+=`<div class="notice">${esc(s.message)}</div>`; continue; }
     h+=`<div class="step"><div class="hd"><span class="tag ${esc(s.action)}">${esc(s.action)}</span> Schritt ${s.step}${s.detail?' &middot; '+esc(s.detail):''}</div>`;
     if(s.thought) h+=`<div class="think">${esc(s.thought)}</div>`;
     if(s.observation) h+=`<pre>${esc(s.observation)}</pre>`;
     h+='</div>';
   }
+  if(m.streaming) h+=`<div class="live-step"><span class="dots"><span>.</span><span>.</span><span>.</span></span>&nbsp;${esc(m.status||'Agent arbeitet')}</div>`;
   h+='</div>';
   return h;
 }
@@ -603,20 +611,47 @@ async function send(){
   sess.msgs.push({role:'user',text:task});
   if(sess.title==='Neuer Chat')sess.title=task.slice(0,40);
   sess.ts=new Date().toLocaleString('de');
+  // Live worklog: append an agent message we update in place as events stream in.
+  const agent={role:'agent',steps:[],result:null,finished:false,streaming:true,status:'Agent plant'};
+  sess.msgs.push(agent);
   save();renderSidebar();renderMessages();
   inp.value='';inp.style.height='48px';
   working=true;
   document.getElementById('send-btn').disabled=true;
-  const msgEl=document.getElementById('messages');
-  msgEl.innerHTML+=`<div class="working" id="work-indicator"><span class="dots"><span>.</span><span>.</span><span>.</span></span>&nbsp;Agent arbeitet</div>`;
-  msgEl.scrollTop=msgEl.scrollHeight;
+
+  function handle(ev){
+    if(ev.type==='start'){agent.status='Agent plant';}
+    else if(ev.type==='notice'){agent.steps.push({action:'notice',message:ev.message});agent.status='Warte auf Rate-Limit';}
+    else if(ev.type==='step'){const s=Object.assign({},ev);delete s.type;agent.steps.push(s);agent.status=(s.action==='finish')?'Fertig':'Agent arbeitet';}
+    else if(ev.type==='done'){if(ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.streaming=false;}
+    else if(ev.type==='error'){agent.error=ev.error;agent.streaming=false;}
+    if(sess.id===currentId)renderMessages();
+  }
+
   try{
     const body=new URLSearchParams();body.set('task',task);
-    const r=await fetch('/api/ai/run',{method:'POST',body});
-    const data=await r.json();
-    if(data.error){sess.msgs.push({role:'agent',error:data.error});}
-    else{sess.msgs.push({role:'agent',steps:data.steps,result:data.result,finished:data.finished});}
-  }catch(e){sess.msgs.push({role:'agent',error:String(e)});}
+    const r=await fetch('/api/ai/stream',{method:'POST',body});
+    if(!r.ok||!r.body){throw new Error('HTTP '+r.status);}
+    const reader=r.body.getReader();
+    const dec=new TextDecoder();
+    let buf='';
+    while(true){
+      const {value,done}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf('\\n\\n'))>=0){
+        const chunk=buf.slice(0,idx);buf=buf.slice(idx+2);
+        for(const line of chunk.split('\\n')){
+          if(line.startsWith('data:')){
+            try{handle(JSON.parse(line.slice(5).trim()));}catch(_){}
+          }
+        }
+      }
+      save();
+    }
+  }catch(e){agent.error=String(e);agent.streaming=false;}
+  agent.streaming=false;
   working=false;document.getElementById('send-btn').disabled=false;
   save();renderSidebar();renderMessages();
 }
@@ -625,6 +660,7 @@ async function send(){
 document.getElementById('input').addEventListener('input',function(){this.style.height='48px';this.style.height=Math.min(this.scrollHeight,120)+'px';});
 
 // Init
+for(const s of sessions){for(const m of (s.msgs||[])){if(m.role==='agent'&&m.streaming){m.streaming=false;}}}
 if(sessions.length===0)newChat(); else{currentId=sessions[0].id;}
 renderSidebar();renderMessages();
 </script>
@@ -651,6 +687,66 @@ async def ai_run(task: str = Form(...)):
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": f"Agent failed: {e}"}, status_code=500)
     return JSONResponse(result)
+
+
+@app.post("/api/ai/stream")
+async def ai_stream(task: str = Form(...)):
+    """Live worklog: stream each agent step as it happens via Server-Sent Events.
+
+    Emits one SSE `data:` line per JSON event from run_task_stream (start, step,
+    notice, done, error), so the browser can render the plan and each action in
+    real time instead of waiting for the whole run to finish.
+    """
+    import asyncio
+    import queue as _queue
+
+    try:
+        from ai_agent import run_task_stream
+    except Exception as e:  # noqa: BLE001
+        async def _err():
+            payload = json.dumps({"type": "error", "error": f"AI agent unavailable: {e}"})
+            yield f"data: {payload}\n\n"
+        return StreamingResponse(_err(), media_type="text/event-stream")
+
+    task = (task or "").strip()
+
+    async def event_gen():
+        def _sse(obj):
+            return f"data: {json.dumps(obj)}\n\n"
+
+        if not task:
+            yield _sse({"type": "error", "error": "Empty task."})
+            return
+        if len(task) > 2000:
+            yield _sse({"type": "error", "error": "Task too long (max 2000 chars)."})
+            return
+
+        # Run the blocking agent loop in a worker thread and hand events back to
+        # this async generator through a thread-safe queue so the connection can
+        # flush each event immediately.
+        q: _queue.Queue = _queue.Queue()
+        _SENTINEL = object()
+
+        def _worker():
+            try:
+                for event in run_task_stream(task):
+                    q.put(event)
+            except Exception as e:  # noqa: BLE001
+                q.put({"type": "error", "error": f"Agent failed: {e}"})
+            finally:
+                q.put(_SENTINEL)
+
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, _worker)
+
+        while True:
+            event = await asyncio.to_thread(q.get)
+            if event is _SENTINEL:
+                break
+            yield _sse(event)
+
+    headers = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    return StreamingResponse(event_gen(), media_type="text/event-stream", headers=headers)
 
 
 _REQUEST_LOG: list[dict] = []
@@ -687,7 +783,7 @@ async def debug_mob_requests():
     return JSONResponse(_REQUEST_LOG)
 
 
-_API_KEY_EXEMPT_PATHS = {"/api/barcode-decode", "/api/vdv-decode", "/api/uic-decode", "/api/ai/run"}
+_API_KEY_EXEMPT_PATHS = {"/api/barcode-decode", "/api/vdv-decode", "/api/uic-decode", "/api/ai/run", "/api/ai/stream"}
 
 
 @app.middleware("http")
