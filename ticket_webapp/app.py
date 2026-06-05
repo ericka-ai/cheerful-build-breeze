@@ -4120,33 +4120,180 @@ async def api_barcode(
 
 # ─── VDV-KA BARCODE DECODER ──────────────────────────────────────────────────
 
-# Known Sub-CA public keys from VDV LDAP (ldaps://ldap-vdv-ion.telesec.de:636)
-_VDV_SUB_CA_KEYS = {
-    "4445564456110621": {
-        "n": int("f2cc41f045fd844ca5637dc297d685e4b296e9f024dbd813130bd9086a68f3c3"
-                 "c3be23e8e428bb30aac39fc8ba7772fad1540b6188609281747fd9ec0c077e86"
-                 "d2d749167f83197a2e6ce0a2fa12149a773dbbb7619c63583555b8ab53bb420b"
-                 "e00fb3dd6c48d6020ec59c8499b00e86cb32ab07bef987307b650ba130af0247"
-                 "ba1b9b97b46ed8f7f014eac405e0af0725f6eaf4c9b79fcf42fe24476aa6bc24"
-                 "2231dee4f50b1a886b466d849bc558b2f13f369ea228fc65b71f941133504f1b", 16),
-        "e": 65537,
-        "bits": 1536,
-    },
-}
+# ── VDV PKI Certificate Store (ported from TheEnbyperor/zuegli, pki.py) ──────
+# Loads Sub-CA CV certificates from bundled .der files (from VDV LDAP) and
+# recovers public keys via the Root CA using ISO 9796-2.
 
-# Known Root CA public key
-_VDV_ROOT_CA_KEY = {
-    "n": int("d10233657d02ab2f61dd6201ac7ede714273a54443c5bef72ea39db302554f68"
-             "5c55a8cdd9b5152f1a9271985e980a75394a0f5cc9e026d6c2161a6287b65b9b"
-             "37f40ac1855fc2e67ab67bcdd47d0c6141849b6b721844766e97747262838ab3"
-             "11626de758c09bca7c24434e00a33c052025fdfae24a3058ac57d786dfcf2fdc"
-             "482c348083dac417a91b67651b338fbcb3d74fe6977d1f8e621f97a5fa06116e"
-             "b57b34a34ad0cda551950319e5b754fa465f24c269d322021b8b03823ae730d0"
-             "cb5af1d4eb59b575d191e7e6bcc8e9c63ff9a4a65c96ac69c4c03b93cedef3b4"
-             "77096108834c31a2b7b5bb0f815b495ceb6116232c65df7d", 16),
-    "e": 65537,
-    "bits": 1984,
-}
+_VDV_CERTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vdv_certs")
+
+# OID constants for VDV CV certificate public key algorithms
+_VDV_RSA_ENCRYPTION = [1, 2, 840, 113549, 1, 1, 1]
+_VDV_RSA_PSS = [1, 2, 840, 113549, 1, 1, 10]
+_VDV_SHA1_WITH_RSA = [1, 2, 840, 113549, 1, 1, 5]
+_VDV_ISO9796_AUTH = [1, 3, 36, 3, 5, 2, 2, 1]
+_VDV_ISO9796_SIG = [1, 3, 36, 3, 4, 2, 2, 1]
+_VDV_KNOWN_PK_OIDS = (
+    _VDV_RSA_ENCRYPTION, _VDV_SHA1_WITH_RSA, _VDV_RSA_PSS,
+    _VDV_ISO9796_AUTH, _VDV_ISO9796_SIG,
+)
+
+
+def _vdv_read_oid_component(data: bytes):
+    """Read a single base-128 OID component, return (value, bytes_consumed)."""
+    val = 0
+    for i, b in enumerate(data):
+        val = (val << 7) | (b & 0x7F)
+        if not (b & 0x80):
+            return val, i + 1
+    return val, len(data)
+
+
+def _vdv_parse_pk_oid(content: bytes, offset: int):
+    """Parse OID from CV cert content until a known PK OID is matched."""
+    components = []
+    first, num = _vdv_read_oid_component(content[offset:])
+    offset += num
+    if first < 40:
+        components += [0, first]
+    elif first < 80:
+        components += [1, first - 40]
+    else:
+        components += [2, first - 80]
+    while offset < len(content):
+        c, num = _vdv_read_oid_component(content[offset:])
+        offset += num
+        components.append(c)
+        if components in _VDV_KNOWN_PK_OIDS:
+            break
+    return components, offset
+
+
+def _vdv_modulus_len(certificate_profile_id: int) -> int:
+    """RSA modulus byte-length by Certificate Profile Identifier (CPI)."""
+    if certificate_profile_id == 3:
+        return 1536 // 8  # 192
+    if certificate_profile_id in (4, 5, 6):
+        return 1024 // 8  # 128
+    if certificate_profile_id == 7:
+        return 1984 // 8  # 248
+    raise ValueError(f"Unknown VDV CPI: {certificate_profile_id}")
+
+
+def _vdv_pubkey_from_cert_content(content: bytes) -> dict:
+    """Extract RSA public key from CV certificate content (zuegli CertificateData.parse).
+
+    Content layout: [0]=CPI, [1:9]=CARef, [9:21]=CHR, [21:27]=CHA_name,
+    [27]=service_indicator, [28:32]=expiry, [32:]=OID+pubkey.
+    """
+    cpi = content[0]
+    oid, oid_end = _vdv_parse_pk_oid(content, 32)
+    if oid not in _VDV_KNOWN_PK_OIDS:
+        raise ValueError(f"Unknown VDV PK OID: {oid}")
+    mlen = _vdv_modulus_len(cpi)
+    pk_data = content[oid_end:]
+    n = int.from_bytes(pk_data[0:mlen], "big")
+    e = int.from_bytes(pk_data[mlen:], "big")
+    return {"n": n, "e": e, "bits": mlen * 8}
+
+
+def _vdv_iso9796_recover(sig: bytes, residual: bytes, n: int, mlen: int, e: int) -> bytes:
+    """ISO 9796-2 message recovery (zuegli iso9796.py decrypt_with_cert)."""
+    h = int.from_bytes(sig, "big")
+    m = pow(h, e, n).to_bytes(mlen, "big")
+    if m[0] != 0x6A:
+        raise ValueError(f"ISO 9796-2 header invalid: 0x{m[0]:02x}")
+    if m[-1] != 0xBC:
+        raise ValueError(f"ISO 9796-2 trailer invalid: 0x{m[-1]:02x}")
+    body = m[1:-1]
+    msg_part, msg_hash = body[:-20], body[-20:]
+    message = msg_part + residual
+    if hashlib.sha1(message).digest() != msg_hash:
+        raise ValueError("ISO 9796-2 SHA-1 hash mismatch")
+    return message
+
+
+def _vdv_load_cert_store() -> dict:
+    """Load VDV Sub-CA certificates from bundled .der files and build a lookup
+    table: ca_ref_hex -> {"n": int, "e": int, "bits": int}.
+
+    Prod/test root certs (plaintext, self-contained) provide the anchor keys.
+    Recoverable Sub-CA certs are recovered via their root using ISO 9796-2.
+    Logic mirrors TheEnbyperor/zuegli (main/vdv/pki.py CertificateStore).
+    """
+    store = {}
+    roots = {}  # prefix -> {"n", "mlen", "e"}
+
+    if not os.path.isdir(_VDV_CERTS_DIR):
+        return store
+
+    # First pass: extract root keys from plaintext certs
+    for fn in sorted(os.listdir(_VDV_CERTS_DIR)):
+        if not fn.endswith(".der"):
+            continue
+        path = os.path.join(_VDV_CERTS_DIR, fn)
+        raw = open(path, "rb").read()
+        if raw[:2] != b"\x7f\x21":
+            continue
+        try:
+            inner = Tlv.Parser.parse(
+                Tlv.Parser.parse(raw, False, [], False, 0)[0][1],
+                False, [], False, 0,
+            )
+        except Exception:
+            continue
+        tags = {t: v for t, v in inner}
+        content = tags.get(0x5F4E) or tags.get(0x7F4E)
+        if content is None:
+            continue
+        # Root CA: CPI 7 (1984-bit), self-signed (CHR last 8 == CARef)
+        if content[0] == 7:
+            prefix = fn.split("_", 1)[0]
+            pk = _vdv_pubkey_from_cert_content(content)
+            roots[prefix] = {"n": pk["n"], "mlen": pk["bits"] // 8, "e": pk["e"]}
+
+    # Second pass: all certs — plaintext or recoverable
+    for fn in sorted(os.listdir(_VDV_CERTS_DIR)):
+        if not fn.endswith(".der"):
+            continue
+        path = os.path.join(_VDV_CERTS_DIR, fn)
+        raw = open(path, "rb").read()
+        if raw[:2] != b"\x7f\x21":
+            continue
+        prefix, hexref = fn[:-4].split("_", 1)
+        try:
+            inner = Tlv.Parser.parse(
+                Tlv.Parser.parse(raw, False, [], False, 0)[0][1],
+                False, [], False, 0,
+            )
+            tags = {t: v for t, v in inner}
+            content = tags.get(0x5F4E) or tags.get(0x7F4E)
+            if content is None:
+                # Recoverable: needs root key
+                root = roots.get(prefix)
+                if root is None:
+                    continue
+                sig = tags[0x5F37]
+                residual = tags.get(0x5F38, b"")
+                content = _vdv_iso9796_recover(
+                    sig, residual, root["n"], root["mlen"], root["e"]
+                )
+            pk = _vdv_pubkey_from_cert_content(content)
+            store[hexref] = pk
+        except Exception:
+            continue
+
+    return store
+
+
+# Lazy-loaded certificate store (built once on first VDV decode)
+_VDV_CERT_STORE: dict = None
+
+
+def _vdv_get_cert_store() -> dict:
+    global _VDV_CERT_STORE
+    if _VDV_CERT_STORE is None:
+        _VDV_CERT_STORE = _vdv_load_cert_store()
+    return _VDV_CERT_STORE
 
 
 def _vdv_parse_barcode(raw: bytes) -> dict:
@@ -4206,74 +4353,65 @@ def _vdv_parse_barcode(raw: bytes) -> dict:
 
 
 def _vdv_decrypt_cert(cert_bytes: bytes, ca_ref: bytes) -> dict:
-    """Decrypt envelope certificate using Sub-CA key to extract public key."""
+    """Recover EE (issuer) public key from barcode certificate using Sub-CA key.
+
+    Uses the bundled VDV PKI certificate store to find the Sub-CA key by
+    CA reference, then ISO 9796-2 recovers the EE cert content and extracts
+    its RSA public key via proper CV-cert parsing.
+    Logic mirrors TheEnbyperor/zuegli (pki.py + iso9796.py).
+    """
     ca_ref_str = ca_ref.hex()
 
-    # Parse cert TLV: 5F37 [sig] 5F38 [rem]
+    # Parse cert TLV: 5F37 [signature] + optional 5F38 [remainder]
+    try:
+        inner = Tlv.Parser.parse(cert_bytes, False, [], False, 0)
+    except Exception:
+        return {"error": "Zertifikat-TLV Parse fehlgeschlagen"}
+
     cert_sig = b""
     cert_rem = b""
-    p = 0
-    while p < len(cert_bytes):
-        if p + 1 < len(cert_bytes) and cert_bytes[p] == 0x5F and cert_bytes[p + 1] == 0x37:
-            p += 2
-            if cert_bytes[p] == 0x81:
-                l = cert_bytes[p + 1]
-                p += 2
-            else:
-                l = cert_bytes[p]
-                p += 1
-            cert_sig = cert_bytes[p:p + l]
-            p += l
-        elif p + 1 < len(cert_bytes) and cert_bytes[p] == 0x5F and cert_bytes[p + 1] == 0x38:
-            p += 2
-            l = cert_bytes[p]
-            p += 1
-            cert_rem = cert_bytes[p:p + l]
-            p += l
-        else:
-            p += 1
+    cert_content = None
+    for tag, data in inner:
+        if tag == 0x5F37:
+            cert_sig = data
+        elif tag == 0x5F38:
+            cert_rem = data
+        elif tag in (0x5F4E, 0x7F4E):
+            cert_content = data
+
+    # If EE cert has plaintext content, extract key directly
+    if cert_content is not None:
+        try:
+            return _vdv_pubkey_from_cert_content(cert_content)
+        except Exception as ex:
+            return {"error": f"EE-Zertifikat Parse: {ex}"}
 
     if not cert_sig:
         return {"error": "Zertifikat-Signatur nicht gefunden"}
 
-    # Find matching Sub-CA key
-    sub_ca = _VDV_SUB_CA_KEYS.get(ca_ref_str)
+    # Find matching Sub-CA key from store
+    store = _vdv_get_cert_store()
+    sub_ca = store.get(ca_ref_str)
     if not sub_ca:
-        return {"error": f"Sub-CA '{ca_ref_str}' nicht bekannt"}
+        return {"error": f"Sub-CA '{ca_ref_str}' nicht bekannt (nicht in PKI Store)"}
 
-    key_bytes = (sub_ca["bits"] + 7) // 8
-    if len(cert_sig) != key_bytes:
-        return {"error": f"Signaturlaenge {len(cert_sig)} != Key {key_bytes}"}
+    # ISO 9796-2 recover the EE certificate content
+    mlen = (sub_ca["bits"] + 7) // 8
+    if len(cert_sig) != mlen:
+        return {"error": f"Signaturlaenge {len(cert_sig)} != Sub-CA Key {mlen}"}
 
-    sig_int = int.from_bytes(cert_sig, "big")
-    recovered = pow(sig_int, sub_ca["e"], sub_ca["n"]).to_bytes(key_bytes, "big")
+    try:
+        ee_content = _vdv_iso9796_recover(
+            cert_sig, cert_rem, sub_ca["n"], mlen, sub_ca["e"]
+        )
+    except ValueError as ex:
+        return {"error": f"EE-Cert Recovery: {ex}"}
 
-    if recovered[0] != 0x6A or recovered[-1] != 0xBC:
-        return {"error": "ISO 9796-2 Header/Trailer ungueltig"}
-
-    msg = recovered[1:-21]
-    full_content = msg + cert_rem
-
-    # Find exponent 0x40000081 (common VDV exponent)
-    exp_patterns = [
-        (1073741953).to_bytes(4, "big"),  # 0x40000081
-        (65537).to_bytes(4, "big"),       # 0x00010001
-        (65537).to_bytes(3, "big"),       # 0x010001
-    ]
-
-    for exp_bytes in exp_patterns:
-        exp_pos = full_content.find(exp_bytes)
-        if exp_pos >= 0:
-            exp_val = int.from_bytes(exp_bytes, "big")
-            modulus = full_content[exp_pos - 128:exp_pos]
-            if len(modulus) == 128:
-                return {
-                    "n": int.from_bytes(modulus, "big"),
-                    "e": exp_val,
-                    "bits": 1024,
-                }
-
-    return {"error": "Public Key nicht im Zertifikat gefunden"}
+    # Extract EE public key from recovered content
+    try:
+        return _vdv_pubkey_from_cert_content(ee_content)
+    except Exception as ex:
+        return {"error": f"EE Public Key Extraktion: {ex}"}
 
 
 def _vdv_recover_ticket(signature: bytes, remainder: bytes, pub_key: dict) -> dict:
@@ -4881,12 +5019,15 @@ async def api_uic_decode(image: UploadFile = File(...)):
         "compressed_length": header["comp_len"],
     }
 
-    # Decompress payload
+    # Decompress payload (try zlib first, fall back to raw deflate for some issuers)
     try:
         payload = zlib.decompress(header["compressed"])
-    except zlib.error as e:
-        response["error"] = f"Dekomprimierung fehlgeschlagen: {str(e)}"
-        return JSONResponse(response)
+    except zlib.error:
+        try:
+            payload = zlib.decompress(header["compressed"], -15)
+        except zlib.error as e:
+            response["error"] = f"Dekomprimierung fehlgeschlagen: {str(e)}"
+            return JSONResponse(response)
 
     response["payload_length"] = len(payload)
 
@@ -4998,9 +5139,12 @@ async def api_barcode_decode(image: UploadFile = File(...)):
 
         try:
             payload = zlib.decompress(header["compressed"])
-        except zlib.error as e:
-            response["error"] = f"Dekomprimierung fehlgeschlagen: {str(e)}"
-            return JSONResponse(response)
+        except zlib.error:
+            try:
+                payload = zlib.decompress(header["compressed"], -15)
+            except zlib.error as e:
+                response["error"] = f"Dekomprimierung fehlgeschlagen: {str(e)}"
+                return JSONResponse(response)
 
         response["payload_length"] = len(payload)
         blocks = _uic_parse_payload_blocks(payload)
