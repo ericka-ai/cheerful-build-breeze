@@ -100,7 +100,7 @@ You MUST reply with a SINGLE JSON object and nothing else. No prose outside the
 JSON. The JSON has exactly these fields:
   {
     "thought": "<your reasoning about the next step, in clear language>",
-    "action": "<one of: plan, research, fetch_url, write_file, read_file, run_bash, finish>",
+    "action": "<one of: plan, research, fetch_url, write_file, edit_file, read_file, list_files, run_bash, finish>",
     "params": { ... }
   }
 
@@ -111,7 +111,15 @@ Action parameters:
   - fetch_url:  {"url": "<https://...>"}               # read a specific web page
                                                        # / doc / spec as text
   - write_file: {"path": "relative path", "content": "<full file content>"}
+  - edit_file:  {"path": "relative path", "old": "<exact text>", "new": "<replacement>"}
+                                                       # surgical change; "old"
+                                                       # must match EXACTLY. Add
+                                                       # "all": true to replace
+                                                       # every occurrence. Prefer
+                                                       # this over rewriting a big
+                                                       # file for a small change.
   - read_file:  {"path": "relative path"}
+  - list_files: {}                                     # see files made so far
   - run_bash:   {"command": "<one shell command>"}    # also to install deps,
                                                        # e.g. pip install <pkg>
   - finish:     {"message": "<what you built, the verified result, how to use it>"}
@@ -166,6 +174,32 @@ How to work (like Devin):
   - When everything works, "finish" with a clear summary that includes the
     verified result and how to use it. If the user asked for specific values,
     PUT THE ACTUAL VALUES in the finish message, not just "it worked".
+  - SELF-REVIEW before you finish. In your final "thought", explicitly check:
+    (1) did I address EVERY part of the task? (2) did I actually RUN it and see
+    correct real output (not a placeholder)? (3) are the deliverable files
+    present (use list_files)? (4) for a recover/crack/solve task, did I PROVE the
+    result with a verification/assert? If any check fails, do NOT finish — fix it
+    first.
+  - EDITING: to change an existing file, prefer `edit_file` (exact-match
+    search/replace) over rewriting the whole file with write_file — it is faster
+    and avoids accidentally dropping working code. Rewrite in full only for big
+    or structural changes.
+  - DON'T GET STUCK. If the same action keeps giving the same failure, stop
+    repeating it: change your approach, inspect the inputs, add debug output, or
+    research the exact error message. Repeating an identical failing step wastes
+    your budget.
+
+General engineering skill:
+  - You are a strong generalist engineer. Beyond crypto you are fluent in data
+    processing (JSON/CSV/SQL/pandas), web/HTTP and APIs, parsing & binary
+    formats, regex, algorithms & data structures, concurrency, testing, shell
+    scripting, and debugging. Pick the right tool for the job and use real,
+    well-known libraries (pip install as needed) instead of reinventing them.
+  - When facts, specs, formats, or library APIs are uncertain, use `research` for
+    a quick answer or `fetch_url` to read the exact documentation/spec page, then
+    implement against the confirmed details rather than guessing.
+  - Prefer correct, readable, general-purpose solutions over clever hacks. Handle
+    edge cases and error paths, validate inputs, and make output easy to verify.
 
 Cryptography expertise:
   - You are also a cryptography expert. You can confidently handle symmetric
@@ -581,6 +615,53 @@ def _read_file(workspace, params):
         return f"ERROR reading {path}: {e}"
 
 
+def _edit_file(workspace, params):
+    """Replace an exact substring in an existing file (surgical edit).
+
+    params: {"path", "old", "new", optional "all": bool}. `old` must match
+    EXACTLY (including whitespace). Refuses ambiguous matches unless "all" is
+    set, so the agent can change one spot without rewriting the whole file.
+    """
+    path = params.get("path")
+    old = params.get("old")
+    new = params.get("new", "")
+    if not path or old is None:
+        return "ERROR: edit_file needs 'path' and 'old' (and usually 'new')."
+    abspath = _safe_path(workspace, path)
+    try:
+        with open(abspath, encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+    except OSError as e:
+        return f"ERROR reading {path}: {e}"
+    if old == "":
+        return "ERROR: 'old' must be a non-empty substring to replace."
+    n = content.count(old)
+    if n == 0:
+        return (f"ERROR: 'old' not found in {path}. It must match exactly "
+                f"(whitespace included). Use read_file to copy the exact text.")
+    replace_all = bool(params.get("all"))
+    if n > 1 and not replace_all:
+        return (f"ERROR: 'old' matches {n} places in {path}. Add more "
+                f"surrounding context to make it unique, or set \"all\": true "
+                f"to replace every occurrence.")
+    updated = content.replace(old, new) if replace_all else content.replace(old, new, 1)
+    try:
+        with open(abspath, "w", encoding="utf-8") as f:
+            f.write(updated)
+    except OSError as e:
+        return f"ERROR writing {path}: {e}"
+    return (f"Edited {path}: replaced {n if replace_all else 1} occurrence(s). "
+            f"New size {len(updated)} bytes.")
+
+
+def _list_files(workspace, params):
+    """List the files produced in the workspace so far (path + size)."""
+    files = list_workspace_files(workspace)
+    if not files:
+        return "(no files yet)"
+    return _format_file_list(files)
+
+
 def _run_bash(workspace, params):
     command = params.get("command")
     if not command:
@@ -693,6 +774,38 @@ def _session_context(workspace, history):
     return "\n\n".join(parts)
 
 
+# Keep the LLM context bounded on long runs so we don't blow the model's token
+# limit (which would otherwise abort a task that's making progress). The full
+# transcript is still preserved in `steps` for the user; this only trims what we
+# resend to the model.
+_CTX_MAX_MESSAGES = int(os.environ.get("AI_AGENT_CTX_MAX_MESSAGES", "44"))
+_CTX_KEEP_RECENT = int(os.environ.get("AI_AGENT_CTX_KEEP_RECENT", "20"))
+
+
+def _trim_messages(messages):
+    """Bound conversation length: keep the system prompt + the initial
+    task/context messages + the most recent exchanges, summarising the gap.
+
+    Returns a (possibly new) list; the original is not mutated.
+    """
+    if len(messages) <= _CTX_MAX_MESSAGES:
+        return messages
+    # Head = system prompt + up to the first 2 setup messages (context + TASK).
+    head_count = min(3, len(messages))
+    head = messages[:head_count]
+    recent = messages[-_CTX_KEEP_RECENT:]
+    dropped = len(messages) - head_count - len(recent)
+    if dropped <= 0:
+        return messages
+    note = {
+        "role": "user",
+        "content": (f"[... {dropped} earlier step(s) omitted to save space. "
+                    f"Your files persist on disk \u2013 use list_files / read_file "
+                    f"to re-check anything you need. Keep following your plan. ...]"),
+    }
+    return head + [note] + recent
+
+
 def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
                     cancel=None):
     """Run the agent loop for `task`, yielding events as they happen.
@@ -723,6 +836,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
         messages.append({"role": "user", "content": context})
     messages.append({"role": "user", "content": f"TASK: {task}"})
     tools = {"write_file": _write_file, "read_file": _read_file,
+             "edit_file": _edit_file, "list_files": _list_files,
              "run_bash": _run_bash, "fetch_url": _fetch_url}
 
     # Track whether the agent actually exercised its work. We refuse the first
@@ -735,6 +849,11 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
     placeholder_nudges = 0
     _MAX_TEST_NUDGES = 3
     _MAX_PLACEHOLDER_NUDGES = 2
+    # Loop detection: if the agent repeats the exact same action over and over
+    # (a classic weak-model failure), push it to change approach.
+    action_sig_counts = {}
+    loop_nudges = 0
+    _MAX_LOOP_NUDGES = 3
 
     for step in range(1, max_steps + 1):
         if cancel and cancel.is_set():
@@ -744,7 +863,8 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
 
         notices = []
         try:
-            reply, reasoning = _llm_chat(messages, on_retry=notices.append)
+            reply, reasoning = _llm_chat(_trim_messages(messages),
+                                         on_retry=notices.append)
         except AgentError as e:
             for note in notices:
                 yield {"type": "notice", "message": note}
@@ -881,7 +1001,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
 
         if name == "run_bash":
             ran_bash = True
-        elif name == "write_file":
+        elif name in ("write_file", "edit_file") and not str(observation).startswith("ERROR"):
             path = (params.get("path") or "").lower()
             _, ext = os.path.splitext(path)
             if ext in _RUNNABLE_EXTS:
@@ -900,6 +1020,24 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
         yield {"type": "step", **entry}
         messages.append({"role": "assistant", "content": json.dumps(action)})
         messages.append({"role": "user", "content": f"OBSERVATION:\n{observation}"})
+
+        # Loop detection: same action+args repeated many times means the agent is
+        # stuck. Nudge it to try a genuinely different approach.
+        sig = f"{name}|{entry['detail']}|{str(observation)[:200]}"
+        action_sig_counts[sig] = action_sig_counts.get(sig, 0) + 1
+        if action_sig_counts[sig] >= 3 and loop_nudges < _MAX_LOOP_NUDGES:
+            loop_nudges += 1
+            nudge = (
+                "You have repeated the SAME action with the same result several "
+                "times \u2013 you are stuck in a loop. Stop repeating it. Re-read the "
+                "latest output, form a DIFFERENT hypothesis, and try a genuinely "
+                "different approach (e.g. inspect inputs with list_files/read_file, "
+                "add debug prints, fix the root cause, or research the error). Do "
+                "NOT issue that same action again."
+            )
+            steps.append({"step": step, "action": "notice", "message": nudge})
+            yield {"type": "notice", "message": nudge}
+            messages.append({"role": "user", "content": nudge})
 
     yield {
         "type": "done",
