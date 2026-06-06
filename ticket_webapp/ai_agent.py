@@ -19,6 +19,7 @@ import re
 import subprocess
 import tempfile
 import time
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
@@ -90,6 +91,11 @@ JSON_MODE = os.environ.get("AI_AGENT_JSON_MODE", "1") not in ("0", "false", "")
 RESEARCH_MODEL = os.environ.get("AI_AGENT_RESEARCH_MODEL", "") or AI_MODEL
 RESEARCH_MAX_TOKENS = int(os.environ.get("AI_AGENT_RESEARCH_MAX_TOKENS", "1200"))
 
+# Token budget for the agent's main reasoning/JSON reply. Generous by default so
+# weak free models don't truncate their JSON mid-step (a common failure). 0 =
+# don't send a limit (let the provider decide). Override with AI_AGENT_MAX_TOKENS.
+MAIN_MAX_TOKENS = int(os.environ.get("AI_AGENT_MAX_TOKENS", "2048"))
+
 
 SYSTEM_PROMPT = """\
 You are an autonomous software engineer, similar to Devin. You take a task and
@@ -100,7 +106,7 @@ You MUST reply with a SINGLE JSON object and nothing else. No prose outside the
 JSON. The JSON has exactly these fields:
   {
     "thought": "<your reasoning about the next step, in clear language>",
-    "action": "<one of: plan, research, fetch_url, write_file, edit_file, read_file, list_files, run_bash, finish>",
+    "action": "<one of: plan, research, web_search, fetch_url, write_file, edit_file, read_file, list_files, run_bash, finish>",
     "params": { ... }
   }
 
@@ -108,6 +114,8 @@ Action parameters:
   - plan:       {"steps": ["step 1", "step 2", ...]}   # use this FIRST, once
   - research:   {"query": "<a specific question>"}     # live web lookup; use it
                                                        # when unsure of a fact
+  - web_search: {"query": "<search terms>"}            # find real pages (title +
+                                                       # URL); then fetch_url one
   - fetch_url:  {"url": "<https://...>"}               # read a specific web page
                                                        # / doc / spec as text
   - write_file: {"path": "relative path", "content": "<full file content>"}
@@ -713,6 +721,47 @@ def _fetch_url(workspace, params):
             f"--- content ---\n{body}")
 
 
+def _web_search(workspace, params):
+    """Search the web (DuckDuckGo) and return the top results as title + URL.
+
+    A real link finder: the agent can then `fetch_url` the most relevant result.
+    Complements `research` (LLM answer) with actual sources.
+    """
+    query = (params.get("query") or params.get("q") or "").strip()
+    if not query:
+        return "ERROR: web_search needs a 'query'."
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            resp = client.post(
+                "https://html.duckduckgo.com/html/", data={"q": query},
+                headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) "
+                         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 "
+                         "Safari/537.36"})
+    except (httpx.TimeoutException, httpx.TransportError) as e:
+        return f"ERROR: search failed ({type(e).__name__}): {e}"
+    html = resp.text or ""
+    results = []
+    pat = re.compile(
+        r'<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+        re.S | re.I)
+    for m in pat.finditer(html):
+        href, title = m.group(1), _html_to_text(m.group(2))
+        url = href
+        if "uddg=" in href:
+            qs = parse_qs(urlparse(href).query)
+            if qs.get("uddg"):
+                url = qs["uddg"][0]
+        if title and url:
+            results.append((title, url))
+        if len(results) >= 8:
+            break
+    if not results:
+        return (f"No results parsed (HTTP {resp.status_code}). Try the "
+                f"`research` action or refine the query.")
+    lines = [f"{i}. {t}\n   {u}" for i, (t, u) in enumerate(results, 1)]
+    return f"Web results for: {query}\n" + "\n".join(lines)
+
+
 _RESEARCH_SYSTEM = (
     "You are a precise research assistant with live web access. Answer the "
     "question factually and concretely: give exact specifics (numbers, field "
@@ -837,7 +886,8 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
     messages.append({"role": "user", "content": f"TASK: {task}"})
     tools = {"write_file": _write_file, "read_file": _read_file,
              "edit_file": _edit_file, "list_files": _list_files,
-             "run_bash": _run_bash, "fetch_url": _fetch_url}
+             "run_bash": _run_bash, "fetch_url": _fetch_url,
+             "web_search": _web_search}
 
     # Track whether the agent actually exercised its work. We refuse the first
     # `finish` that comes after writing code without ever running it, so the
@@ -864,7 +914,8 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
         notices = []
         try:
             reply, reasoning = _llm_chat(_trim_messages(messages),
-                                         on_retry=notices.append)
+                                         on_retry=notices.append,
+                                         max_tokens=MAIN_MAX_TOKENS or None)
         except AgentError as e:
             for note in notices:
                 yield {"type": "notice", "message": note}
@@ -1013,7 +1064,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
             "thought": thought,
             "reasoning": reasoning[:600],
             "detail": (params.get("path") or params.get("command")
-                       or params.get("url") or ""),
+                       or params.get("url") or params.get("query") or ""),
             "observation": observation[:MAX_OUTPUT_CHARS],
         }
         steps.append(entry)
