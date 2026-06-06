@@ -12,6 +12,7 @@ AI_BASE_URL / AI_MODEL / AI_API_KEY env vars (see below).
 A standalone CLI version of the same idea lives in ../ai/agent.py.
 """
 
+import html as html_module
 import json
 import os
 import re
@@ -37,6 +38,34 @@ AI_MODEL = os.environ.get("AI_MODEL", "openai/gpt-oss-120b:free")
 # OPENAI_API_KEY is accepted as a fallback. Leave empty only for keyless
 # providers (e.g. Pollinations).
 AI_API_KEY = os.environ.get("AI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
+
+# Stronger free OpenRouter models tried as automatic fallbacks if the primary
+# model is unavailable (404 / not-found) or keeps failing. The primary AI_MODEL
+# is always tried FIRST, so this never changes behaviour when the primary works;
+# it only keeps the agent alive (and smarter) when the primary is down. Override
+# the whole chain with AI_MODELS="modelA,modelB,..." (comma-separated).
+_DEFAULT_MODEL_CHAIN = [
+    "deepseek/deepseek-r1:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen-2.5-72b-instruct:free",
+]
+
+
+def _model_chain():
+    """Ordered, de-duplicated list of models to try (primary first)."""
+    env = os.environ.get("AI_MODELS", "").strip()
+    if env:
+        chain = [m.strip() for m in env.split(",") if m.strip()]
+    else:
+        chain = [AI_MODEL] + _DEFAULT_MODEL_CHAIN
+    seen, out = set(), []
+    for m in chain:
+        if m and m not in seen:
+            seen.add(m)
+            out.append(m)
+    return out
+
 
 MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "40"))
 CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "240"))
@@ -71,7 +100,7 @@ You MUST reply with a SINGLE JSON object and nothing else. No prose outside the
 JSON. The JSON has exactly these fields:
   {
     "thought": "<your reasoning about the next step, in clear language>",
-    "action": "<one of: plan, research, write_file, read_file, run_bash, finish>",
+    "action": "<one of: plan, research, fetch_url, write_file, read_file, run_bash, finish>",
     "params": { ... }
   }
 
@@ -79,6 +108,8 @@ Action parameters:
   - plan:       {"steps": ["step 1", "step 2", ...]}   # use this FIRST, once
   - research:   {"query": "<a specific question>"}     # live web lookup; use it
                                                        # when unsure of a fact
+  - fetch_url:  {"url": "<https://...>"}               # read a specific web page
+                                                       # / doc / spec as text
   - write_file: {"path": "relative path", "content": "<full file content>"}
   - read_file:  {"path": "relative path"}
   - run_bash:   {"command": "<one shell command>"}    # also to install deps,
@@ -157,6 +188,30 @@ Cryptography expertise:
       * RSA: `.private_numbers()` -> `p`, `q`, `d`; `.public_numbers()` -> `n`, `e`.
     Print very large integers in full (decimal); the user wants the real digits.
 
+Cryptanalysis / attack toolbox (lattices, RSA, etc.):
+  - For LATTICE attacks (LLL/BKZ) install fpylll: `pip install fpylll` (or use
+    `sage` if available). Build the basis as an `IntegerMatrix`, reduce with
+    `LLL.reduction(M)` (or `BKZ.reduction(M, BKZ.Param(block_size))`), then read
+    short vectors back out. For pure-Python without fpylll you may `pip install
+    olll` for a simple LLL.
+  - DSA/ECDSA NONCE-LEAK key recovery (Hidden Number Problem) with N signatures
+    sharing a partial nonce leak (e.g. known MSBs/LSBs of each k): write each
+    leak as k_i = a_i + b_i*t_i with small unknown t_i, derive the HNP relations
+    t_i ≡ A_i*x + B_i (mod q) from s_i = k_i^-1 (H(m_i) + r_i*x) mod q, build the
+    lattice (the standard (N+1) or (N+2)-dim basis with a scaling/embedding row),
+    LLL/BKZ-reduce it, and read x out of the short vector. ALWAYS finish by
+    verifying: recompute the public key / `assert recovered_x == real_x` and
+    print both. If too few signatures or too few leaked bits make it infeasible,
+    say so honestly and state how many would be needed.
+  - RSA: small-e / stereotyped-message and partial-key-exposure attacks use
+    Coppersmith (`sympy` for small cases, or sage's `small_roots`); common-modulus,
+    Wiener (small d, via continued fractions), and Fermat (close primes) are pure
+    Python. Factor small/weak n with `sympy.factorint` or `pip install pycryptodome`
+    utilities. Verify by decrypting/recovering d and checking against the target.
+  - Whatever the attack: actually run it on the given data and PROVE it worked
+    (print the recovered secret and an equality/verification check). Never stop at
+    a placeholder or "this would recover ...".
+
 Barcodes & transit ticketing expertise:
   - You are knowledgeable about 2D barcode symbologies and transport ticketing
     standards. Useful background (verify exact details with `research` when it
@@ -183,6 +238,12 @@ Begin now with your "plan" action."""
 
 
 class AgentError(Exception):
+    pass
+
+
+class AuthError(AgentError):
+    """LLM auth failure (bad/missing key) — affects every model, so we don't
+    fall back to other models when this is raised."""
     pass
 
 
@@ -221,13 +282,35 @@ def _retry_after_seconds(resp, attempt):
 
 def _llm_chat(messages, on_retry=None, model=None, json_mode=None,
               max_tokens=None):
-    """Call the OpenAI-compatible chat API, retrying transient failures.
+    """Call the LLM, auto-falling-back through `_model_chain()`.
 
-    `on_retry`, if given, is called as on_retry(message:str) before each wait so
-    the live worklog can show that a short rate limit is being handled.
-    `model`/`json_mode`/`max_tokens` override the defaults (used by the research
-    action, which talks to a web-capable model and does not want JSON mode).
+    The primary model is tried first; if it is unavailable (e.g. HTTP 404) or
+    keeps failing, the next model in the chain is tried. Pass `model` to pin a
+    single model (no fallback). Auth failures abort immediately since a bad key
+    affects every model. `on_retry(message)` surfaces retries/switches in the
+    live worklog.
     """
+    candidates = [model] if model else _model_chain()
+    last = None
+    for i, m in enumerate(candidates):
+        try:
+            return _llm_chat_one(messages, m, on_retry=on_retry,
+                                 json_mode=json_mode, max_tokens=max_tokens)
+        except AuthError:
+            raise
+        except AgentError as e:
+            last = e
+            if i < len(candidates) - 1 and on_retry:
+                on_retry(f"Modell '{m}' nicht verf\u00fcgbar \u2013 wechsle zu "
+                         f"'{candidates[i + 1]}'\u2026")
+            continue
+    raise last if last else AgentError("LLM request failed (no model).")
+
+
+def _llm_chat_one(messages, model, on_retry=None, json_mode=None,
+                  max_tokens=None):
+    """Call the OpenAI-compatible chat API for ONE model, retrying transient
+    failures. Raises AuthError on 401/403, AgentError on other failures."""
     url = f"{AI_BASE_URL.rstrip('/')}/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -237,7 +320,7 @@ def _llm_chat(messages, on_retry=None, model=None, json_mode=None,
     # send one when an API key is configured.
     if AI_API_KEY:
         headers["Authorization"] = f"Bearer {AI_API_KEY}"
-    payload = {"model": model or AI_MODEL, "messages": messages,
+    payload = {"model": model, "messages": messages,
                "temperature": 0.2}
     if max_tokens:
         payload["max_tokens"] = max_tokens
@@ -275,7 +358,7 @@ def _llm_chat(messages, on_retry=None, model=None, json_mode=None,
                 continue
             # Auth failures: give an actionable hint instead of a raw 401.
             if resp.status_code in (401, 403):
-                raise AgentError(
+                raise AuthError(
                     f"LLM auth failed (HTTP {resp.status_code}). Set a valid "
                     f"AI_API_KEY (or OPENAI_API_KEY) for {AI_PROVIDER}, or switch "
                     f"to Devin mode. Details: {resp.text[:200]}"
@@ -514,6 +597,41 @@ def _run_bash(workspace, params):
     return f"exit_code: {proc.returncode}\n--- stdout ---\n{out}\n--- stderr ---\n{err}"
 
 
+def _html_to_text(html):
+    """Crude HTML -> readable text: drop script/style, strip tags, unescape."""
+    html = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", html)
+    text = re.sub(r"(?s)<[^>]+>", " ", html)
+    text = html_module.unescape(text)
+    text = re.sub(r"[ \t\r\f\v]+", " ", text)
+    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
+    return text.strip()
+
+
+def _fetch_url(workspace, params):
+    """Fetch a single URL and return its text (HTML reduced to readable text).
+
+    A lightweight 'browser': lets the agent read live docs/specs/pages without a
+    heavyweight headless browser. Follows redirects; size-limited output.
+    """
+    url = (params.get("url") or "").strip()
+    if not url:
+        return "ERROR: fetch_url needs a 'url'."
+    if not re.match(r"^https?://", url, re.I):
+        url = "https://" + url
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            resp = client.get(url, headers={"User-Agent": "ubuntu-agent/1.0"})
+    except (httpx.TimeoutException, httpx.TransportError) as e:
+        return f"ERROR: fetch failed ({type(e).__name__}): {e}"
+    ctype = resp.headers.get("content-type", "")
+    body = resp.text or ""
+    if "html" in ctype.lower() or re.search(r"(?i)<html", body[:2000]):
+        body = _html_to_text(body)
+    body = body[:MAX_OUTPUT_CHARS]
+    return (f"HTTP {resp.status_code} {ctype}\nURL: {resp.url}\n"
+            f"--- content ---\n{body}")
+
+
 _RESEARCH_SYSTEM = (
     "You are a precise research assistant with live web access. Answer the "
     "question factually and concretely: give exact specifics (numbers, field "
@@ -604,7 +722,8 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
     if context:
         messages.append({"role": "user", "content": context})
     messages.append({"role": "user", "content": f"TASK: {task}"})
-    tools = {"write_file": _write_file, "read_file": _read_file, "run_bash": _run_bash}
+    tools = {"write_file": _write_file, "read_file": _read_file,
+             "run_bash": _run_bash, "fetch_url": _fetch_url}
 
     # Track whether the agent actually exercised its work. We refuse the first
     # `finish` that comes after writing code without ever running it, so the
@@ -773,7 +892,8 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
             "action": name,
             "thought": thought,
             "reasoning": reasoning[:600],
-            "detail": params.get("path") or params.get("command") or "",
+            "detail": (params.get("path") or params.get("command")
+                       or params.get("url") or ""),
             "observation": observation[:MAX_OUTPUT_CHARS],
         }
         steps.append(entry)
