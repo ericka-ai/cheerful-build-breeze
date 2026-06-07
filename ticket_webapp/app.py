@@ -42,6 +42,8 @@ try:
 except ImportError:
     HAS_POSTGRES = False
 
+import ai_accounts
+
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(APP_DIR, "assets")
 
@@ -556,14 +558,63 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
 .welcome .chip{background:var(--card);border:1px solid var(--border);padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;color:var(--text);}
 .welcome .chip:hover{border-color:var(--accent);color:var(--accent);}
 @media(max-width:768px){.sidebar{display:none;}.main{width:100%;}}
+/* Auth overlay */
+.auth-overlay{position:fixed;inset:0;background:radial-gradient(1200px 600px at 50% -10%,#1b1430,#0b0b10 60%);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.auth-card h1{font-size:22px;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.auth-card h1 span{color:var(--accent);}
+.auth-card .sub{color:var(--muted);font-size:13px;margin-bottom:20px;}
+.auth-card input{width:100%;background:#0d1117;border:1px solid var(--border);color:var(--text);padding:12px;border-radius:10px;font-size:14px;margin-bottom:12px;}
+.auth-card input:focus{outline:none;border-color:var(--accent);}
+.auth-card button.primary{width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;}
+.auth-card button.primary:hover{background:var(--accent2);}
+.auth-card button.primary:disabled{background:#4a4a52;cursor:not-allowed;}
+.auth-switch{text-align:center;font-size:13px;color:var(--muted);margin-top:16px;}
+.auth-switch a{color:var(--accent);cursor:pointer;font-weight:600;}
+.auth-msg{font-size:13px;border-radius:8px;padding:10px 12px;margin-bottom:12px;display:none;}
+.auth-msg.err{display:block;background:#451a1a;border:1px solid var(--red);color:#fca5a5;}
+.auth-msg.ok{display:block;background:#064e3b;border:1px solid var(--green);color:#6ee7b7;}
+.auth-hidden{display:none!important;}
+/* Topbar user */
+.user-menu{margin-left:14px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+.user-menu .email{color:var(--text);font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.user-menu button{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px;}
+.user-menu button:hover{border-color:var(--red);color:var(--red);}
 </style>
 </head>
 <body>
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <h1><span>&#9670;</span> AI Agent</h1>
+    <p class="sub" id="auth-sub">Melde dich an oder registriere dich kostenlos.</p>
+    <div class="auth-msg" id="auth-msg"></div>
+    <!-- Login -->
+    <div id="auth-login">
+      <input type="email" id="login-email" placeholder="E-Mail" autocomplete="email">
+      <input type="password" id="login-pw" placeholder="Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <button class="primary" id="login-btn" onclick="doLogin()">Anmelden</button>
+      <div class="auth-switch">Noch kein Konto? <a onclick="showAuth('register')">Kostenlos registrieren</a></div>
+    </div>
+    <!-- Register -->
+    <div id="auth-register" class="auth-hidden">
+      <input type="email" id="reg-email" placeholder="E-Mail" autocomplete="email">
+      <input type="password" id="reg-pw" placeholder="Passwort (min. 6 Zeichen)" autocomplete="new-password" onkeydown="if(event.key==='Enter')doRegister()">
+      <button class="primary" id="reg-btn" onclick="doRegister()">Registrieren</button>
+      <div class="auth-switch">Schon ein Konto? <a onclick="showAuth('login')">Anmelden</a></div>
+    </div>
+    <!-- Verify -->
+    <div id="auth-verify" class="auth-hidden">
+      <input type="text" id="verify-code" placeholder="6-stelliger Code" inputmode="numeric" maxlength="6" onkeydown="if(event.key==='Enter')doVerify()">
+      <button class="primary" id="verify-btn" onclick="doVerify()">Bestätigen</button>
+      <div class="auth-switch"><a onclick="showAuth('login')">Zurück zum Login</a></div>
+    </div>
+  </div>
+</div>
 <div class="sidebar">
   <div class="logo"><span>&#9670;</span> AI Agent</div>
   <button class="new-btn" onclick="newChat()">+ Neuer Chat</button>
   <div class="sessions" id="sess-list"></div>
-  <div class="sidebar-footer">Sessions im Browser gespeichert</div>
+  <div class="sidebar-footer">Chats sicher in deinem Konto gespeichert</div>
 </div>
 <div class="main">
   <div class="topbar"><span class="dot"></span> <span id="backend-label">__AI_BACKEND_LABEL__</span>
@@ -571,6 +622,7 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
       <label title="Delegiert an eine echte Devin-Session \u2013 testet, verifiziert, l\u00e4uft im Hintergrund weiter"><input type="radio" name="aimode" value="devin" checked onchange="setMode('devin')"> Devin (empfohlen)</label>
       <label title="Lokaler, kostenloser Agent in diesem Server \u2013 schw\u00e4cher, l\u00e4uft nicht im Hintergrund weiter"><input type="radio" name="aimode" value="local" onchange="setMode('local')"> Lokaler Agent (gratis)</label>
     </span>
+    <span class="user-menu" id="user-menu" style="display:none"><span class="email" id="user-email"></span><button onclick="doLogout()">Abmelden</button></span>
   </div>
   <div class="messages" id="messages"></div>
   <div class="file-list" id="file-list"></div>
@@ -583,18 +635,25 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
   </div>
 </div>
 <script>
-const STORAGE_KEY='ai_agent_sessions';
-let sessions=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+let sessions=[];
 let currentId=null;
 let working=false;
 let abortCtrl=null;
 let selectedFiles=[];
+let authUser=null;
+let pendingEmail='';
 let aiMode=localStorage.getItem('ai_agent_mode')||'devin';
 
 function setMode(m){aiMode=m;localStorage.setItem('ai_agent_mode',m);}
 
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(sessions));}
+// Chats live in the user's account on the server now; save() is a no-op kept
+// for the call sites in the streaming loop.
+function save(){}
 function esc(s){return(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+async function apiForm(path,obj){const fd=new FormData();for(const k in obj)fd.set(k,obj[k]);let r;try{r=await fetch(path,{method:'POST',body:fd});}catch(e){return {ok:false,status:0,data:{error:String(e)}};}let j={};try{j=await r.json();}catch(_){}return {ok:r.ok,status:r.status,data:j};}
+async function apiGet(path){let r;try{r=await fetch(path);}catch(e){return {ok:false,status:0,data:{error:String(e)}};}let j={};try{j=await r.json();}catch(_){}return {ok:r.ok,status:r.status,data:j};}
+function fmtTs(iso){try{return iso?new Date(iso).toLocaleString('de'):new Date().toLocaleString('de');}catch(_){return '';}}
 
 function renderSidebar(){
   const el=document.getElementById('sess-list');
@@ -652,21 +711,50 @@ function renderAgent(m,sessId){
   return h;
 }
 
-function newChat(){
-  const id='s_'+Date.now();
-  sessions.unshift({id,title:'Neuer Chat',ts:new Date().toLocaleString('de'),msgs:[]});
-  currentId=id;save();renderSidebar();renderMessages();
-  document.getElementById('input').focus();
+async function newChat(){
+  if(!authUser)return;
+  const r=await apiForm('/api/ai/chats',{title:'Neuer Chat'});
+  const c=(r.data&&r.data.chat)||{id:'s_'+Date.now(),title:'Neuer Chat',updated_at:''};
+  sessions.unshift({id:c.id,title:c.title,ts:fmtTs(c.updated_at),msgs:[],loaded:true});
+  currentId=c.id;renderSidebar();renderMessages();
+  const inp=document.getElementById('input');if(inp)inp.focus();
 }
 
-function loadSession(id){currentId=id;renderSidebar();renderMessages();maybeResume();}
+// Map server-stored messages to the in-memory render model. Assistant messages
+// store the full worklog object in meta so the worklog renders after reload.
+function mapMsgs(list){
+  const out=[];
+  for(const m of (list||[])){
+    if(m.role==='user'){out.push({role:'user',text:m.content});}
+    else{
+      let a=(m.meta&&m.meta.role==='agent')?m.meta:{role:'agent',result:m.content,finished:true,steps:[]};
+      a._mid=m.id;
+      if(a.streaming&&a.mode!=='devin')a.streaming=false; // local runs can't resume
+      out.push(a);
+    }
+  }
+  return out;
+}
 
-function deleteSession(id){
+async function loadSession(id){
+  currentId=id;renderSidebar();
+  const sess=sessions.find(s=>s.id===id);
+  if(sess&&!sess.loaded){
+    const r=await apiGet('/api/ai/chats/'+id+'/messages');
+    sess.msgs=mapMsgs(r.data&&r.data.messages);
+    sess.loaded=true;
+  }
+  renderMessages();maybeResume();
+}
+
+async function deleteSession(id){
   if(working&&id===currentId){alert('Bitte zuerst den laufenden Task stoppen.');return;}
   if(!confirm('Diesen Chat l\u00f6schen?'))return;
+  try{await fetch('/api/ai/chats/'+id,{method:'DELETE'});}catch(_){}
   sessions=sessions.filter(s=>s.id!==id);
-  if(currentId===id){currentId=sessions.length?sessions[0].id:null;if(!currentId)newChat();}
-  save();renderSidebar();renderMessages();
+  if(currentId===id){currentId=sessions.length?sessions[0].id:null;}
+  renderSidebar();
+  if(currentId)loadSession(currentId); else await newChat();
 }
 
 function setTask(t){document.getElementById('input').value=t;}
@@ -691,26 +779,51 @@ function setWorking(on){
   document.getElementById('stop-btn').style.display=on?'flex':'none';
 }
 
+// Trim a worklog object before persisting so the DB row stays reasonable.
+function agentMeta(a){
+  const steps=(a.steps||[]).map(s=>{const c=Object.assign({},s);if(typeof c.observation==='string'&&c.observation.length>4000)c.observation=c.observation.slice(0,4000)+'\u2026';return c;});
+  return {role:'agent',mode:a.mode,steps,result:a.result,finished:a.finished,streaming:a.streaming,status:a.status,files:a.files||[],error:a.error||null};
+}
+
+// Save (or update) the assistant worklog message for this turn on the server.
+async function persistAgent(sess,agent){
+  if(!authUser||!sess)return;
+  const meta=JSON.stringify(agentMeta(agent));
+  const content=agent.result||agent.error||'';
+  try{
+    if(agent._mid){await apiForm('/api/ai/chats/'+sess.id+'/messages/'+agent._mid,{content,meta});}
+    else{const r=await apiForm('/api/ai/chats/'+sess.id+'/messages',{role:'assistant',content,meta});if(r.ok&&r.data&&r.data.id)agent._mid=r.data.id;}
+  }catch(_){}
+}
+
 async function send(){
   if(working)return;
+  if(!authUser)return;
   const inp=document.getElementById('input');
   const task=inp.value.trim();
   if(!task)return;
-  if(!currentId)newChat();
+  if(!currentId)await newChat();
   const sess=sessions.find(s=>s.id===currentId);
-  sess.msgs.push({role:'user',text:task});
-  if(sess.title==='Neuer Chat')sess.title=task.slice(0,40);
+  if(!sess)return;
+  let userText=task;
+  sess.msgs.push({role:'user',text:userText});
+  const wasUntitled=(sess.title==='Neuer Chat');
+  if(wasUntitled)sess.title=task.slice(0,40);
   sess.ts=new Date().toLocaleString('de');
   // Live worklog: append an agent message we update in place as events stream in.
   const agent={role:'agent',mode:aiMode,steps:[],result:null,finished:false,streaming:true,status:'Agent plant'};
   sess.msgs.push(agent);
   // Show uploaded filenames on the user message, then clear the picker.
   const filesToSend=selectedFiles.slice();
-  if(filesToSend.length){sess.msgs[sess.msgs.length-2].text+=' [Datei: '+filesToSend.map(f=>f.name).join(', ')+']';}
+  if(filesToSend.length){userText+=' [Datei: '+filesToSend.map(f=>f.name).join(', ')+']';sess.msgs[sess.msgs.length-2].text=userText;}
   save();renderSidebar();renderMessages();
   inp.value='';inp.style.height='48px';
   selectedFiles=[];document.getElementById('file-input').value='';renderFileList();
   setWorking(true);
+  // Persist the user turn + a streaming placeholder so the chat survives reload.
+  if(wasUntitled){try{await apiForm('/api/ai/chats/'+sess.id+'/rename',{title:sess.title});}catch(_){}}
+  try{await apiForm('/api/ai/chats/'+sess.id+'/messages',{role:'user',content:userText});}catch(_){}
+  await persistAgent(sess,agent);
 
   // Prior turns (everything before the just-added user msg + agent placeholder)
   // give the agent memory of this chat; session_id keeps its workspace.
@@ -773,6 +886,7 @@ async function consumeStream(fd,agent,sess){
   agent.streaming=false;abortCtrl=null;
   setWorking(false);
   save();renderSidebar();renderMessages();
+  persistAgent(sess,agent);
 }
 
 // Reconnect to a Devin run that kept going server-side (e.g. after the device
@@ -796,20 +910,237 @@ function maybeResume(){
   if(last&&last.role==='agent'&&last.streaming&&last.mode==='devin'){resumeAgent(sess,last);}
 }
 
+// ── Auth UI ──────────────────────────────
+function showAuth(panel){
+  for(const p of ['login','register','verify']){document.getElementById('auth-'+p).classList.toggle('auth-hidden',p!==panel);}
+  authMsg('','');
+  const subs={login:'Melde dich an, um deine Chats zu sehen.',register:'Registriere dich kostenlos \u2013 nur E-Mail & Passwort.',verify:'Gib den 6-stelligen Code ein.'};
+  const sub=document.getElementById('auth-sub');if(sub)sub.textContent=subs[panel]||'';
+}
+function authMsg(text,kind){const el=document.getElementById('auth-msg');el.className='auth-msg'+(kind?(' '+kind):'');el.textContent=text;}
+async function doRegister(){
+  const email=document.getElementById('reg-email').value.trim();
+  const pw=document.getElementById('reg-pw').value;
+  if(!email||!pw){authMsg('Bitte E-Mail und Passwort eingeben.','err');return;}
+  const btn=document.getElementById('reg-btn');btn.disabled=true;
+  const r=await apiForm('/api/ai/auth/register',{email,password:pw});
+  btn.disabled=false;
+  if(!r.ok){authMsg((r.data&&r.data.error)||'Registrierung fehlgeschlagen.','err');return;}
+  pendingEmail=email;showAuth('verify');
+  if(r.data.dev_code){authMsg('E-Mail-Versand noch nicht eingerichtet. Dein Code: '+r.data.dev_code,'ok');const c=document.getElementById('verify-code');if(c)c.value=r.data.dev_code;}
+  else{authMsg('Code wurde an '+email+' gesendet.','ok');}
+}
+async function doVerify(){
+  const code=document.getElementById('verify-code').value.trim();
+  if(!pendingEmail){authMsg('Bitte zuerst registrieren oder einloggen.','err');return;}
+  const btn=document.getElementById('verify-btn');btn.disabled=true;
+  const r=await apiForm('/api/ai/auth/verify',{email:pendingEmail,code});
+  btn.disabled=false;
+  if(!r.ok){authMsg((r.data&&r.data.error)||'Best\u00e4tigung fehlgeschlagen.','err');return;}
+  onLoggedIn(r.data.user);
+}
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const pw=document.getElementById('login-pw').value;
+  if(!email||!pw){authMsg('Bitte E-Mail und Passwort eingeben.','err');return;}
+  const btn=document.getElementById('login-btn');btn.disabled=true;
+  const r=await apiForm('/api/ai/auth/login',{email,password:pw});
+  btn.disabled=false;
+  if(r.ok){onLoggedIn(r.data.user);return;}
+  if(r.status===403&&r.data&&r.data.needs_verification){pendingEmail=email;showAuth('verify');authMsg('Konto noch nicht best\u00e4tigt. Bitte Code eingeben.','err');return;}
+  authMsg((r.data&&r.data.error)||'Login fehlgeschlagen.','err');
+}
+async function doLogout(){try{await apiForm('/api/ai/auth/logout',{});}catch(_){}location.reload();}
+
+function onLoggedIn(user){
+  authUser=user;
+  document.getElementById('auth-overlay').classList.add('auth-hidden');
+  const um=document.getElementById('user-menu');if(um)um.style.display='flex';
+  const ue=document.getElementById('user-email');if(ue)ue.textContent=user.email;
+  loadChats();
+}
+
+async function loadChats(){
+  const r=await apiGet('/api/ai/chats');
+  const chats=(r.data&&r.data.chats)||[];
+  sessions=chats.map(c=>({id:c.id,title:c.title,ts:fmtTs(c.updated_at),msgs:[],loaded:false}));
+  if(sessions.length===0){await newChat();}
+  else{await loadSession(sessions[0].id);}
+}
+
 // Auto-resize textarea
 document.getElementById('input').addEventListener('input',function(){this.style.height='48px';this.style.height=Math.min(this.scrollHeight,120)+'px';});
 
-// Init
+// Init: restore mode radio, then check whether we are already logged in.
 (function(){const r=document.querySelector('input[name="aimode"][value="'+aiMode+'"]');if(r)r.checked=true;})();
-// Local runs can't survive a reload (they live in the server process); drop
-// their streaming flag. Devin runs keep going server-side, so leave them so we
-// can auto-reconnect below.
-for(const s of sessions){for(const m of (s.msgs||[])){if(m.role==='agent'&&m.streaming&&m.mode!=='devin'){m.streaming=false;}}}
-if(sessions.length===0)newChat(); else{currentId=sessions[0].id;}
-renderSidebar();renderMessages();maybeResume();
+(async function(){
+  const r=await apiGet('/api/ai/auth/me');
+  if(r.ok&&r.data&&r.data.user){onLoggedIn(r.data.user);}
+  else{document.getElementById('auth-overlay').classList.remove('auth-hidden');showAuth('login');}
+})();
 </script>
 </body>
 </html>""").replace("__AI_BACKEND_LABEL__", backend_label)
+
+
+# ─── AI ACCOUNTS + SERVER-SIDE CHAT STORAGE ─────────────────────────────────
+# Free email/password accounts for /ai, plus per-user chats persisted in the DB
+# so they are available from any device. All routes live under /api/ai/ so they
+# bypass the legacy site-password gate (the /ai feature has its own auth now).
+
+_AI_COOKIE = "ai_session"
+
+
+def _ai_user(request: Request):
+    """Return the logged-in /ai user dict, or None."""
+    try:
+        return ai_accounts.user_for_token(request.cookies.get(_AI_COOKIE, ""))
+    except Exception:
+        return None
+
+
+def _ai_user_public(user):
+    return {"email": user["email"], "id": user["id"]} if user else None
+
+
+@app.post("/api/ai/auth/register")
+async def ai_register(email: str = Form(...), password: str = Form(...)):
+    try:
+        _uid, code = ai_accounts.register_user(email, password)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    sent = ai_accounts.send_verification_email(email.strip().lower(), code)
+    resp = {"ok": True, "needs_verification": True, "email_sent": sent}
+    if not sent:
+        # No SMTP configured yet: surface the code so registration still works.
+        resp["dev_code"] = code
+        resp["note"] = ("E-Mail-Versand ist nicht konfiguriert (SMTP_*). "
+                        "Code zum Testen: " + code)
+    return resp
+
+
+@app.post("/api/ai/auth/verify")
+async def ai_verify(response: Response, email: str = Form(...),
+                    code: str = Form(...)):
+    try:
+        uid = ai_accounts.verify_email(email, code)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    token = ai_accounts.create_session(uid)
+    response.set_cookie(_AI_COOKIE, token, httponly=True, samesite="lax",
+                        max_age=60 * 60 * 24 * 30)
+    user = ai_accounts.get_user_by_id(uid)
+    return {"ok": True, "user": _ai_user_public(user)}
+
+
+@app.post("/api/ai/auth/login")
+async def ai_login(response: Response, email: str = Form(...),
+                   password: str = Form(...)):
+    user = ai_accounts.authenticate(email, password)
+    if not user:
+        # Distinguish "needs verification" from "wrong credentials".
+        existing = ai_accounts.get_user_by_email(email)
+        if existing and int(existing.get("verified") or 0) != 1:
+            return JSONResponse(
+                {"error": "Konto noch nicht bestätigt.",
+                 "needs_verification": True}, status_code=403)
+        return JSONResponse({"error": "E-Mail oder Passwort falsch."},
+                            status_code=401)
+    token = ai_accounts.create_session(user["id"])
+    response.set_cookie(_AI_COOKIE, token, httponly=True, samesite="lax",
+                        max_age=60 * 60 * 24 * 30)
+    return {"ok": True, "user": _ai_user_public(user)}
+
+
+@app.post("/api/ai/auth/logout")
+async def ai_logout(request: Request, response: Response):
+    ai_accounts.delete_session(request.cookies.get(_AI_COOKIE, ""))
+    response.delete_cookie(_AI_COOKIE)
+    return {"ok": True}
+
+
+@app.get("/api/ai/auth/me")
+async def ai_me(request: Request):
+    return {"user": _ai_user_public(_ai_user(request))}
+
+
+@app.get("/api/ai/chats")
+async def ai_list_chats(request: Request):
+    user = _ai_user(request)
+    if not user:
+        return JSONResponse({"error": "Nicht eingeloggt."}, status_code=401)
+    return {"chats": ai_accounts.list_chats(user["id"])}
+
+
+@app.post("/api/ai/chats")
+async def ai_create_chat(request: Request, title: str = Form("Neuer Chat")):
+    user = _ai_user(request)
+    if not user:
+        return JSONResponse({"error": "Nicht eingeloggt."}, status_code=401)
+    return {"chat": ai_accounts.create_chat(user["id"], title or "Neuer Chat")}
+
+
+@app.post("/api/ai/chats/{chat_id}/rename")
+async def ai_rename_chat(chat_id: str, request: Request, title: str = Form(...)):
+    user = _ai_user(request)
+    if not user:
+        return JSONResponse({"error": "Nicht eingeloggt."}, status_code=401)
+    ok = ai_accounts.rename_chat(user["id"], chat_id, title)
+    return {"ok": ok}
+
+
+@app.delete("/api/ai/chats/{chat_id}")
+async def ai_delete_chat(chat_id: str, request: Request):
+    user = _ai_user(request)
+    if not user:
+        return JSONResponse({"error": "Nicht eingeloggt."}, status_code=401)
+    return {"ok": ai_accounts.delete_chat(user["id"], chat_id)}
+
+
+@app.get("/api/ai/chats/{chat_id}/messages")
+async def ai_get_messages(chat_id: str, request: Request):
+    user = _ai_user(request)
+    if not user:
+        return JSONResponse({"error": "Nicht eingeloggt."}, status_code=401)
+    msgs = ai_accounts.get_messages(user["id"], chat_id)
+    if msgs is None:
+        return JSONResponse({"error": "Chat nicht gefunden."}, status_code=404)
+    return {"messages": msgs}
+
+
+@app.post("/api/ai/chats/{chat_id}/messages")
+async def ai_add_message(chat_id: str, request: Request, role: str = Form(...),
+                         content: str = Form(""), meta: str = Form("")):
+    user = _ai_user(request)
+    if not user:
+        return JSONResponse({"error": "Nicht eingeloggt."}, status_code=401)
+    meta_obj = None
+    if meta:
+        try:
+            meta_obj = json.loads(meta)
+        except (ValueError, TypeError):
+            meta_obj = None
+    mid = ai_accounts.add_message(user["id"], chat_id, role, content, meta_obj)
+    if mid is None:
+        return JSONResponse({"error": "Chat nicht gefunden."}, status_code=404)
+    return {"ok": True, "id": mid}
+
+
+@app.post("/api/ai/chats/{chat_id}/messages/{message_id}")
+async def ai_update_message(chat_id: str, message_id: str, request: Request,
+                            content: str = Form(""), meta: str = Form("")):
+    user = _ai_user(request)
+    if not user:
+        return JSONResponse({"error": "Nicht eingeloggt."}, status_code=401)
+    meta_obj = None
+    if meta:
+        try:
+            meta_obj = json.loads(meta)
+        except (ValueError, TypeError):
+            meta_obj = None
+    ok = ai_accounts.update_message(user["id"], chat_id, message_id, content,
+                                    meta_obj)
+    return {"ok": ok}
 
 
 # Persistent per-chat agent workspaces so artifacts (keys, files, results) made
@@ -1222,6 +1553,7 @@ def _make_session_token(password: str) -> str:
 
 _init_postgres()
 _load_ticket_store()
+ai_accounts.init_db()
 
 
 def asset(name):
