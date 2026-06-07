@@ -902,7 +902,7 @@ function syncRpShell(s){
   const el=document.getElementById('rp-shell-output');
   if(!el)return;
   if(s.action==='run_bash'&&s.observation){
-    el.textContent='$ '+((s.detail||'Befehl')+'\n'+s.observation).slice(0,4000);
+    el.textContent='$ '+((s.detail||'Befehl')+'\\n'+s.observation).slice(0,4000);
     el.scrollTop=el.scrollHeight;
   }
 }
