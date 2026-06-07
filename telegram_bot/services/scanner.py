@@ -1,9 +1,13 @@
 """
 Background payment scanner.
 
-Periodically checks pending orders for incoming crypto payments.
+Periodically checks pending orders for incoming payments:
+- Crypto payments via blockchain APIs
+- PayPal payments via browser automation (checks transaction history)
+- Bank transfers: manual (admin confirms via /confirm)
+
 When a payment is detected, the order status is updated and
-the admin is notified for manual payout confirmation.
+the admin is notified for payout.
 """
 
 import asyncio
@@ -21,12 +25,13 @@ from telegram_bot.models.order import (
     save_order,
 )
 from telegram_bot.services.crypto import check_crypto_payment
+from telegram_bot.services.paypal_checker import check_paypal_payment
 
 logger = logging.getLogger(__name__)
 
 
 async def run_payment_scanner(app: Application) -> None:
-    """Background task: scan for incoming crypto payments."""
+    """Background task: scan for incoming payments."""
     logger.info("Payment scanner started (interval: %ds)", PAYMENT_SCAN_INTERVAL)
 
     while True:
@@ -55,46 +60,69 @@ async def _scan_once(app: Application) -> None:
             logger.info("Order %s expired", order.order_id)
             continue
 
-        if not order.crypto_currency or not order.crypto_address:
-            continue
-
-        result = await check_crypto_payment(
-            order.crypto_currency,
-            order.crypto_address,
-            order.crypto_amount,
-        )
-
-        if result and result.get("confirmed"):
-            order.status = OrderStatus.PAYMENT_RECEIVED
-            order.tx_hash = result.get("tx_hash", "")
-            save_order(order)
-
-            await _notify_user(
-                app,
-                order.user_id,
-                f"Zahlung fuer Bestellung #{order.order_id} empfangen!\n"
-                f"TX: {order.tx_hash[:16]}...\n"
-                f"Deine Auszahlung wird jetzt bearbeitet.",
-            )
-
-            await _notify_admins(
-                app,
-                f"Zahlung empfangen!\n"
-                f"Bestellung: #{order.order_id}\n"
-                f"Typ: {order.exchange_type}\n"
-                f"Betrag: {order.amount_eur:.2f} EUR\n"
-                f"Crypto: {order.crypto_amount} {order.crypto_currency}\n"
-                f"TX: {order.tx_hash}\n\n"
-                f"Bitte Auszahlung bestaetigen:\n"
-                f"/confirm {order.order_id}",
-            )
-            logger.info(
-                "Payment received for order %s: %s %s (tx: %s)",
-                order.order_id,
-                result["received"],
+        # Check crypto payments (for crypto_to_* orders)
+        if order.exchange_type.startswith("crypto_to_") and order.crypto_currency and order.crypto_address:
+            result = await check_crypto_payment(
                 order.crypto_currency,
-                order.tx_hash,
+                order.crypto_address,
+                order.crypto_amount,
             )
+            if result and result.get("confirmed"):
+                await _mark_payment_received(app, order, tx_hash=result.get("tx_hash", ""))
+                continue
+
+        # Check PayPal payments (for paypal_to_* orders)
+        if order.exchange_type.startswith("paypal_to_"):
+            result = await check_paypal_payment(
+                order.order_id,
+                order.amount_eur,
+            )
+            if result and result.get("confirmed"):
+                await _mark_payment_received(
+                    app, order, tx_hash=result.get("tx_id", "PayPal")
+                )
+                continue
+
+        # Bank transfers (bank_to_*) remain manual — admin uses /confirm
+
+
+async def _mark_payment_received(
+    app: Application, order: Order, tx_hash: str = ""
+) -> None:
+    """Mark an order as payment received and notify user + admins."""
+    order.status = OrderStatus.PAYMENT_RECEIVED
+    order.tx_hash = tx_hash
+    save_order(order)
+
+    source = "Krypto" if order.exchange_type.startswith("crypto_to_") else "PayPal"
+    tx_display = f"\nTX: {tx_hash[:24]}..." if tx_hash and tx_hash != "PayPal" else ""
+
+    await _notify_user(
+        app,
+        order.user_id,
+        f"{source}-Zahlung fuer Bestellung #{order.order_id} empfangen!{tx_display}\n"
+        f"Deine Auszahlung wird jetzt bearbeitet.",
+    )
+
+    await _notify_admins(
+        app,
+        f"Zahlung empfangen!\n"
+        f"Bestellung: #{order.order_id}\n"
+        f"Typ: {order.exchange_type}\n"
+        f"Betrag: {order.amount_eur:.2f} EUR\n"
+        f"Quelle: {source}\n"
+        f"{'Crypto: ' + str(order.crypto_amount) + ' ' + order.crypto_currency if order.crypto_currency else ''}\n"
+        f"TX: {tx_hash}\n\n"
+        f"Bitte Auszahlung durchfuehren:\n"
+        f"/confirm {order.order_id}",
+    )
+
+    logger.info(
+        "Payment received for order %s (%s, tx: %s)",
+        order.order_id,
+        source,
+        tx_hash,
+    )
 
 
 async def _notify_user(app: Application, user_id: int, message: str) -> None:
