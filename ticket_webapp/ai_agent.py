@@ -68,7 +68,7 @@ def _model_chain():
     return out
 
 
-MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "40"))
+MAX_STEPS = int(os.environ.get("AI_AGENT_MAX_STEPS", "60"))
 CMD_TIMEOUT = int(os.environ.get("AI_AGENT_CMD_TIMEOUT", "240"))
 MAX_OUTPUT_CHARS = 6000
 
@@ -94,7 +94,7 @@ RESEARCH_MAX_TOKENS = int(os.environ.get("AI_AGENT_RESEARCH_MAX_TOKENS", "1200")
 # Token budget for the agent's main reasoning/JSON reply. Generous by default so
 # weak free models don't truncate their JSON mid-step (a common failure). 0 =
 # don't send a limit (let the provider decide). Override with AI_AGENT_MAX_TOKENS.
-MAIN_MAX_TOKENS = int(os.environ.get("AI_AGENT_MAX_TOKENS", "2048"))
+MAIN_MAX_TOKENS = int(os.environ.get("AI_AGENT_MAX_TOKENS", "4096"))
 
 
 SYSTEM_PROMPT = """\
@@ -113,7 +113,7 @@ You MUST reply with a SINGLE JSON object and nothing else. No prose outside the
 JSON. The JSON has exactly these fields:
   {
     "thought": "<your FULL reasoning about the next step — be detailed and thorough>",
-    "action": "<one of: plan, research, web_search, fetch_url, write_file, edit_file, read_file, list_files, run_bash, remember, finish>",
+    "action": "<one of: plan, research, web_search, fetch_url, write_file, edit_file, read_file, append_file, rename_file, delete_file, list_files, tree, search_files, diff_files, run_bash, remember, finish>",
     "params": { ... }
   }
 
@@ -134,7 +134,17 @@ Action parameters:
                                                        # this over rewriting a big
                                                        # file for a small change.
   - read_file:  {"path": "relative path"}
+  - append_file: {"path": "relative path", "content": "<text to append>"}
+                                                       # add to existing file
+  - rename_file: {"old_path": "current.py", "new_path": "better.py"}
+  - delete_file: {"path": "file_to_remove"}            # delete a file or dir
   - list_files: {}                                     # see files made so far
+  - tree:       {}                                     # show directory tree
+                                                       # optional: {"depth": 3,
+                                                       # "path": "subdir"}
+  - search_files: {"pattern": "<regex or text>"}       # grep across all files
+                                                       # optional: {"glob":"*.py"}
+  - diff_files: {"file_a": "old.py", "file_b": "new.py"}  # unified diff
   - run_bash:   {"command": "<one shell command>"}    # also to install deps,
                                                        # e.g. pip install <pkg>
   - remember:   {"note": "<fact or learning to remember>"}  # save a note for
@@ -229,16 +239,43 @@ How to work (like Devin):
     recall it in future turns of this chat.
 
 General engineering skill:
-  - You are a strong generalist engineer. Beyond crypto you are fluent in data
-    processing (JSON/CSV/SQL/pandas), web/HTTP and APIs, parsing & binary
-    formats, regex, algorithms & data structures, concurrency, testing, shell
-    scripting, and debugging. Pick the right tool for the job and use real,
-    well-known libraries (pip install as needed) instead of reinventing them.
+  - You are a strong generalist engineer. You are fluent in:
+    * Python, JavaScript/TypeScript, Bash, C/C++, Java, Go, Rust, Ruby, PHP
+    * Web development: HTML/CSS, React, Vue, Node.js, FastAPI, Django, Flask
+    * Data processing: JSON/CSV/XML/SQL/pandas/numpy/matplotlib
+    * APIs: REST, GraphQL, WebSocket, gRPC, HTTP/HTTPS
+    * Databases: SQLite, PostgreSQL, MySQL, MongoDB, Redis
+    * DevOps: Docker, Git, CI/CD, Linux administration, systemd
+    * Testing: unit tests, integration tests, pytest, jest, mocha
+    * File formats: binary parsing, image processing, PDF, archives
+    * Networking: sockets, HTTP clients/servers, DNS, SSH
+    * Algorithms & data structures, regex, concurrency, debugging
+  - Pick the right tool for the job and use real, well-known libraries
+    (pip install as needed) instead of reinventing them.
   - When facts, specs, formats, or library APIs are uncertain, use `research` for
     a quick answer or `fetch_url` to read the exact documentation/spec page, then
     implement against the confirmed details rather than guessing.
   - Prefer correct, readable, general-purpose solutions over clever hacks. Handle
     edge cases and error paths, validate inputs, and make output easy to verify.
+  - USE YOUR FULL TOOLSET. You have many actions: search_files to find patterns,
+    tree to see project structure, diff_files to compare versions, append_file to
+    add to existing files, rename_file/delete_file for file management. Use them
+    like a real developer uses their IDE — don't just rely on run_bash for
+    everything.
+
+Self-correction and debugging:
+  - When code fails, do NOT just retry the same thing. Instead:
+    1. READ the error message carefully and fully.
+    2. THINK about what caused it (in your thought field).
+    3. Use search_files / read_file to inspect the relevant code.
+    4. Fix the SPECIFIC issue, not a guess.
+    5. Test again with run_bash.
+  - If stuck after 2-3 attempts, CHANGE YOUR APPROACH entirely:
+    * Try a different library or algorithm.
+    * Break the problem into smaller testable pieces.
+    * Research the error message with web_search.
+    * Add debug output (print statements) to understand state.
+  - NEVER give up silently. Always explain what you tried and what went wrong.
 
 Cryptography expertise:
   - You are also a cryptography expert. You can confidently handle symmetric
@@ -717,6 +754,185 @@ def _run_bash(workspace, params):
     return f"exit_code: {proc.returncode}\n--- stdout ---\n{out}\n--- stderr ---\n{err}"
 
 
+def _search_files(workspace, params):
+    """Search for a pattern across all files in the workspace (like grep -rn).
+
+    params: {"pattern": "<regex or text>", optional "glob": "*.py"}
+    Returns matching lines with file:line prefix, or a count summary.
+    """
+    pattern = (params.get("pattern") or params.get("query") or "").strip()
+    if not pattern:
+        return "ERROR: search_files needs a 'pattern'."
+    glob_filter = params.get("glob", "")
+    try:
+        regex = re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        return f"ERROR: invalid regex: {e}"
+    matches = []
+    for root, dirs, files_in_dir in os.walk(workspace):
+        dirs[:] = [d for d in dirs if not d.startswith(".")
+                   and d not in ("__pycache__", "node_modules", ".git", "venv")]
+        for fname in files_in_dir:
+            if fname.startswith("."):
+                continue
+            if glob_filter:
+                import fnmatch
+                if not fnmatch.fnmatch(fname, glob_filter):
+                    continue
+            abspath = os.path.join(root, fname)
+            rel = os.path.relpath(abspath, workspace)
+            try:
+                st = os.stat(abspath)
+                if st.st_size > 500_000:
+                    continue
+                with open(abspath, encoding="utf-8", errors="ignore") as fh:
+                    for i, line in enumerate(fh, 1):
+                        if regex.search(line):
+                            matches.append(f"{rel}:{i}: {line.rstrip()}")
+                            if len(matches) >= 100:
+                                break
+            except OSError:
+                continue
+            if len(matches) >= 100:
+                break
+    if not matches:
+        return f"No matches for '{pattern}' in workspace."
+    return f"Found {len(matches)} match(es):\n" + "\n".join(matches[:100])
+
+
+def _diff_files(workspace, params):
+    """Show a unified diff between two files in the workspace.
+
+    params: {"file_a": "path/a", "file_b": "path/b"}
+    """
+    import difflib
+    file_a = params.get("file_a") or params.get("a") or ""
+    file_b = params.get("file_b") or params.get("b") or ""
+    if not file_a or not file_b:
+        return "ERROR: diff_files needs 'file_a' and 'file_b'."
+    path_a = _safe_path(workspace, file_a)
+    path_b = _safe_path(workspace, file_b)
+    try:
+        with open(path_a, encoding="utf-8", errors="ignore") as f:
+            lines_a = f.readlines()
+    except OSError as e:
+        return f"ERROR reading {file_a}: {e}"
+    try:
+        with open(path_b, encoding="utf-8", errors="ignore") as f:
+            lines_b = f.readlines()
+    except OSError as e:
+        return f"ERROR reading {file_b}: {e}"
+    diff = difflib.unified_diff(lines_a, lines_b, fromfile=file_a, tofile=file_b,
+                                lineterm="")
+    result = "\n".join(diff)
+    if not result:
+        return "Files are identical."
+    return result[:MAX_OUTPUT_CHARS]
+
+
+def _tree(workspace, params):
+    """Show the directory tree of the workspace (like `tree` command).
+
+    params: optional {"depth": 3, "path": "subdir"}
+    """
+    max_depth = int(params.get("depth", 4))
+    subdir = params.get("path", "")
+    base = _safe_path(workspace, subdir) if subdir else workspace
+    if not os.path.isdir(base):
+        return f"ERROR: '{subdir}' is not a directory."
+    lines = []
+    count = 0
+
+    def _walk(dirpath, prefix, depth):
+        nonlocal count
+        if depth > max_depth:
+            return
+        try:
+            entries = sorted(os.listdir(dirpath))
+        except OSError:
+            return
+        entries = [e for e in entries if not e.startswith(".")
+                   and e not in ("__pycache__", "node_modules", ".git", "venv")]
+        for i, name in enumerate(entries):
+            count += 1
+            if count > 500:
+                lines.append(f"{prefix}... (truncated)")
+                return
+            is_last = (i == len(entries) - 1)
+            connector = "└── " if is_last else "├── "
+            abspath = os.path.join(dirpath, name)
+            if os.path.isdir(abspath):
+                lines.append(f"{prefix}{connector}{name}/")
+                extension = "    " if is_last else "│   "
+                _walk(abspath, prefix + extension, depth + 1)
+            else:
+                try:
+                    sz = os.path.getsize(abspath)
+                except OSError:
+                    sz = 0
+                lines.append(f"{prefix}{connector}{name} ({sz} bytes)")
+
+    root_label = subdir or "."
+    lines.append(f"{root_label}/")
+    _walk(base, "", 1)
+    return "\n".join(lines) if lines else "(empty directory)"
+
+
+def _append_file(workspace, params):
+    """Append content to an existing file (or create it).
+
+    params: {"path": "relative path", "content": "<text to append>"}
+    Useful for adding to logs, configs, or growing files incrementally.
+    """
+    path = params.get("path")
+    content = params.get("content", "")
+    if not path:
+        return "ERROR: append_file needs a 'path'."
+    abspath = _safe_path(workspace, path)
+    os.makedirs(os.path.dirname(abspath) or workspace, exist_ok=True)
+    with open(abspath, "a", encoding="utf-8") as f:
+        f.write(content)
+    total = os.path.getsize(abspath)
+    return f"Appended {len(content)} bytes to {path} (total now {total} bytes)."
+
+
+def _rename_file(workspace, params):
+    """Rename or move a file within the workspace.
+
+    params: {"old_path": "current.py", "new_path": "better_name.py"}
+    """
+    old_path = params.get("old_path") or params.get("from") or ""
+    new_path = params.get("new_path") or params.get("to") or ""
+    if not old_path or not new_path:
+        return "ERROR: rename_file needs 'old_path' and 'new_path'."
+    abs_old = _safe_path(workspace, old_path)
+    abs_new = _safe_path(workspace, new_path)
+    if not os.path.exists(abs_old):
+        return f"ERROR: '{old_path}' does not exist."
+    os.makedirs(os.path.dirname(abs_new) or workspace, exist_ok=True)
+    os.rename(abs_old, abs_new)
+    return f"Renamed {old_path} -> {new_path}"
+
+
+def _delete_file(workspace, params):
+    """Delete a file from the workspace.
+
+    params: {"path": "file_to_delete.py"}
+    """
+    path = params.get("path")
+    if not path:
+        return "ERROR: delete_file needs a 'path'."
+    abspath = _safe_path(workspace, path)
+    if not os.path.exists(abspath):
+        return f"ERROR: '{path}' does not exist."
+    if os.path.isdir(abspath):
+        import shutil
+        shutil.rmtree(abspath)
+        return f"Deleted directory {path}."
+    os.remove(abspath)
+    return f"Deleted {path}."
+
+
 def _html_to_text(html):
     """Crude HTML -> readable text: drop script/style, strip tags, unescape."""
     html = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", html)
@@ -952,7 +1168,10 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
         messages.append({"role": "user", "content": context})
     messages.append({"role": "user", "content": f"TASK: {task}"})
     tools = {"write_file": _write_file, "read_file": _read_file,
-             "edit_file": _edit_file, "list_files": _list_files,
+             "edit_file": _edit_file, "append_file": _append_file,
+             "rename_file": _rename_file, "delete_file": _delete_file,
+             "list_files": _list_files, "tree": _tree,
+             "search_files": _search_files, "diff_files": _diff_files,
              "run_bash": _run_bash, "fetch_url": _fetch_url,
              "web_search": _web_search}
 

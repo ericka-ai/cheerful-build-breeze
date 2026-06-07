@@ -578,7 +578,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .step{border-left:2px solid var(--border);padding:8px 0 8px 14px;margin-left:6px;margin-bottom:4px;}
 .step .hd{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
 .tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;color:#fff;text-transform:uppercase;}
-.tag.plan{background:#0f766e;}.tag.research{background:#ea580c;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}.tag.message{background:#0ea5e9;}.tag.remember{background:#ec4899;}
+.tag.plan{background:#0f766e;}.tag.research{background:#ea580c;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}.tag.message{background:#0ea5e9;}.tag.remember{background:#ec4899;}.tag.append_file{background:#2563eb;}.tag.rename_file{background:#6366f1;}.tag.delete_file{background:#dc2626;}.tag.tree{background:#059669;}.tag.search_files{background:#d97706;}.tag.diff_files{background:#8b5cf6;}
 .think{color:var(--muted);font-size:12px;margin-bottom:4px;font-style:italic;}
 .reasoning{background:#1a1a2e;border:1px solid #2d2d44;border-radius:6px;padding:8px 10px;margin:4px 0;font-size:11px;color:#a78bfa;line-height:1.4;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;}
 .reasoning-toggle{font-size:11px;color:#7c3aed;cursor:pointer;margin-bottom:4px;user-select:none;}
@@ -1034,6 +1034,12 @@ const WL_ICONS={
   message:'<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
   think:'<svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3z"/></svg>',
   remember:'<svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z"/><line x1="12" y1="14" x2="12" y2="18"/></svg>',
+  append_file:'<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>',
+  rename_file:'<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M18 14l-4 4-4-4"/></svg>',
+  delete_file:'<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  tree:'<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  search_files:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
+  diff_files:'<svg viewBox="0 0 24 24"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>',
   invalid:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12" y2="16"/></svg>'
 };
 function wlIcon(a){return WL_ICONS[a]||'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>';}
@@ -1050,6 +1056,12 @@ function wlVerb(s){
     case 'web_search':return ['Web-Suche',d];
     case 'fetch_url':return ['Seite gelesen',d];
     case 'remember':return ['Gemerkt',d];
+    case 'append_file':return ['Datei erweitert',d];
+    case 'rename_file':return ['Umbenannt',d];
+    case 'delete_file':return ['Gel\u00f6scht',d];
+    case 'tree':return ['Verzeichnisbaum',''];
+    case 'search_files':return ['Dateien durchsucht',d];
+    case 'diff_files':return ['Dateien verglichen',d];
     case 'finish':return ['Fertig',''];
     case 'message':return [d||'Devin',''];
     case 'invalid':return ['Ung\u00fcltige Antwort',''];
