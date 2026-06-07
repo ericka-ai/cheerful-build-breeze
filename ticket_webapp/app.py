@@ -526,6 +526,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .live-step .dots span:nth-child(2){animation-delay:0.2s;}
 .live-step .dots span:nth-child(3){animation-delay:0.4s;}
 pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-size:11px;overflow-x:auto;white-space:pre-wrap;word-break:break-word;margin-top:4px;max-height:400px;overflow-y:auto;}
+/* Devin-style worklog */
+.wl-head{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;padding:2px 0;user-select:none;}
+.wl-head:hover{color:var(--text);}
+.wl-head .chev{transition:transform .15s ease;display:inline-flex;}
+.wl-head.open .chev{transform:rotate(90deg);}
+.wl-head .spark{color:var(--accent);display:inline-flex;}
+.wl-steps{margin:8px 0 4px;border-left:1px solid var(--border);padding-left:0;}
+.wl-steps.collapsed{display:none;}
+.wl-step{display:flex;align-items:flex-start;gap:10px;padding:5px 0 5px 14px;position:relative;}
+.wl-ico{flex-shrink:0;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);margin-top:1px;}
+.wl-ico svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.wl-ico.finish{color:var(--green);}.wl-ico.run_bash{color:#a78bfa;}.wl-ico.write_file,.wl-ico.edit_file{color:#60a5fa;}.wl-ico.read_file,.wl-ico.list_files{color:#22d3ee;}.wl-ico.research,.wl-ico.web_search,.wl-ico.fetch_url{color:#fb923c;}.wl-ico.think{color:var(--accent);}
+.wl-body{flex:1;min-width:0;}
+.wl-label{font-size:13px;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.wl-label .det{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--muted);background:#0d1117;border:1px solid var(--border);border-radius:5px;padding:1px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wl-think{cursor:pointer;color:var(--muted);font-size:13px;display:flex;align-items:center;gap:6px;user-select:none;}
+.wl-think:hover{color:var(--text);}
+.wl-sub{margin-top:5px;}
+.wl-toggle{font-size:11px;color:var(--accent);cursor:pointer;user-select:none;}
+.wl-toggle:hover{text-decoration:underline;}
 /* Input */
 .input-area{padding:12px 20px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;}
 .input-area textarea{flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:12px;font-size:14px;resize:none;min-height:48px;max-height:120px;line-height:1.4;}
@@ -557,7 +577,27 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
 .welcome .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
 .welcome .chip{background:var(--card);border:1px solid var(--border);padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;color:var(--text);}
 .welcome .chip:hover{border-color:var(--accent);color:var(--accent);}
-@media(max-width:768px){.sidebar{display:none;}.main{width:100%;}}
+/* Mobile drawer toggle */
+.menu-btn{display:none;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:8px;width:36px;height:36px;font-size:18px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;}
+.menu-btn:hover{border-color:var(--accent);color:var(--accent);}
+.sb-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;}
+@media(max-width:768px){
+  .menu-btn{display:flex;}
+  .sidebar{position:fixed;top:0;left:0;height:100dvh;width:78%;max-width:300px;z-index:50;transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 0 40px rgba(0,0,0,.6);}
+  .sidebar.open{transform:none;}
+  .sb-backdrop.show{display:block;}
+  .main{width:100%;}
+  .topbar{flex-wrap:wrap;padding:10px 12px;gap:6px 10px;}
+  #backend-label{font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mode-switch{margin-left:0;order:3;flex-basis:100%;flex-wrap:wrap;gap:8px 16px;}
+  .user-menu{margin-left:auto;order:2;}
+  .user-menu .email{max-width:120px;}
+  .messages{padding:14px 12px 8px;}
+  .msg{max-width:92%;}
+  .input-area{padding:10px 12px 14px;gap:8px;}
+  .welcome{padding:40px 16px;}
+  .auth-card{padding:22px;}
+}
 /* Auth overlay */
 .auth-overlay{position:fixed;inset:0;background:radial-gradient(1200px 600px at 50% -10%,#1b1430,#0b0b10 60%);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
 .auth-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
@@ -610,14 +650,15 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
     </div>
   </div>
 </div>
-<div class="sidebar">
+<div class="sidebar" id="sidebar">
   <div class="logo"><span>&#9670;</span> AI Agent</div>
   <button class="new-btn" onclick="newChat()">+ Neuer Chat</button>
   <div class="sessions" id="sess-list"></div>
   <div class="sidebar-footer">Chats sicher in deinem Konto gespeichert</div>
 </div>
+<div class="sb-backdrop" id="sb-backdrop" onclick="closeSidebar()"></div>
 <div class="main">
-  <div class="topbar"><span class="dot"></span> <span id="backend-label">__AI_BACKEND_LABEL__</span>
+  <div class="topbar"><button class="menu-btn" onclick="toggleSidebar()" aria-label="Men&uuml;">&#9776;</button><span class="dot"></span> <span id="backend-label">__AI_BACKEND_LABEL__</span>
     <span class="mode-switch">
       <label title="Delegiert an eine echte Devin-Session \u2013 testet, verifiziert, l\u00e4uft im Hintergrund weiter"><input type="radio" name="aimode" value="devin" checked onchange="setMode('devin')"> Devin (empfohlen)</label>
       <label title="Lokaler, kostenloser Agent in diesem Server \u2013 schw\u00e4cher, l\u00e4uft nicht im Hintergrund weiter"><input type="radio" name="aimode" value="local" onchange="setMode('local')"> Lokaler Agent (gratis)</label>
@@ -645,6 +686,10 @@ let pendingEmail='';
 let aiMode=localStorage.getItem('ai_agent_mode')||'devin';
 
 function setMode(m){aiMode=m;localStorage.setItem('ai_agent_mode',m);}
+
+// Mobile: slide the chat list in/out as an off-canvas drawer.
+function toggleSidebar(){const sb=document.getElementById('sidebar');const bd=document.getElementById('sb-backdrop');const open=sb.classList.toggle('open');bd.classList.toggle('show',open);}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sb-backdrop').classList.remove('show');}
 
 // Chats live in the user's account on the server now; save() is a no-op kept
 // for the call sites in the streaming loop.
@@ -692,20 +737,81 @@ function renderFiles(m,sessId){
   return h;
 }
 
+// Format a duration in ms like Devin: "3m 29s" / "12s" / "0s".
+function fmtDur(ms){if(!ms||ms<0)ms=0;const s=Math.round(ms/1000);if(s<60)return s+'s';const m=Math.floor(s/60);return m+'m '+(s%60)+'s';}
+
+// Inline line-icons matching the worklog action types (terminal, file, brain...).
+const WL_ICONS={
+  run_bash:'<svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+  write_file:'<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  edit_file:'<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  read_file:'<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  list_files:'<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  plan:'<svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
+  research:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  web_search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  fetch_url:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>',
+  finish:'<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
+  message:'<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  think:'<svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3z"/></svg>',
+  invalid:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12" y2="16"/></svg>'
+};
+function wlIcon(a){return WL_ICONS[a]||'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>';}
+function wlVerb(s){
+  const d=s.detail||'';
+  switch(s.action){
+    case 'run_bash':return ['Ausgef\u00fchrt',d];
+    case 'write_file':return ['Datei geschrieben',d];
+    case 'edit_file':return ['Datei bearbeitet',d];
+    case 'read_file':return ['Gelesen',d];
+    case 'list_files':return ['Dateien aufgelistet',d];
+    case 'plan':return ['Plan erstellt',''];
+    case 'research':return ['Recherchiert',d];
+    case 'web_search':return ['Web-Suche',d];
+    case 'fetch_url':return ['Seite gelesen',d];
+    case 'finish':return ['Fertig',''];
+    case 'message':return [d||'Devin',''];
+    case 'invalid':return ['Ung\u00fcltige Antwort',''];
+    default:return [s.action||'Schritt',d];
+  }
+}
+let WLID=0;
 function renderAgent(m,sessId){
   if(m.error) return `<div class="agent-card"><div class="result-bar err">${esc(m.error)}</div></div>`;
   let h='<div class="agent-card">';
-  if(m.finished) h+=`<div class="result-bar">${esc(m.result)}</div>`;
-  else if(!m.streaming) h+=`<div class="result-bar err">Nicht abgeschlossen (max. Schritte erreicht)</div>`;
-  h+=renderFiles(m,sessId);
-  for(const s of (m.steps||[])){
-    if(s.action==='notice'){ h+=`<div class="notice">${esc(s.message)}</div>`; continue; }
-    h+=`<div class="step"><div class="hd"><span class="tag ${esc(s.action)}">${esc(s.action)}</span> Schritt ${s.step}${s.detail?' &middot; '+esc(s.detail):''}</div>`;
-    if(s.thought) h+=`<div class="think">${esc(s.thought)}</div>`;
-    if(s.reasoning){const rid='r_'+Math.random().toString(36).slice(2);h+=`<div class="reasoning-toggle" onclick="const e=document.getElementById('${rid}');e.style.display=e.style.display==='none'?'block':'none';">&#129504; Denkprozess anzeigen/verbergen</div><div class="reasoning" id="${rid}" style="display:none">${esc(s.reasoning)}</div>`;}
-    if(s.observation) h+=`<pre>${esc(s.observation)}</pre>`;
+  const steps=(m.steps||[]).filter(s=>s.action!=='notice'||s.message);
+  const hasSteps=steps.length>0;
+  // Collapsible "Worked for ..." header (Devin-style). Expanded while streaming.
+  if(hasSteps){
+    const open=!!m.streaming;
+    const wid='wl'+(WLID++);
+    const label=m.streaming?(esc(m.status||'Agent arbeitet')):('Worked for '+fmtDur(m.duration));
+    h+=`<div class="wl-head${open?' open':''}" onclick="const e=document.getElementById('${wid}');const o=this.classList.toggle('open');e.classList.toggle('collapsed',!o);">`+
+       `<span class="spark">${wlIcon('think')}</span><span class="chev">&#9656;</span><span>${label}</span></div>`;
+    h+=`<div class="wl-steps${open?'':' collapsed'}" id="${wid}">`;
+    for(const s of steps){
+      if(s.action==='notice'){h+=`<div class="notice">${esc(s.message)}</div>`;continue;}
+      // "Thought for Xs" collapsible reasoning row.
+      if(s.reasoning){const rid='r'+(WLID++);
+        h+=`<div class="wl-step"><span class="wl-ico think">${wlIcon('think')}</span><div class="wl-body">`+
+           `<div class="wl-think" onclick="const e=document.getElementById('${rid}');e.style.display=e.style.display==='none'?'block':'none';">Thought for ${fmtDur(s.dt)}</div>`+
+           `<div class="reasoning wl-sub" id="${rid}" style="display:none">${esc(s.reasoning)}</div></div></div>`;
+      }
+      const [verb,det]=wlVerb(s);
+      h+=`<div class="wl-step"><span class="wl-ico ${esc(s.action)}">${wlIcon(s.action)}</span><div class="wl-body">`+
+         `<div class="wl-label">${esc(verb)}${det?`<span class="det">${esc(det)}</span>`:''}</div>`;
+      if(s.observation){const oid='o'+(WLID++);
+        h+=`<div class="wl-toggle" onclick="const e=document.getElementById('${oid}');e.style.display=e.style.display==='none'?'block':'none';">Ausgabe anzeigen</div>`+
+           `<pre id="${oid}" style="display:none">${esc(s.observation)}</pre>`;
+      }
+      h+='</div></div>';
+    }
     h+='</div>';
   }
+  // Final answer + files below the worklog.
+  if(m.finished) h+=`<div class="result-bar">${esc(m.result)}</div>`;
+  else if(!m.streaming&&!m.error) h+=`<div class="result-bar err">Nicht abgeschlossen (max. Schritte erreicht)</div>`;
+  h+=renderFiles(m,sessId);
   if(m.streaming) h+=`<div class="live-step"><span class="dots"><span>.</span><span>.</span><span>.</span></span>&nbsp;${esc(m.status||'Agent arbeitet')}</div>`;
   h+='</div>';
   return h;
@@ -716,7 +822,7 @@ async function newChat(){
   const r=await apiForm('/api/ai/chats',{title:'Neuer Chat'});
   const c=(r.data&&r.data.chat)||{id:'s_'+Date.now(),title:'Neuer Chat',updated_at:''};
   sessions.unshift({id:c.id,title:c.title,ts:fmtTs(c.updated_at),msgs:[],loaded:true});
-  currentId=c.id;renderSidebar();renderMessages();
+  currentId=c.id;renderSidebar();renderMessages();closeSidebar();
   const inp=document.getElementById('input');if(inp)inp.focus();
 }
 
@@ -737,7 +843,7 @@ function mapMsgs(list){
 }
 
 async function loadSession(id){
-  currentId=id;renderSidebar();
+  currentId=id;renderSidebar();closeSidebar();
   const sess=sessions.find(s=>s.id===id);
   if(sess&&!sess.loaded){
     const r=await apiGet('/api/ai/chats/'+id+'/messages');
@@ -782,7 +888,7 @@ function setWorking(on){
 // Trim a worklog object before persisting so the DB row stays reasonable.
 function agentMeta(a){
   const steps=(a.steps||[]).map(s=>{const c=Object.assign({},s);if(typeof c.observation==='string'&&c.observation.length>4000)c.observation=c.observation.slice(0,4000)+'\u2026';return c;});
-  return {role:'agent',mode:a.mode,steps,result:a.result,finished:a.finished,streaming:a.streaming,status:a.status,files:a.files||[],error:a.error||null};
+  return {role:'agent',mode:a.mode,steps,result:a.result,finished:a.finished,streaming:a.streaming,status:a.status,files:a.files||[],error:a.error||null,duration:a.duration||0};
 }
 
 // Save (or update) the assistant worklog message for this turn on the server.
@@ -811,7 +917,7 @@ async function send(){
   if(wasUntitled)sess.title=task.slice(0,40);
   sess.ts=new Date().toLocaleString('de');
   // Live worklog: append an agent message we update in place as events stream in.
-  const agent={role:'agent',mode:aiMode,steps:[],result:null,finished:false,streaming:true,status:'Agent plant'};
+  const agent={role:'agent',mode:aiMode,steps:[],result:null,finished:false,streaming:true,status:'Agent plant',_t0:Date.now(),_last:Date.now()};
   sess.msgs.push(agent);
   // Show uploaded filenames on the user message, then clear the picker.
   const filesToSend=selectedFiles.slice();
@@ -843,9 +949,9 @@ async function consumeStream(fd,agent,sess){
   function handle(ev){
     if(ev.type==='start'){if(!agent.steps.length)agent.status='Agent plant';}
     else if(ev.type==='notice'){agent.steps.push({action:'notice',message:ev.message});agent.status='Arbeitet';}
-    else if(ev.type==='step'){const s=Object.assign({},ev);delete s.type;agent.steps.push(s);agent.status=(s.action==='finish')?'Fertig':'Agent arbeitet';}
-    else if(ev.type==='done'){if((!agent.steps||!agent.steps.length)&&ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.files=ev.files||[];agent.streaming=false;}
-    else if(ev.type==='error'){agent.error=ev.error;agent.streaming=false;}
+    else if(ev.type==='step'){const s=Object.assign({},ev);delete s.type;const now=Date.now();s.dt=now-(agent._last||now);agent._last=now;agent.steps.push(s);agent.status=(s.action==='finish')?'Fertig':'Agent arbeitet';}
+    else if(ev.type==='done'){if((!agent.steps||!agent.steps.length)&&ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.files=ev.files||[];agent.streaming=false;agent.duration=Date.now()-(agent._t0||Date.now());}
+    else if(ev.type==='error'){agent.error=ev.error;agent.streaming=false;agent.duration=Date.now()-(agent._t0||Date.now());}
     if(sess.id===currentId)renderMessages();
   }
   abortCtrl=new AbortController();
