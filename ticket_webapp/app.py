@@ -578,11 +578,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .step{border-left:2px solid var(--border);padding:8px 0 8px 14px;margin-left:6px;margin-bottom:4px;}
 .step .hd{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
 .tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;color:#fff;text-transform:uppercase;}
-.tag.plan{background:#0f766e;}.tag.research{background:#ea580c;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}.tag.message{background:#0ea5e9;}
+.tag.plan{background:#0f766e;}.tag.research{background:#ea580c;}.tag.write_file{background:#2563eb;}.tag.run_bash{background:#7c3aed;}.tag.read_file{background:#0891b2;}.tag.finish{background:var(--green);}.tag.invalid{background:#6b7280;}.tag.message{background:#0ea5e9;}.tag.remember{background:#ec4899;}
 .think{color:var(--muted);font-size:12px;margin-bottom:4px;font-style:italic;}
-.reasoning{background:#1a1a2e;border:1px solid #2d2d44;border-radius:6px;padding:8px 10px;margin:4px 0;font-size:11px;color:#a78bfa;line-height:1.4;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;}
+.reasoning{background:#1a1a2e;border:1px solid #2d2d44;border-radius:6px;padding:8px 10px;margin:4px 0;font-size:11px;color:#a78bfa;line-height:1.4;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;}
 .reasoning-toggle{font-size:11px;color:#7c3aed;cursor:pointer;margin-bottom:4px;user-select:none;}
 .reasoning-toggle:hover{text-decoration:underline;}
+.thought-text{font-size:12px;color:#c4b5fd;margin:4px 0 6px;line-height:1.4;font-style:italic;white-space:pre-wrap;word-break:break-word;}
+/* Thinking pane in right panel */
+.rp-think-entry{padding:10px 12px;border-bottom:1px solid var(--border);animation:fadeIn .3s ease;}
+.rp-think-step{font-size:10px;color:var(--accent);font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.rp-think-thought{font-size:12px;color:#c4b5fd;line-height:1.5;margin-bottom:6px;white-space:pre-wrap;word-break:break-word;}
+.rp-think-reasoning{font-size:11px;color:#a78bfa;background:#1a1a2e;border:1px solid #2d2d44;border-radius:6px;padding:8px 10px;line-height:1.4;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;}
+.rp-think-action{font-size:11px;color:var(--muted);margin-top:4px;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
 .notice{display:flex;align-items:center;gap:8px;background:#3a2e12;border:1px solid #b45309;color:#fbbf24;padding:8px 10px;border-radius:8px;font-size:12px;margin:6px 0 6px 6px;}
 .notice::before{content:"\\21bb";font-weight:700;}
 .live-step{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;padding:8px 0 4px 6px;}
@@ -811,6 +819,10 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
       <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
       Shell
     </button>
+    <button class="rp-tab" data-rp-tab="thinking" onclick="switchRpTab('thinking')">
+      <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3z"/></svg>
+      Thinking
+    </button>
     <button class="rp-tab" data-rp-tab="desktop" onclick="switchRpTab('desktop')">
       <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Desktop
@@ -834,6 +846,9 @@ pre{background:#0d1117;color:#d1d5db;padding:8px 10px;border-radius:6px;font-siz
     <div class="rp-pane" id="rp-shell">
       <div class="rp-shell-header"><span class="rp-shell-dot green"></span> Shell</div>
       <div class="rp-shell" id="rp-shell-output">$ Bereit f&uuml;r Befehle...</div>
+    </div>
+    <div class="rp-pane" id="rp-thinking">
+      <div style="color:#64748b;font-size:12px;padding:20px 0;text-align:center;">Denkprozess erscheint hier in Echtzeit.</div>
     </div>
     <div class="rp-pane" id="rp-desktop">
       <div style="color:#64748b;font-size:12px;padding:20px 0;text-align:center;">Desktop-Ansicht nicht verf&uuml;gbar.<br>Der Agent kann hier den Browser oder Desktop zeigen.</div>
@@ -931,6 +946,29 @@ function syncRpChanges(agent){
   el.innerHTML=h||'<div style="color:#64748b;font-size:12px;padding:20px 0;text-align:center;">Keine \\u00c4nderungen bisher.</div>';
 }
 
+// Sync thinking/reasoning to right panel "Thinking" tab — shows FULL thought process
+function syncRpThinking(agent){
+  const el=document.getElementById('rp-thinking');
+  if(!el)return;
+  const steps=(agent.steps||[]).filter(s=>s.thought||s.reasoning);
+  if(!steps.length){
+    el.innerHTML='<div style="color:#64748b;font-size:12px;padding:20px 0;text-align:center;">Denkprozess erscheint hier in Echtzeit.</div>';
+    return;
+  }
+  let h='';
+  for(const s of steps){
+    h+='<div class="rp-think-entry">';
+    h+='<div class="rp-think-step">Schritt '+s.step+' \\u2014 '+esc(s.action)+(s.dt?' ('+fmtDur(s.dt)+')':'')+'</div>';
+    if(s.thought)h+='<div class="rp-think-thought">'+esc(s.thought)+'</div>';
+    if(s.reasoning)h+='<div class="rp-think-reasoning">'+esc(s.reasoning)+'</div>';
+    if(s.detail)h+='<div class="rp-think-action">\\u27a1 '+esc(s.detail)+'</div>';
+    h+='</div>';
+  }
+  if(agent.streaming)h+='<div class="rp-think-entry" style="color:var(--accent);font-style:italic;">Agent denkt nach...</div>';
+  el.innerHTML=h;
+  el.scrollTop=el.scrollHeight;
+}
+
 // Chats live in the user's account on the server now; save() is a no-op kept
 // for the call sites in the streaming loop.
 function save(){}
@@ -995,6 +1033,7 @@ const WL_ICONS={
   finish:'<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
   message:'<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
   think:'<svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3z"/></svg>',
+  remember:'<svg viewBox="0 0 24 24"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z"/><line x1="12" y1="14" x2="12" y2="18"/></svg>',
   invalid:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16" x2="12" y2="16"/></svg>'
 };
 function wlIcon(a){return WL_ICONS[a]||'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>';}
@@ -1010,6 +1049,7 @@ function wlVerb(s){
     case 'research':return ['Recherchiert',d];
     case 'web_search':return ['Web-Suche',d];
     case 'fetch_url':return ['Seite gelesen',d];
+    case 'remember':return ['Gemerkt',d];
     case 'finish':return ['Fertig',''];
     case 'message':return [d||'Devin',''];
     case 'invalid':return ['Ung\u00fcltige Antwort',''];
@@ -1032,11 +1072,13 @@ function renderAgent(m,sessId){
     h+=`<div class="wl-steps${open?'':' collapsed'}" id="${wid}">`;
     for(const s of steps){
       if(s.action==='notice'){h+=`<div class="notice">${esc(s.message)}</div>`;continue;}
-      // "Thought for Xs" collapsible reasoning row.
-      if(s.reasoning){const rid='r'+(WLID++);
+      // Thought + reasoning: show thought visible, reasoning expanded by default.
+      if(s.thought||s.reasoning){const rid='r'+(WLID++);
         h+=`<div class="wl-step"><span class="wl-ico think">${wlIcon('think')}</span><div class="wl-body">`+
-           `<div class="wl-think" onclick="const e=document.getElementById('${rid}');e.style.display=e.style.display==='none'?'block':'none';">Thought for ${fmtDur(s.dt)}</div>`+
-           `<div class="reasoning wl-sub" id="${rid}" style="display:none">${esc(s.reasoning)}</div></div></div>`;
+           `<div class="wl-think" onclick="const e=document.getElementById('${rid}');e.style.display=e.style.display==='none'?'block':'none';">Thought for ${fmtDur(s.dt)}</div>`;
+        if(s.thought)h+=`<div class="thought-text">${esc(s.thought)}</div>`;
+        if(s.reasoning)h+=`<div class="reasoning wl-sub" id="${rid}">${esc(s.reasoning)}</div>`;
+        h+=`</div></div>`;
       }
       const [verb,det]=wlVerb(s);
       h+=`<div class="wl-step"><span class="wl-ico ${esc(s.action)}">${wlIcon(s.action)}</span><div class="wl-body">`+
@@ -1053,7 +1095,12 @@ function renderAgent(m,sessId){
   if(m.finished) h+=`<div class="result-bar">${esc(m.result)}</div>`;
   else if(!m.streaming&&!m.error) h+=`<div class="result-bar err">Nicht abgeschlossen (max. Schritte erreicht)</div>`;
   h+=renderFiles(m,sessId);
-  if(m.streaming) h+=`<div class="live-step"><span class="dots"><span>.</span><span>.</span><span>.</span></span>&nbsp;${esc(m.status||'Agent arbeitet')}</div>`;
+  if(m.streaming){
+    const lastStep=m.steps&&m.steps.length?m.steps[m.steps.length-1]:null;
+    const liveThought=(lastStep&&lastStep.thought)?lastStep.thought:'';
+    h+=`<div class="live-step"><span class="dots"><span>.</span><span>.</span><span>.</span></span>&nbsp;${esc(m.status||'Agent arbeitet')}</div>`;
+    if(liveThought)h+=`<div class="thought-text" style="padding:0 8px 4px;font-size:11px;max-height:80px;overflow:hidden;">${esc(liveThought.slice(0,300))}</div>`;
+  }
   // "Went to sleep" status for finished non-streaming agent
   if(m.finished&&!m.streaming) h+=`<div class="status-badge sleep"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09"/></svg> Agent ist fertig</div>`;
   h+='</div>';
@@ -1130,7 +1177,7 @@ function setWorking(on){
 
 // Trim a worklog object before persisting so the DB row stays reasonable.
 function agentMeta(a){
-  const steps=(a.steps||[]).map(s=>{const c=Object.assign({},s);if(typeof c.observation==='string'&&c.observation.length>4000)c.observation=c.observation.slice(0,4000)+'\u2026';return c;});
+  const steps=(a.steps||[]).map(s=>{const c=Object.assign({},s);if(typeof c.observation==='string'&&c.observation.length>4000)c.observation=c.observation.slice(0,4000)+'\u2026';if(typeof c.reasoning==='string'&&c.reasoning.length>4000)c.reasoning=c.reasoning.slice(0,4000)+'\u2026';if(typeof c.thought==='string'&&c.thought.length>2000)c.thought=c.thought.slice(0,2000)+'\u2026';return c;});
   return {role:'agent',mode:a.mode,steps,result:a.result,finished:a.finished,streaming:a.streaming,status:a.status,files:a.files||[],error:a.error||null,duration:a.duration||0};
 }
 
@@ -1192,10 +1239,10 @@ async function consumeStream(fd,agent,sess){
   function handle(ev){
     if(ev.type==='start'){if(!agent.steps.length)agent.status='Agent plant';}
     else if(ev.type==='notice'){agent.steps.push({action:'notice',message:ev.message});agent.status='Arbeitet';}
-    else if(ev.type==='step'){const s=Object.assign({},ev);delete s.type;const now=Date.now();s.dt=now-(agent._last||now);agent._last=now;agent.steps.push(s);agent.status=(s.action==='finish')?'Fertig':'Agent arbeitet';syncRpShell(s);}
+    else if(ev.type==='step'){const s=Object.assign({},ev);delete s.type;const now=Date.now();s.dt=now-(agent._last||now);agent._last=now;agent.steps.push(s);agent.status=(s.action==='finish')?'Fertig':(s.thought?s.thought.slice(0,60)+'...':'Agent arbeitet');syncRpShell(s);}
     else if(ev.type==='done'){if((!agent.steps||!agent.steps.length)&&ev.steps)agent.steps=ev.steps;agent.result=ev.result;agent.finished=ev.finished;agent.files=ev.files||[];agent.streaming=false;agent.duration=Date.now()-(agent._t0||Date.now());}
     else if(ev.type==='error'){agent.error=ev.error;agent.streaming=false;agent.duration=Date.now()-(agent._t0||Date.now());}
-    if(sess.id===currentId){renderMessages();syncRpWorklog(agent);syncRpChanges(agent);}
+    if(sess.id===currentId){renderMessages();syncRpWorklog(agent);syncRpChanges(agent);syncRpThinking(agent);}
   }
   abortCtrl=new AbortController();
   try{

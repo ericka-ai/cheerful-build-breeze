@@ -102,11 +102,18 @@ You are an autonomous software engineer, similar to Devin. You take a task and
 complete it END TO END by yourself on a Linux machine: you plan, write code,
 run it, read the real output, fix problems, and keep going until it truly works.
 
+IMPORTANT: Show your FULL reasoning in the "thought" field. Write out your
+complete chain of thought — what you understand about the task, what approaches
+you're considering, why you choose one over another, what you expect to happen.
+The user sees your thinking process in real time; make it thorough and detailed
+so they can follow along. Think step by step. Never give just one sentence —
+explain your reasoning fully.
+
 You MUST reply with a SINGLE JSON object and nothing else. No prose outside the
 JSON. The JSON has exactly these fields:
   {
-    "thought": "<your reasoning about the next step, in clear language>",
-    "action": "<one of: plan, research, web_search, fetch_url, write_file, edit_file, read_file, list_files, run_bash, finish>",
+    "thought": "<your FULL reasoning about the next step — be detailed and thorough>",
+    "action": "<one of: plan, research, web_search, fetch_url, write_file, edit_file, read_file, list_files, run_bash, remember, finish>",
     "params": { ... }
   }
 
@@ -130,7 +137,24 @@ Action parameters:
   - list_files: {}                                     # see files made so far
   - run_bash:   {"command": "<one shell command>"}    # also to install deps,
                                                        # e.g. pip install <pkg>
+  - remember:   {"note": "<fact or learning to remember>"}  # save a note for
+                                                       # future tasks in this
+                                                       # chat so you don't forget
   - finish:     {"message": "<what you built, the verified result, how to use it>"}
+
+How to handle uploaded files (CRITICAL):
+  - When the user uploads a file (script, code, data), ALWAYS start by reading it
+    with read_file to understand its contents.
+  - If the user asks you to MODIFY the file (e.g. "change X to Y", "make it do Z
+    instead"), use edit_file for small changes or write a new version with
+    write_file. Give the new file a DESCRIPTIVE NAME that reflects the change
+    (e.g. "script_5bit.py" instead of "script.py" when changing from 4-bit to
+    5-bit). ALWAYS keep the original file intact.
+  - After modifying, RUN the modified file to verify it works.
+  - In your finish message, clearly state what you changed and that the new file
+    is ready for download.
+  - NEVER just describe what changes would be needed — actually MAKE the changes
+    and produce the modified file.
 
 How to work (like Devin):
   - START with a "plan" action that lists the concrete steps you will take.
@@ -142,12 +166,16 @@ How to work (like Devin):
     user refers to "that"/"it" or to something from before, find it and use it.
   - ALWAYS verify your work by RUNNING it with run_bash and reading the output.
     Never "finish" without having actually run it and checked the result.
-  - THINK, AND RESEARCH WHEN UNSURE. If you are not certain about a fact, a
-    standard, a wire format, a field layout, an algorithm, a library API, or any
-    detail — do NOT guess or invent it. Use the `research` action to look it up
-    on the live web first, then build on the real answer. This is exactly how a
-    senior engineer works: confirm the spec, then implement. Prefer one focused
-    research query over several vague ones.
+  - THINK THOROUGHLY AND SHOW YOUR WORK. In every "thought" field, write out your
+    full reasoning — what you see, what you conclude, what your next move is and
+    why. The user watches your thinking in real time, so make it transparent and
+    educational. This is one of your most important features.
+  - RESEARCH WHEN UNSURE. If you are not certain about a fact, a standard, a wire
+    format, a field layout, an algorithm, a library API, or any detail — do NOT
+    guess or invent it. Use the `research` action or `web_search` + `fetch_url`
+    to look it up first, then build on the real answer. This is exactly how a
+    senior engineer works: confirm the spec, then implement. When a topic is
+    complex, do MULTIPLE research queries to gather enough information.
   - Write code carefully BEFORE running it: re-read it for syntax (matched
     parentheses/quotes/colons) so you don't waste a step on a trivial error.
   - If something fails (non-zero exit code or wrong output), read the error
@@ -196,6 +224,9 @@ How to work (like Devin):
     repeating it: change your approach, inspect the inputs, add debug output, or
     research the exact error message. Repeating an identical failing step wastes
     your budget.
+  - USE REMEMBER. When you learn something useful during a task (a library trick,
+    a pattern, a user preference), save it with the `remember` action so you can
+    recall it in future turns of this chat.
 
 General engineering skill:
   - You are a strong generalist engineer. Beyond crypto you are fluent in data
@@ -805,6 +836,33 @@ def _format_history(history):
     return "\n".join(lines)
 
 
+def _notes_path(workspace):
+    """Path to the agent's memory notes file in the workspace."""
+    return os.path.join(workspace, ".agent_notes.json")
+
+
+def _load_notes(workspace):
+    """Load remembered notes from the workspace."""
+    path = _notes_path(workspace)
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def _save_note(workspace, note):
+    """Append a note to the agent's memory file."""
+    notes = _load_notes(workspace)
+    notes.append({"text": note, "ts": time.strftime("%Y-%m-%d %H:%M:%S")})
+    path = _notes_path(workspace)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(notes, f, ensure_ascii=False, indent=2)
+    return notes
+
+
 def _session_context(workspace, history):
     """Build a context message so the agent has memory + sees existing files."""
     parts = []
@@ -812,13 +870,22 @@ def _session_context(workspace, history):
     if hist:
         parts.append("EARLIER IN THIS CHAT SESSION (for context, do not redo):\n" + hist)
     try:
-        files = sorted(f for f in os.listdir(workspace) if not f.startswith("."))
+        files = sorted(f for f in os.listdir(workspace)
+                       if not f.startswith("."))
     except OSError:
         files = []
     if files:
         parts.append(
             "Your workspace ALREADY contains these files from earlier turns; "
             "reuse them instead of regenerating: " + ", ".join(files)
+        )
+    # Load remembered notes so the agent has persistent memory.
+    notes = _load_notes(workspace)
+    if notes:
+        note_lines = [f"  - {n['text']}" for n in notes[-20:]]
+        parts.append(
+            "YOUR REMEMBERED NOTES (from earlier turns in this chat):\n"
+            + "\n".join(note_lines)
         )
     return "\n\n".join(parts)
 
@@ -928,7 +995,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
 
         if not action or "action" not in action:
             entry = {"step": step, "action": "invalid",
-                     "thought": reply.strip()[:300], "reasoning": reasoning[:600],
+                     "thought": reply.strip()[:2000], "reasoning": reasoning[:4000],
                      "observation": ""}
             steps.append(entry)
             yield {"type": "step", **entry}
@@ -1003,7 +1070,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
             file_summary = _format_file_list(files)
             observation = result if not file_summary else f"{result}\n\n{file_summary}"
             entry = {"step": step, "action": "finish",
-                     "thought": thought, "reasoning": reasoning[:600],
+                     "thought": thought, "reasoning": reasoning[:4000],
                      "observation": observation}
             steps.append(entry)
             yield {"type": "step", **entry}
@@ -1017,7 +1084,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
                 f"{i}. {s}" for i, s in enumerate(plan_steps, 1)
             ) or "(empty plan)"
             entry = {"step": step, "action": "plan",
-                     "thought": thought, "reasoning": reasoning[:600],
+                     "thought": thought, "reasoning": reasoning[:4000],
                      "detail": "Plan",
                      "observation": observation}
             steps.append(entry)
@@ -1027,6 +1094,23 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
                              "Plan recorded. Now execute step 1 with a single action."})
             continue
 
+        if name == "remember":
+            note_text = (params.get("note") or "").strip()
+            if note_text:
+                saved = _save_note(workspace, note_text)
+                observation = f"Noted ({len(saved)} notes saved). Continue."
+            else:
+                observation = "ERROR: remember needs a 'note' text."
+            entry = {"step": step, "action": "remember", "thought": thought,
+                     "reasoning": reasoning[:4000],
+                     "detail": note_text[:80],
+                     "observation": observation}
+            steps.append(entry)
+            yield {"type": "step", **entry}
+            messages.append({"role": "assistant", "content": json.dumps(action)})
+            messages.append({"role": "user", "content": observation})
+            continue
+
         if name == "research":
             query = params.get("query") or params.get("question") or ""
             rnotices = []
@@ -1034,7 +1118,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
             for note in rnotices:
                 yield {"type": "notice", "message": note}
             entry = {"step": step, "action": "research", "thought": thought,
-                     "reasoning": reasoning[:600],
+                     "reasoning": reasoning[:4000],
                      "detail": query.strip()[:80],
                      "observation": observation[:MAX_OUTPUT_CHARS]}
             steps.append(entry)
@@ -1062,7 +1146,7 @@ def run_task_stream(task, max_steps=MAX_STEPS, workspace=None, history=None,
             "step": step,
             "action": name,
             "thought": thought,
-            "reasoning": reasoning[:600],
+            "reasoning": reasoning[:4000],
             "detail": (params.get("path") or params.get("command")
                        or params.get("url") or params.get("query") or ""),
             "observation": observation[:MAX_OUTPUT_CHARS],
