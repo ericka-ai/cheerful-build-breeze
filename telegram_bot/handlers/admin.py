@@ -2,6 +2,7 @@
 Admin command handlers.
 
 Only users whose Telegram user ID is listed in ADMIN_CHAT_IDS can use these.
+All payouts are manual — admin verifies payment, then pays out and marks complete.
 """
 
 import logging
@@ -17,11 +18,9 @@ from telegram_bot.models.order import (
     get_order,
     get_orders_by_status,
     get_stats,
-    save_order,
     set_user_blocked,
     update_order_status,
 )
-from telegram_bot.services.payments import send_paypal_payout
 
 logger = logging.getLogger(__name__)
 
@@ -93,10 +92,10 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     buttons = []
     for o in orders[:5]:
-        if o.status == OrderStatus.PAYMENT_RECEIVED:
+        if o.status in (OrderStatus.PAYMENT_RECEIVED, OrderStatus.AWAITING_PAYMENT):
             buttons.append([
                 InlineKeyboardButton(
-                    f"Auszahlen #{o.order_id}",
+                    f"Bestaetigen #{o.order_id}",
                     callback_data=f"admin_confirm:{o.order_id}",
                 )
             ])
@@ -114,8 +113,8 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def confirm_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    /confirm <order_id> - Confirm an order and initiate payout.
-    Admin manually triggers payout after verifying payment receipt.
+    /confirm <order_id> - Confirm payment received and show payout instructions.
+    Admin verifies payment, pays out manually, then uses /complete.
     """
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("Kein Zugriff.")
@@ -137,41 +136,30 @@ async def confirm_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     update_order_status(order_id, OrderStatus.PROCESSING)
+
+    payout_info = _build_payout_instructions(order)
+
     await update.message.reply_text(
-        f"Bestellung #{order_id} wird bearbeitet...\n"
-        f"Auszahlung: {order.payout_eur:.2f} EUR"
+        f"Zahlung fuer #{order_id} bestaetigt!\n\n"
+        f"Jetzt manuell auszahlen:\n"
+        f"{payout_info}\n\n"
+        f"Nach Auszahlung: /complete {order_id}"
     )
 
-    payout_result = await _process_payout(order, context)
-
-    if payout_result["success"]:
-        update_order_status(order_id, OrderStatus.COMPLETED)
-        await update.message.reply_text(
-            f"Bestellung #{order_id} abgeschlossen!\n"
-            f"{payout_result['message']}"
+    try:
+        await context.bot.send_message(
+            chat_id=order.user_id,
+            text=(
+                f"Deine Zahlung fuer Bestellung #{order_id} wurde bestaetigt!\n"
+                f"Auszahlung ({order.payout_eur:.2f} EUR) wird jetzt bearbeitet."
+            ),
         )
-        try:
-            await context.bot.send_message(
-                chat_id=order.user_id,
-                text=(
-                    f"Deine Bestellung #{order_id} wurde abgeschlossen!\n"
-                    f"Auszahlung: {order.payout_eur:.2f} EUR\n"
-                    f"{payout_result['message']}\n\n"
-                    f"Vielen Dank! Nutze /start fuer eine neue Bestellung."
-                ),
-            )
-        except Exception as exc:
-            logger.warning("Could not notify user: %s", exc)
-    else:
-        await update.message.reply_text(
-            f"Auszahlung fehlgeschlagen fuer #{order_id}:\n"
-            f"{payout_result['message']}\n\n"
-            f"Bitte manuell auszahlen und dann /complete {order_id}"
-        )
+    except Exception as exc:
+        logger.warning("Could not notify user: %s", exc)
 
 
 async def complete_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/complete <order_id> - Manually mark an order as completed."""
+    """/complete <order_id> - Mark an order as completed after manual payout."""
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("Kein Zugriff.")
         return
@@ -242,47 +230,36 @@ async def unblock_user_command(
     await update.message.reply_text(f"User {uid} wurde entsperrt.")
 
 
-async def _process_payout(order: Order, context: ContextTypes.DEFAULT_TYPE) -> dict:
-    """Process the payout for an order."""
+def _build_payout_instructions(order: Order) -> str:
+    """Build manual payout instructions for the admin."""
     exchange_type = order.exchange_type
 
     if exchange_type in ("crypto_to_paypal", "bank_to_paypal"):
-        if not order.paypal_email:
-            return {"success": False, "message": "Keine PayPal-Adresse hinterlegt."}
-        result = await send_paypal_payout(
-            order.paypal_email, order.payout_eur, order.order_id
+        return (
+            f"PayPal Auszahlung:\n"
+            f"An: {order.paypal_email}\n"
+            f"Betrag: {order.payout_eur:.2f} EUR\n"
+            f"Verwendungszweck: {order.order_id}"
         )
-        if result["success"]:
-            return {
-                "success": True,
-                "message": f"PayPal-Auszahlung gesendet (ID: {result['payout_id']})",
-            }
-        return {"success": False, "message": result["error"]}
 
     elif exchange_type in ("crypto_to_bank", "paypal_to_bank"):
-        return {
-            "success": False,
-            "message": (
-                f"Bankueberweisung muss manuell ausgefuehrt werden:\n"
-                f"IBAN: {order.iban}\n"
-                f"Inhaber: {order.bank_holder}\n"
-                f"Betrag: {order.payout_eur:.2f} EUR\n\n"
-                f"Nach Ueberweisung: /complete {order.order_id}"
-            ),
-        }
+        return (
+            f"Bankueberweisung:\n"
+            f"IBAN: {order.iban}\n"
+            f"Inhaber: {order.bank_holder}\n"
+            f"Betrag: {order.payout_eur:.2f} EUR\n"
+            f"Verwendungszweck: {order.order_id}"
+        )
 
     elif exchange_type in ("paypal_to_crypto", "bank_to_crypto"):
-        return {
-            "success": False,
-            "message": (
-                f"Krypto-Auszahlung muss manuell ausgefuehrt werden:\n"
-                f"Sende {order.crypto_amount} {order.crypto_currency} an:\n"
-                f"{order.crypto_address}\n\n"
-                f"Nach Versand: /complete {order.order_id}"
-            ),
-        }
+        return (
+            f"Krypto-Auszahlung:\n"
+            f"Sende {order.crypto_amount} {order.crypto_currency} an:\n"
+            f"{order.crypto_address}\n"
+            f"(= {order.payout_eur:.2f} EUR)"
+        )
 
-    return {"success": False, "message": "Unbekannter Bestelltyp."}
+    return "Unbekannter Bestelltyp."
 
 
 async def admin_confirm_callback(
@@ -302,26 +279,24 @@ async def admin_confirm_callback(
         return
 
     update_order_status(order_id, OrderStatus.PROCESSING)
+    payout_info = _build_payout_instructions(order)
+
     await query.edit_message_text(
-        f"Bearbeite Bestellung #{order_id}...\n"
-        f"Auszahlung: {order.payout_eur:.2f} EUR"
+        f"Bestellung #{order_id} bestaetigt!\n\n"
+        f"Manuell auszahlen:\n{payout_info}\n\n"
+        f"Danach: /complete {order_id}"
     )
 
-    payout_result = await _process_payout(order, context)
-
-    if payout_result["success"]:
-        update_order_status(order_id, OrderStatus.COMPLETED)
+    try:
         await context.bot.send_message(
-            chat_id=update.effective_user.id,
-            text=f"#{order_id} abgeschlossen!\n{payout_result['message']}",
-        )
-    else:
-        await context.bot.send_message(
-            chat_id=update.effective_user.id,
+            chat_id=order.user_id,
             text=(
-                f"#{order_id} Auszahlung:\n{payout_result['message']}"
+                f"Deine Zahlung fuer Bestellung #{order_id} wurde bestaetigt!\n"
+                f"Auszahlung ({order.payout_eur:.2f} EUR) wird jetzt bearbeitet."
             ),
         )
+    except Exception as exc:
+        logger.warning("Could not notify user: %s", exc)
 
 
 def get_admin_handlers() -> list:

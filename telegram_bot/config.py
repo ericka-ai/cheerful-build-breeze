@@ -49,6 +49,14 @@ SUPPORTED_CRYPTO = {
         "min_amount_eur": 10.0,
         "network": "litecoin",
     },
+    "SOL": {
+        "name": "Solana",
+        "symbol": "SOL",
+        "coingecko_id": "solana",
+        "decimals": 9,
+        "min_amount_eur": 10.0,
+        "network": "solana",
+    },
 }
 
 # ── Wallet addresses (loaded from env) ──────────────────────────────────────
@@ -57,6 +65,7 @@ WALLET_ADDRESSES: dict[str, str] = {
     "ETH": os.getenv("WALLET_ETH", ""),
     "USDT": os.getenv("WALLET_USDT", ""),
     "LTC": os.getenv("WALLET_LTC", ""),
+    "SOL": os.getenv("WALLET_SOL", ""),
 }
 
 # ── Fee configuration (percentages) ─────────────────────────────────────────
@@ -74,10 +83,8 @@ MIN_AMOUNT_EUR = float(os.getenv("MIN_AMOUNT_EUR", "10.0"))
 MAX_AMOUNT_EUR = float(os.getenv("MAX_AMOUNT_EUR", "5000.0"))
 
 # ── PayPal ───────────────────────────────────────────────────────────────────
-PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "")
-PAYPAL_CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET", "")
-PAYPAL_MODE = os.getenv("PAYPAL_MODE", "sandbox")  # "sandbox" or "live"
-PAYPAL_EMAIL = os.getenv("PAYPAL_EMAIL", "")
+PAYPAL_USERNAME = os.getenv("PAYPAL_USERNAME", "")
+PAYPAL_MODE = os.getenv("PAYPAL_MODE", "manual")  # "manual" (default)
 
 # ── Bank details (for display to customers) ──────────────────────────────────
 BANK_IBAN = os.getenv("BANK_IBAN", "")

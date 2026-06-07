@@ -150,6 +150,8 @@ async def check_crypto_payment(
         return await check_eth_payment(address, expected_amount)
     elif symbol == "LTC":
         return await _check_ltc_payment(address, expected_amount)
+    elif symbol == "SOL":
+        return await _check_sol_payment(address, expected_amount)
     elif symbol == "USDT":
         logger.info("USDT (TRC-20) auto-scan not yet implemented; manual check needed")
         return None
@@ -180,4 +182,52 @@ async def _check_ltc_payment(address: str, expected_amount: float) -> Optional[d
             }
     except Exception as exc:
         logger.warning("LTC payment check failed for %s: %s", address, exc)
+    return None
+
+
+async def _check_sol_payment(address: str, expected_amount: float) -> Optional[dict]:
+    """Check SOL payments via Solana public RPC."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                "https://api.mainnet-beta.solana.com",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "getSignaturesForAddress",
+                    "params": [address, {"limit": 10}],
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        signatures = data.get("result", [])
+        if not signatures:
+            return None
+
+        latest_sig = signatures[0].get("signature", "")
+
+        resp2 = None
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp2 = await client.post(
+                "https://api.mainnet-beta.solana.com",
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "getBalance",
+                    "params": [address],
+                },
+            )
+            resp2.raise_for_status()
+            balance_data = resp2.json()
+
+        balance_sol = balance_data.get("result", {}).get("value", 0) / 1e9
+        if balance_sol >= expected_amount * 0.99:
+            return {
+                "received": balance_sol,
+                "confirmed": True,
+                "tx_hash": latest_sig,
+            }
+    except Exception as exc:
+        logger.warning("SOL payment check failed for %s: %s", address, exc)
     return None
