@@ -587,6 +587,11 @@ async def api_generate(
     })
 
 
+@app.get("/devin", response_class=HTMLResponse)
+async def devin_page():
+    return DEVIN_HTML
+
+
 # ─── HTML ────────────────────────────────────────────────────────────────────
 
 HTML_FORM = """<!DOCTYPE html>
@@ -710,6 +715,352 @@ document.getElementById('ticketForm').addEventListener('submit', function() {
     document.getElementById('loading').style.display = 'none';
   }, 8000);
 });
+</script>
+</body>
+</html>"""
+
+
+# ─── DEVIN PAGE HTML ─────────────────────────────────────────────────────────
+
+DEVIN_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenDevin — AI Software Engineer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;background:#171717;color:#e5e5e5;height:100vh;overflow:hidden}
+.app{display:flex;height:100vh}
+.sidebar{width:52px;background:#171717;border-right:1px solid #333;display:flex;flex-direction:column;align-items:center;padding:12px 0;flex-shrink:0}
+.sidebar-bottom{margin-top:auto}
+.sidebar button{background:none;border:none;color:#888;cursor:pointer;padding:8px;border-radius:8px;transition:all .2s}
+.sidebar button:hover{background:#262626;color:#e5e5e5}
+.main{flex:1;display:flex;flex-direction:column;padding:6px;gap:6px;min-width:0}
+.top-row{flex:1;display:flex;gap:6px;min-height:0}
+.panel{background:#262626;border:1px solid #404040;border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.chat-panel{width:35%;min-width:280px;flex-shrink:0}
+.editor-panel{flex:1;min-width:0}
+.terminal-panel{height:220px;flex-shrink:0}
+.panel-header{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid #404040;background:rgba(38,38,38,.8);font-size:13px;font-weight:500;color:#d4d4d4}
+.panel-header svg{width:16px;height:16px;color:#888}
+.chat-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:90%;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.msg.assistant{background:#404040;color:#e5e5e5;align-self:flex-start}
+.msg.user{background:#2563eb;color:#fff;align-self:flex-end}
+.msg.thinking{background:#404040;color:#888;align-self:flex-start}
+.chat-input{display:flex;align-items:center;gap:8px;padding:10px;border-top:1px solid #404040}
+.chat-input input{flex:1;background:#1a1a1a;border:1px solid #404040;border-radius:8px;padding:8px 12px;color:#e5e5e5;font-size:13px;outline:none}
+.chat-input input:focus{border-color:#2563eb}
+.chat-input input:disabled{opacity:.5}
+.chat-input button{background:none;border:none;color:#888;cursor:pointer;padding:4px;transition:color .2s}
+.chat-input button:hover{color:#60a5fa}
+.chat-input button:disabled{opacity:.3;cursor:not-allowed}
+.tabs{display:flex;border-bottom:1px solid #404040;background:rgba(38,38,38,.8)}
+.tab{padding:8px 16px;font-size:13px;color:#888;cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;transition:all .2s}
+.tab:hover{color:#d4d4d4}
+.tab.active{color:#d4d4d4;border-bottom-color:#3b82f6}
+.tab svg{width:15px;height:15px}
+.editor-body{display:flex;flex:1;min-height:0}
+.file-tree{width:180px;border-right:1px solid #404040;overflow-y:auto;flex-shrink:0;padding-top:4px}
+.file-tree-header{display:flex;align-items:center;gap:4px;padding:6px 10px;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.file-item{display:flex;align-items:center;gap:4px;padding:4px 10px;font-size:13px;color:#d4d4d4;cursor:pointer;transition:background .15s}
+.file-item:hover{background:rgba(255,255,255,.05)}
+.file-item.active{background:rgba(59,130,246,.15);color:#93c5fd}
+.file-item svg{width:14px;height:14px;flex-shrink:0}
+.code-area{flex:1;display:flex;flex-direction:column;min-width:0}
+.code-tab-bar{display:flex;align-items:center;padding:4px 10px;background:#1a1a1a;border-bottom:1px solid #404040}
+.code-tab{font-size:12px;color:#d4d4d4;background:#404040;padding:3px 12px;border-radius:4px}
+.code-content{flex:1;overflow:auto;padding:12px;font-family:'Fira Code',Consolas,monospace;font-size:13px;background:#0a0a0a}
+.code-line{display:flex}
+.line-num{color:#555;width:36px;text-align:right;margin-right:16px;user-select:none;flex-shrink:0}
+.line-text{color:#d4d4d4;white-space:pre}
+.browser-placeholder{flex:1;display:flex;align-items:center;justify-content:center;color:#555;text-align:center;padding:40px}
+.browser-placeholder svg{width:48px;height:48px;margin-bottom:12px;opacity:.3}
+.term-content{flex:1;overflow-y:auto;padding:10px;font-family:'Fira Code',Consolas,monospace;font-size:13px;background:#0a0a0a}
+.term-line{line-height:1.6}
+.term-cmd{color:#4ade80}
+.term-out{color:#d4d4d4}
+.term-err{color:#f87171}
+.term-info{color:#facc15}
+.term-cursor{display:inline-block;width:8px;height:14px;background:#4ade80;animation:blink 1s step-end infinite;vertical-align:middle;margin-left:2px}
+@keyframes blink{50%{opacity:0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #555;border-top-color:#60a5fa;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:#262626;border:1px solid #404040;border-radius:12px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal h2{font-size:17px;color:#e5e5e5;margin-bottom:16px}
+.modal label{display:block;font-size:13px;color:#888;margin-bottom:4px}
+.modal select,.modal input[type=password]{width:100%;background:#0a0a0a;border:1px solid #404040;border-radius:8px;padding:8px 12px;color:#e5e5e5;font-size:13px;outline:none;margin-bottom:12px}
+.modal select:focus,.modal input[type=password]:focus{border-color:#3b82f6}
+.modal .hint{font-size:11px;color:#666;margin-top:-8px;margin-bottom:12px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.modal-actions button{padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;transition:all .2s}
+.btn-cancel{background:none;border:1px solid #404040;color:#d4d4d4}
+.btn-cancel:hover{background:#333}
+.btn-save{background:#2563eb;border:none;color:#fff}
+.btn-save:hover{background:#1d4ed8}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <div class="sidebar">
+    <div class="sidebar-bottom">
+      <button onclick="toggleSettings()" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="top-row">
+      <div class="panel chat-panel">
+        <div class="panel-header">
+          <span>💬 Chat</span>
+          <span id="chatSpinner" style="display:none"><span class="spinner"></span></span>
+        </div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input">
+          <input type="text" id="chatInput" placeholder="Send a message..." onkeydown="if(event.key==='Enter')sendMessage()">
+          <button onclick="sendMessage()" id="sendBtn" title="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="panel editor-panel">
+        <div class="tabs">
+          <div class="tab active" id="tabEditor" onclick="switchTab('editor')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Code Editor
+          </div>
+          <div class="tab" id="tabBrowser" onclick="switchTab('browser')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Browser
+          </div>
+        </div>
+        <div id="editorContent" class="editor-body" style="flex:1;min-height:0">
+          <div class="file-tree" id="fileTree">
+            <div class="file-tree-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg>
+              workspace
+            </div>
+          </div>
+          <div class="code-area">
+            <div class="code-tab-bar"><span class="code-tab" id="codeTabName">welcome</span></div>
+            <div class="code-content" id="codeContent">
+              <div class="code-line"><span class="line-num">1</span><span class="line-text" style="color:#facc15"># Welcome to OpenDevin!</span></div>
+              <div class="code-line"><span class="line-num">2</span><span class="line-text" style="color:#facc15"># Ask me to write some code.</span></div>
+            </div>
+          </div>
+        </div>
+        <div id="browserContent" class="browser-placeholder" style="display:none;flex:1">
+          <div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <p>Browser preview will appear here</p>
+            <p style="font-size:12px;color:#444;margin-top:4px">The agent can browse the web to research and test</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel terminal-panel">
+      <div class="panel-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+        Terminal
+      </div>
+      <div class="term-content" id="termContent">
+        <div class="term-line term-info">OpenDevin Terminal v0.1.0</div>
+        <div class="term-line term-info">Ready. Waiting for commands...</div>
+        <div class="term-line term-cmd">$ <span class="term-cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsModal" style="display:none" onclick="if(event.target===this)toggleSettings()">
+  <div class="modal">
+    <h2>Settings</h2>
+    <label>LLM Model</label>
+    <select id="modelSelect">
+      <option value="openai/gpt-oss-120b:free">GPT-OSS 120B (Free)</option>
+      <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</option>
+      <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Free)</option>
+      <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (Free)</option>
+      <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (Free)</option>
+    </select>
+    <p class="hint">All models are free via OpenRouter</p>
+    <label>API Key</label>
+    <input type="password" id="apiKeyInput" placeholder="sk-or-...">
+    <p class="hint">Pre-configured with a free key. Get your own at openrouter.ai</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="toggleSettings()">Cancel</button>
+      <button class="btn-save" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL="https://openrouter.ai/api/v1/chat/completions";
+let apiKey="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";
+let model="openai/gpt-oss-120b:free";
+let messages=[];
+let files={};
+let activeFile=null;
+let isLoading=false;
+
+const SYSTEM=`You are OpenDevin, an AI software engineer assistant. You help users by writing code, explaining concepts, and solving programming problems.
+
+When the user asks you to write code or create something, respond with:
+1. A brief explanation of what you'll do
+2. The code in a fenced code block with the filename as a comment on the first line, e.g.:
+\`\`\`python
+# filename: main.py
+print("hello world")
+\`\`\`
+
+You can create multiple files by using multiple code blocks. Always include the filename comment.
+Keep responses concise and focused on code. You are a coding assistant, not a general chatbot.`;
+
+function addMsg(role,content){
+  const d=document.getElementById('chatMessages');
+  const m=document.createElement('div');
+  m.className='msg '+role;
+  m.textContent=content;
+  d.appendChild(m);
+  d.scrollTop=d.scrollHeight;
+}
+
+function setThinking(on){
+  document.getElementById('chatSpinner').style.display=on?'inline':'none';
+  document.getElementById('chatInput').disabled=on;
+  document.getElementById('sendBtn').disabled=on;
+  isLoading=on;
+  if(on){
+    const d=document.getElementById('chatMessages');
+    let t=document.getElementById('thinkingMsg');
+    if(!t){t=document.createElement('div');t.id='thinkingMsg';t.className='msg thinking';t.innerHTML='<span class="spinner"></span> Thinking...';d.appendChild(t);d.scrollTop=d.scrollHeight}
+  } else {
+    const t=document.getElementById('thinkingMsg');
+    if(t)t.remove();
+  }
+}
+
+function termLog(lines){
+  const tc=document.getElementById('termContent');
+  // remove cursor line
+  const cursor=tc.querySelector('.term-cmd:last-child');
+  if(cursor&&cursor.querySelector('.term-cursor'))cursor.remove();
+  lines.forEach(l=>{
+    const d=document.createElement('div');
+    d.className='term-line term-'+l.type;
+    d.textContent=l.text;
+    tc.appendChild(d);
+  });
+  const cl=document.createElement('div');
+  cl.className='term-line term-cmd';
+  cl.innerHTML='$ <span class="term-cursor"></span>';
+  tc.appendChild(cl);
+  tc.scrollTop=tc.scrollHeight;
+}
+
+function extractCode(text){
+  const blocks=[];
+  const re=/```(\w+)?\n([\s\S]*?)```/g;
+  let m;
+  while((m=re.exec(text))!==null){
+    const lang=m[1]||'text';
+    const code=m[2].trim();
+    let fn='file.'+({python:'py',javascript:'js',typescript:'ts',html:'html',css:'css',bash:'sh',sh:'sh'}[lang]||lang);
+    const fm=code.match(/^#\s*filename:\s*(.+)/m);
+    if(fm)fn=fm[1].trim();
+    blocks.push({filename:fn,language:lang,code:code});
+  }
+  return blocks;
+}
+
+function updateFileTree(){
+  const ft=document.getElementById('fileTree');
+  ft.innerHTML='<div class="file-tree-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg> workspace</div>';
+  Object.keys(files).forEach(fn=>{
+    const d=document.createElement('div');
+    d.className='file-item'+(activeFile===fn?' active':'');
+    d.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" width="14" height="14"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg> '+fn;
+    d.onclick=()=>openFile(fn);
+    ft.appendChild(d);
+  });
+}
+
+function openFile(fn){
+  activeFile=fn;
+  document.getElementById('codeTabName').textContent=fn;
+  const cc=document.getElementById('codeContent');
+  const lines=(files[fn]||'').split('\n');
+  cc.innerHTML=lines.map((l,i)=>'<div class="code-line"><span class="line-num">'+(i+1)+'</span><span class="line-text">'+escHtml(l)+'</span></div>').join('');
+  updateFileTree();
+}
+
+function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function switchTab(tab){
+  document.getElementById('tabEditor').className='tab'+(tab==='editor'?' active':'');
+  document.getElementById('tabBrowser').className='tab'+(tab==='browser'?' active':'');
+  document.getElementById('editorContent').style.display=tab==='editor'?'flex':'none';
+  document.getElementById('browserContent').style.display=tab==='browser'?'flex':'none';
+}
+
+function toggleSettings(){
+  const m=document.getElementById('settingsModal');
+  m.style.display=m.style.display==='none'?'flex':'none';
+  if(m.style.display==='flex'){
+    document.getElementById('modelSelect').value=model;
+    document.getElementById('apiKeyInput').value=apiKey;
+  }
+}
+
+function saveSettings(){
+  model=document.getElementById('modelSelect').value;
+  const k=document.getElementById('apiKeyInput').value.trim();
+  if(k)apiKey=k;
+  toggleSettings();
+}
+
+async function sendMessage(){
+  const inp=document.getElementById('chatInput');
+  const text=inp.value.trim();
+  if(!text||isLoading)return;
+  inp.value='';
+  addMsg('user',text);
+  messages.push({role:'user',content:text});
+  setThinking(true);
+  const short=text.length>50?text.slice(0,50)+'...':text;
+  termLog([{text:'$ opendevin process "'+short+'"',type:'cmd'},{text:'Thinking...',type:'info'}]);
+
+  try{
+    const apiMsgs=[{role:'system',content:SYSTEM},...messages];
+    const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:model,messages:apiMsgs,temperature:0.3})});
+    if(!res.ok)throw new Error('API error '+res.status+': '+(await res.text()));
+    const data=await res.json();
+    const reply=data.choices?.[0]?.message?.content||'No response received.';
+    messages.push({role:'assistant',content:reply});
+    setThinking(false);
+    addMsg('assistant',reply);
+
+    const blocks=extractCode(reply);
+    if(blocks.length>0){
+      blocks.forEach(b=>{files[b.filename]=b.code});
+      openFile(blocks[0].filename);
+      termLog([{text:'$ opendevin process "'+short+'"',type:'cmd'},{text:'✓ Generated '+blocks.length+' file(s): '+blocks.map(b=>b.filename).join(', '),type:'out'},{text:'Files written to workspace/',type:'info'}]);
+    } else {
+      termLog([{text:'$ opendevin process "'+short+'"',type:'cmd'},{text:'✓ Response ready',type:'out'}]);
+    }
+  }catch(err){
+    setThinking(false);
+    addMsg('assistant','Error: '+err.message+'\n\nThe free API might be rate-limited. Try again in a moment.');
+    termLog([{text:'✗ Error: '+err.message,type:'err'}]);
+  }
+}
+
+// Init
+addMsg('assistant','Hi! I\'m OpenDevin, an AI Software Engineer. What would you like to build with me today?\n\nTry asking me to write some code, like:\n- "Create a Python script that generates random passwords"\n- "Write a React component for a todo list"\n- "Build a simple REST API in Node.js"');
 </script>
 </body>
 </html>"""
