@@ -881,12 +881,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;ba
     <h2>Settings</h2>
     <label>LLM Model</label>
     <select id="modelSelect">
-      <option value="openai">GPT-OSS (Free, default)</option>
-      <option value="mistral">Mistral (Free)</option>
-      <option value="llama">Llama (Free)</option>
-      <option value="deepseek">DeepSeek (Free)</option>
+      <option value="deepseek-chat">DeepSeek Chat (default)</option>
+      <option value="deepseek-coder">DeepSeek Coder</option>
+      <option value="deepseek-reasoner">DeepSeek Reasoner</option>
     </select>
-    <p class="hint">All models are free via Pollinations AI — no API key needed</p>
+    <p class="hint">Powered by DeepSeek AI</p>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="toggleSettings()">Cancel</button>
       <button class="btn-save" onclick="saveSettings()">Save</button>
@@ -895,8 +894,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;ba
 </div>
 
 <script>
-const API_URL="https://text.pollinations.ai/openai/chat/completions";
-let model="openai";
+const API_URL="https://api.deepseek.com/chat/completions";
+const API_KEY="sk-86a63bdb36304c88b7c268c1eb2ef393";
+let model="deepseek-chat";
 let messages=[];
 let files={};
 let activeFile=null;
@@ -1028,7 +1028,7 @@ async function sendMessage(){
 
   try{
     const apiMsgs=[{role:'system',content:SYSTEM},...messages];
-    const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,messages:apiMsgs,temperature:0.3})});
+    const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},body:JSON.stringify({model:model,messages:apiMsgs,temperature:0.3})});
     if(!res.ok)throw new Error('API error '+res.status+': '+(await res.text()));
     const data=await res.json();
     const reply=data.choices?.[0]?.message?.content||'No response received.';
