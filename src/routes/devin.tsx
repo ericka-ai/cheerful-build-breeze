@@ -37,8 +37,9 @@ interface TerminalLine {
   type: "command" | "output" | "error" | "info";
 }
 
-const POLLINATIONS_URL = "https://text.pollinations.ai/openai/chat/completions";
-const DEFAULT_MODEL = "openai";
+const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+const DEEPSEEK_KEY = "sk-86a63bdb36304c88b7c268c1eb2ef393";
+const DEFAULT_MODEL = "deepseek-chat";
 
 const SYSTEM_PROMPT = `You are OpenDevin, an AI software engineer assistant. You help users by writing code, explaining concepts, and solving programming problems.
 
@@ -54,10 +55,11 @@ You can create multiple files by using multiple code blocks. Always include the 
 Keep responses concise and focused on code. You are a coding assistant, not a general chatbot.`;
 
 async function callLLM(messages: Message[], model: string): Promise<string> {
-  const response = await fetch(POLLINATIONS_URL, {
+  const response = await fetch(DEEPSEEK_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${DEEPSEEK_KEY}`,
     },
     body: JSON.stringify({
       model,
@@ -450,14 +452,11 @@ function SettingsModal({
               onChange={(e) => setLocalModel(e.target.value)}
               className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-neutral-200 outline-none focus:border-blue-500"
             >
-              <option value="openai">GPT-OSS (Free, default)</option>
-              <option value="mistral">Mistral (Free)</option>
-              <option value="llama">Llama (Free)</option>
-              <option value="deepseek">DeepSeek (Free)</option>
+              <option value="deepseek-chat">DeepSeek Chat (default)</option>
+              <option value="deepseek-coder">DeepSeek Coder</option>
+              <option value="deepseek-reasoner">DeepSeek Reasoner</option>
             </select>
-            <p className="text-xs text-neutral-500 mt-1">
-              All models are free via Pollinations AI — no API key needed
-            </p>
+            <p className="text-xs text-neutral-500 mt-1">Powered by DeepSeek AI</p>
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-6">
