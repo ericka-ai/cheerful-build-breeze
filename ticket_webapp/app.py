@@ -8538,16 +8538,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;ba
     <h2>Settings</h2>
     <label>LLM Model</label>
     <select id="modelSelect">
-      <option value="openai/gpt-oss-120b:free">GPT-OSS 120B (Free)</option>
-      <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</option>
-      <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Free)</option>
-      <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (Free)</option>
-      <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (Free)</option>
+      <option value="openai">GPT-OSS (Free, default)</option>
+      <option value="mistral">Mistral (Free)</option>
+      <option value="llama">Llama (Free)</option>
+      <option value="deepseek">DeepSeek (Free)</option>
     </select>
-    <p class="hint">All models are free via OpenRouter</p>
-    <label>API Key</label>
-    <input type="password" id="apiKeyInput" placeholder="sk-or-...">
-    <p class="hint">Pre-configured with a free key. Get your own at openrouter.ai</p>
+    <p class="hint">All models are free via Pollinations AI — no API key needed</p>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="toggleSettings()">Cancel</button>
       <button class="btn-save" onclick="saveSettings()">Save</button>
@@ -8556,9 +8552,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,monospace;ba
 </div>
 
 <script>
-const API_URL="https://openrouter.ai/api/v1/chat/completions";
-let apiKey="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";
-let model="openai/gpt-oss-120b:free";
+const API_URL="https://text.pollinations.ai/openai/chat/completions";
+let model="openai";
 let messages=[];
 let files={};
 let activeFile=null;
@@ -8669,14 +8664,11 @@ function toggleSettings(){
   m.style.display=m.style.display==='none'?'flex':'none';
   if(m.style.display==='flex'){
     document.getElementById('modelSelect').value=model;
-    document.getElementById('apiKeyInput').value=apiKey;
   }
 }
 
 function saveSettings(){
   model=document.getElementById('modelSelect').value;
-  const k=document.getElementById('apiKeyInput').value.trim();
-  if(k)apiKey=k;
   toggleSettings();
 }
 
@@ -8693,7 +8685,7 @@ async function sendMessage(){
 
   try{
     const apiMsgs=[{role:'system',content:SYSTEM},...messages];
-    const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:model,messages:apiMsgs,temperature:0.3})});
+    const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,messages:apiMsgs,temperature:0.3})});
     if(!res.ok)throw new Error('API error '+res.status+': '+(await res.text()));
     const data=await res.json();
     const reply=data.choices?.[0]?.message?.content||'No response received.';

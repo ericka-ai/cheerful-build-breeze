@@ -37,9 +37,8 @@ interface TerminalLine {
   type: "command" | "output" | "error" | "info";
 }
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_KEY = "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";
-const DEFAULT_MODEL = "openai/gpt-oss-120b:free";
+const POLLINATIONS_URL = "https://text.pollinations.ai/openai/chat/completions";
+const DEFAULT_MODEL = "openai";
 
 const SYSTEM_PROMPT = `You are OpenDevin, an AI software engineer assistant. You help users by writing code, explaining concepts, and solving programming problems.
 
@@ -54,12 +53,11 @@ print("hello world")
 You can create multiple files by using multiple code blocks. Always include the filename comment.
 Keep responses concise and focused on code. You are a coding assistant, not a general chatbot.`;
 
-async function callLLM(messages: Message[], model: string, apiKey: string): Promise<string> {
-  const response = await fetch(OPENROUTER_URL, {
+async function callLLM(messages: Message[], model: string): Promise<string> {
+  const response = await fetch(POLLINATIONS_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
@@ -156,12 +154,10 @@ function ChatPanel({
   onCodeGenerated,
   onTerminalLog,
   model,
-  apiKey,
 }: {
   onCodeGenerated: (files: Array<{ filename: string; language: string; code: string }>) => void;
   onTerminalLog: (lines: TerminalLine[]) => void;
   model: string;
-  apiKey: string;
 }) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -200,7 +196,7 @@ function ChatPanel({
         ...newMessages.filter((m) => m.role !== "system"),
       ];
 
-      const reply = await callLLM(apiMessages, model, apiKey);
+      const reply = await callLLM(apiMessages, model);
       const assistantMsg: Message = { role: "assistant", content: reply };
       setMessages((prev) => [...prev, assistantMsg]);
 
@@ -243,7 +239,7 @@ function ChatPanel({
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, messages, model, apiKey, onCodeGenerated, onTerminalLog]);
+  }, [input, isLoading, messages, model, onCodeGenerated, onTerminalLog]);
 
   return (
     <div className="flex flex-col h-full">
@@ -427,22 +423,18 @@ function SettingsModal({
   isOpen,
   onClose,
   model,
-  apiKey,
   onSave,
 }: {
   isOpen: boolean;
   onClose: () => void;
   model: string;
-  apiKey: string;
-  onSave: (model: string, apiKey: string) => void;
+  onSave: (model: string) => void;
 }) {
   const [localModel, setLocalModel] = useState(model);
-  const [localKey, setLocalKey] = useState(apiKey);
 
   useEffect(() => {
     setLocalModel(model);
-    setLocalKey(apiKey);
-  }, [model, apiKey, isOpen]);
+  }, [model, isOpen]);
 
   if (!isOpen) return null;
 
@@ -458,25 +450,13 @@ function SettingsModal({
               onChange={(e) => setLocalModel(e.target.value)}
               className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-neutral-200 outline-none focus:border-blue-500"
             >
-              <option value="openai/gpt-oss-120b:free">GPT-OSS 120B (Free)</option>
-              <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</option>
-              <option value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Free)</option>
-              <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (Free)</option>
-              <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (Free)</option>
+              <option value="openai">GPT-OSS (Free, default)</option>
+              <option value="mistral">Mistral (Free)</option>
+              <option value="llama">Llama (Free)</option>
+              <option value="deepseek">DeepSeek (Free)</option>
             </select>
-            <p className="text-xs text-neutral-500 mt-1">All models are free via OpenRouter</p>
-          </div>
-          <div>
-            <label className="block text-sm text-neutral-400 mb-1">API Key</label>
-            <input
-              type="password"
-              value={localKey}
-              onChange={(e) => setLocalKey(e.target.value)}
-              placeholder="sk-or-..."
-              className="w-full bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-neutral-200 outline-none focus:border-blue-500 placeholder:text-neutral-600"
-            />
             <p className="text-xs text-neutral-500 mt-1">
-              Pre-configured with a free key. Get your own at openrouter.ai
+              All models are free via Pollinations AI — no API key needed
             </p>
           </div>
         </div>
@@ -489,7 +469,7 @@ function SettingsModal({
           </button>
           <button
             onClick={() => {
-              onSave(localModel, localKey);
+              onSave(localModel);
               onClose();
             }}
             className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
@@ -505,7 +485,7 @@ function SettingsModal({
 function DevinPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [model, setModel] = useState(DEFAULT_MODEL);
-  const [apiKey, setApiKey] = useState(OPENROUTER_KEY);
+
   const [workspaceFiles, setWorkspaceFiles] = useState<FileEntry[]>([
     {
       name: "workspace",
@@ -585,7 +565,6 @@ function DevinPage() {
                     onCodeGenerated={handleCodeGenerated}
                     onTerminalLog={handleTerminalLog}
                     model={model}
-                    apiKey={apiKey}
                   />
                 </div>
               </ResizablePanel>
@@ -614,10 +593,8 @@ function DevinPage() {
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         model={model}
-        apiKey={apiKey}
-        onSave={(m, k) => {
+        onSave={(m) => {
           setModel(m);
-          setApiKey(k);
         }}
       />
     </div>
