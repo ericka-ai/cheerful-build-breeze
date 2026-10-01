@@ -5471,6 +5471,52 @@ async def api_barcode(
     )
 
 
+# ─── BARCODE IMAGE READING ───────────────────────────────────────────────────
+
+def _read_barcode_image(img_bytes: bytes):
+    """Read the first barcode from an uploaded image.
+
+    Photos of tickets often have no quiet zone around the symbol, are
+    low-contrast or scaled awkwardly, so several normalised variants of the
+    image are tried before giving up.
+
+    Returns (result, error_message); exactly one of them is None.
+    """
+    try:
+        import zxingcpp
+    except ImportError:
+        return None, "zxingcpp nicht installiert"
+
+    nparr = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        return None, "Bild konnte nicht gelesen werden"
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    pad = max(20, min(gray.shape[:2]) // 10)
+
+    def quiet_zone(a):
+        return cv2.copyMakeBorder(a, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)
+
+    otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    variants = [
+        cv2.cvtColor(img, cv2.COLOR_BGR2RGB),
+        gray,
+        quiet_zone(gray),
+        quiet_zone(otsu),
+        quiet_zone(255 - gray),
+        quiet_zone(cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)),
+        quiet_zone(cv2.resize(gray, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)),
+    ]
+
+    for variant in variants:
+        results = zxingcpp.read_barcodes(Image.fromarray(variant))
+        if results:
+            return results[0], None
+
+    return None, "Kein Barcode im Bild gefunden"
+
+
 # ─── VDV-KA BARCODE DECODER ──────────────────────────────────────────────────
 
 # ── VDV PKI Certificate Store (ported from TheEnbyperor/zuegli, pki.py) ──────
@@ -6058,28 +6104,14 @@ def _vdv_parse_ticket_data(data: bytes) -> dict:
 @app.post("/api/vdv-decode")
 async def api_vdv_decode(image: UploadFile = File(...)):
     """Decode a VDV-KA barcode from an uploaded image. Returns ticket data as JSON."""
-    try:
-        import zxingcpp
-    except ImportError:
-        return JSONResponse({"error": "zxingcpp nicht installiert"}, status_code=500)
-
-    # Read and decode image
     img_bytes = await image.read()
-    nparr = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        return JSONResponse({"error": "Bild konnte nicht gelesen werden"}, status_code=400)
+    result, error = _read_barcode_image(img_bytes)
+    if result is None:
+        status = 500 if error == "zxingcpp nicht installiert" else 400
+        return JSONResponse({"error": error}, status_code=status)
 
-    # Convert to PIL for zxingcpp
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    pil_img = Image.fromarray(img_rgb)
-
-    results = zxingcpp.read_barcodes(pil_img)
-    if not results:
-        return JSONResponse({"error": "Kein Barcode im Bild gefunden"}, status_code=400)
-
-    raw = results[0].bytes
-    barcode_format = str(results[0].format)
+    raw = result.bytes
+    barcode_format = str(result.format)
 
     # Parse VDV structure
     try:
@@ -6489,26 +6521,14 @@ def _fcb_to_json(obj):
 @app.post("/api/uic-decode")
 async def api_uic_decode(image: UploadFile = File(...)):
     """Decode a UIC 918.3/918.9 barcode from an uploaded image. Returns ticket data as JSON."""
-    try:
-        import zxingcpp
-    except ImportError:
-        return JSONResponse({"error": "zxingcpp nicht installiert"}, status_code=500)
-
     img_bytes = await image.read()
-    nparr = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        return JSONResponse({"error": "Bild konnte nicht gelesen werden"}, status_code=400)
+    result, error = _read_barcode_image(img_bytes)
+    if result is None:
+        status = 500 if error == "zxingcpp nicht installiert" else 400
+        return JSONResponse({"error": error}, status_code=status)
 
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    pil_img = Image.fromarray(img_rgb)
-
-    results = zxingcpp.read_barcodes(pil_img)
-    if not results:
-        return JSONResponse({"error": "Kein Barcode im Bild gefunden"}, status_code=400)
-
-    raw = results[0].bytes
-    barcode_format = str(results[0].format)
+    raw = result.bytes
+    barcode_format = str(result.format)
 
     # Auto-detect: VDV starts with 0x9E, UIC starts with #UT
     if raw[:1] == b'\x9e':
@@ -6586,25 +6606,13 @@ async def api_uic_decode(image: UploadFile = File(...)):
 @app.post("/api/barcode-decode")
 async def api_barcode_decode(image: UploadFile = File(...)):
     """Universal barcode decoder: auto-detects VDV-KA or UIC 918.3/918.9 format."""
-    try:
-        import zxingcpp
-    except ImportError:
-        return JSONResponse({"error": "zxingcpp nicht installiert"}, status_code=500)
-
     img_bytes = await image.read()
-    nparr = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if img is None:
-        return JSONResponse({"error": "Bild konnte nicht gelesen werden"}, status_code=400)
+    result, error = _read_barcode_image(img_bytes)
+    if result is None:
+        status = 500 if error == "zxingcpp nicht installiert" else 400
+        return JSONResponse({"error": error}, status_code=status)
 
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    pil_img = Image.fromarray(img_rgb)
-
-    results = zxingcpp.read_barcodes(pil_img)
-    if not results:
-        return JSONResponse({"error": "Kein Barcode im Bild gefunden"}, status_code=400)
-
-    raw = results[0].bytes
+    raw = result.bytes
 
     # Route to appropriate decoder
     if raw[:1] == b'\x9e':
@@ -6619,7 +6627,7 @@ async def api_barcode_decode(image: UploadFile = File(...)):
 
         response = {
             "format": "VDV-KA",
-            "barcode_format": str(results[0].format),
+            "barcode_format": str(result.format),
             "raw_length": len(raw),
             "ca_reference": ca_ref_ascii,
             "ca_reference_hex": ca_ref_hex,
@@ -6655,7 +6663,7 @@ async def api_barcode_decode(image: UploadFile = File(...)):
 
         response = {
             "format": "UIC 918.3",
-            "barcode_format": str(results[0].format),
+            "barcode_format": str(result.format),
             "raw_length": len(raw),
             "uic_version": f"UT{header['version']}",
             "rics": header["rics"],
